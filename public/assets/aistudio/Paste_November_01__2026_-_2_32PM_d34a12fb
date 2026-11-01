@@ -1,0 +1,1442 @@
+# MASTER PROJECT PROMPT
+# ALL-IN-ONE PDF TOOLKIT
+## TWO-AGENT PARALLEL EXECUTION | AUTONOMOUS DEVELOPMENT | PREMIUM UI/UX | PROFESSIONAL PDF EDITOR | FULL-STACK ENGINEERING
+
+---
+
+# PART 1 — HIGHEST-PRIORITY DIRECTIVE: AUTONOMOUS EXECUTION
+
+**YOU ARE RESPONSIBLE FOR BUILDING AND DELIVERING THE COMPLETE PRODUCT. DO NOT WAIT FOR ME TO GUIDE EVERY STEP.**
+
+Operate autonomously from repository inspection through architecture, design, implementation, integration, testing, debugging, and final delivery.
+
+Do not behave like an assistant that only proposes solutions. Act as a coordinated engineering team.
+
+You are authorized to:
+- Inspect the entire existing project.
+- Understand and modify the existing architecture.
+- Create, modify, and organize files.
+- Install appropriate dependencies.
+- Configure development tools.
+- Create components, APIs, services, and processing infrastructure.
+- Refactor existing code when necessary.
+- Run development servers.
+- Execute builds and tests.
+- Inspect the running application.
+- Investigate and resolve defects.
+- Make ordinary technical and design decisions independently.
+
+Do not repeatedly request permission for routine development tasks.
+
+Do not stop at planning, scaffolding, static mockups, or partially functional interfaces.
+
+Continue until the application is implemented, running, tested, and ready for preview.
+
+If an approach fails, investigate it and choose a viable alternative.
+
+Only stop for genuine external blockers, unavailable credentials, unavailable infrastructure, or decisions that cannot reasonably be made without the user's input.
+
+Never bypass security controls or perform destructive actions outside the authorized project scope.
+
+## 1.1 Actual application verification
+
+You must run the application and inspect the real rendered interface using available browser or computer-use capabilities.
+
+Inspect:
+- Homepage.
+- Navigation.
+- Tool discovery.
+- Search and command palette.
+- Upload interface.
+- PDF workspaces.
+- Professional PDF editor.
+- Object-management controls.
+- Individual PDF utilities.
+- Processing states.
+- Export and download workflows.
+- Guest and authenticated experiences.
+
+Test the application at desktop, tablet, and mobile sizes.
+
+Investigate:
+- Console errors.
+- Failed network requests.
+- Backend errors.
+- Broken layouts.
+- Nonfunctional controls.
+- Inconsistent styling.
+- PDF processing failures.
+- Accessibility problems.
+
+Test actual PDF operations with representative sample files.
+
+Do not claim to have visually inspected the live application if browser access is unavailable.
+
+## 1.2 Fix defects independently
+
+Fix broken functionality, visual inconsistencies, failed workflows, responsive problems, and runtime errors without waiting for instructions.
+
+Retest after every significant correction.
+
+Do not knowingly leave broken buttons, placeholder functionality, or obvious UI defects.
+
+## 1.3 Definition of done
+
+The product is not complete until:
+1. The application builds.
+2. The application starts.
+3. Core navigation works.
+4. Major PDF workflows work.
+5. Generated files are validated.
+6. The professional editor has been tested.
+7. Object hiding, removal, and redaction behave correctly.
+8. Responsive layouts have been inspected.
+9. Identified defects have been corrected and rechecked.
+10. A working preview is available.
+
+Final delivery must include:
+- Working preview URL or local access instructions.
+- Implemented functionality.
+- Architecture summary.
+- Tests performed and results.
+- Remaining genuine limitations or external blockers.
+
+**Never claim success without verification.**
+
+---
+
+# PART 2 — TWO-AGENT PARALLEL EXECUTION MODEL
+
+**Use two specialized agents simultaneously to build this product. Their work must converge into one cohesive application.**
+
+Do not assign the entire project to one agent and ask the other to provide occasional suggestions.
+
+Both agents must actively execute their assigned responsibilities.
+
+If the environment supports subagents, spawn two independent agents. If it does not, use the closest available parallel agent or task orchestration capability. Do not falsely claim that two agents were spawned when the environment does not support them.
+
+## AGENT 1 — PRODUCT DESIGN, UI/UX AND FRONTEND ENGINEERING
+
+<escape>Primary ownership: Product experience, visual identity, frontend architecture, and interface implementation.</escape>
+
+Act as:
+- Creative Director.
+- Senior Product Designer.
+- Lead UI/UX Designer.
+- SaaS Design Strategist.
+- Senior Frontend Architect.
+- Design Systems Engineer.
+- Interaction and Motion Designer.
+- Responsive UI Engineer.
+- Accessibility Specialist.
+
+### Responsibilities
+
+Own and implement:
+1. Product visual identity.
+2. Design system and design tokens.
+3. Typography and colour systems.
+4. Theme architecture.
+5. Homepage and landing page.
+6. Navigation and mega menus.
+7. Global search and command palette.
+8. Tool directory and discovery.
+9. Upload interface.
+10. Adaptive PDF workspaces.
+11. Professional PDF editor interface.
+12. Object-management interface.
+13. Processing and export interfaces.
+14. Account and settings interfaces.
+15. Responsive layouts.
+16. Animations and micro-interactions.
+17. Accessibility.
+18. Frontend integration and UI testing.
+
+### UI/UX quality objective
+
+Do not produce a generic SaaS dashboard.
+
+Create a distinctive, professional, visually sophisticated application with intentional art direction.
+
+The final interface should demonstrate:
+- Strong visual hierarchy.
+- Refined typography.
+- Balanced whitespace.
+- Sophisticated colour use.
+- Consistent components.
+- High-quality interactions.
+- Carefully designed empty states.
+- Purposeful animations.
+- Professional document workspaces.
+- Consistent desktop and mobile experiences.
+
+The interface must feel designed, not assembled from random templates.
+
+### Required UI specialist skillset
+
+Inspect the available environment for relevant skills, tools, and instructions. Use applicable skills before and during implementation.
+
+Prioritize these disciplines:
+
+**1. Premium SaaS UI Design**
+- Modern product design.
+- Editorial layouts.
+- Information architecture.
+- Professional dashboards and workspaces.
+- Visual hierarchy.
+- Interaction patterns.
+
+**2. Frontend Design Engineering**
+- High-quality React or existing-framework implementation.
+- Component architecture.
+- Advanced CSS.
+- Responsive layouts.
+- Complex interactive interfaces.
+- Polished visual details.
+
+**3. Design Systems**
+- Design tokens.
+- Typography scales.
+- Spacing systems.
+- Component standards.
+- Theme presets.
+- Consistent visual language.
+
+**4. Creative Art Direction**
+- Distinctive layouts.
+- Typography-led design.
+- Editorial composition.
+- Bento-style layouts.
+- Sophisticated colour combinations.
+- Non-generic visual treatments.
+
+**5. Motion Design**
+- Micro-interactions.
+- Transitions.
+- Animated gradients.
+- Interactive backgrounds.
+- Scroll interactions.
+- Processing animations.
+- Reduced-motion handling.
+
+**6. 3D Web Design**
+- Lightweight 3D scenes.
+- Floating document representations.
+- Interactive visual elements.
+- Performance-conscious rendering.
+- Immersive hero design.
+
+**7. Responsive Engineering**
+- Desktop.
+- Tablet.
+- Mobile.
+- Adaptive navigation.
+- Complex workspace responsiveness.
+
+**8. Accessibility Engineering**
+- WCAG 2.2 AA.
+- Keyboard interaction.
+- Screen-reader support.
+- Contrast.
+- Semantic markup.
+
+**9. Visual QA**
+- Browser-based inspection.
+- Screenshot comparison.
+- Layout verification.
+- Interaction testing.
+- Visual regression testing.
+
+### Frontend agent design rules
+
+Do not:
+- Use default component-library styling without customization.
+- Repeat the same generic card layout everywhere.
+- Use arbitrary gradients as a substitute for design.
+- Overuse rounded containers.
+- Mix inconsistent icon styles.
+- Use random spacing.
+- Create decorative interactions that interfere with functionality.
+- Hide essential features on mobile.
+
+You must inspect the actual rendered result and refine it.
+
+---
+
+## AGENT 2 — PDF ENGINEERING, BACKEND AND APPLICATION SECURITY
+
+<escape>Primary ownership: PDF processing, document manipulation, APIs, infrastructure, and secure processing.</escape>
+
+Act as:
+- Lead Full-Stack Engineer.
+- PDF Processing Engineer.
+- Document Rendering Engineer.
+- Backend Architect.
+- Application Security Engineer.
+- Storage and Processing Infrastructure Engineer.
+- QA Engineer.
+
+### Responsibilities
+
+Own and implement:
+1. Repository and backend architecture inspection.
+2. PDF processing infrastructure.
+3. Conversion engines.
+4. PDF rendering integration.
+5. Page manipulation.
+6. Document editing operations.
+7. Existing text and object manipulation.
+8. Object visibility and removal.
+9. Redaction.
+10. Form handling.
+11. Signatures.
+12. OCR.
+13. Metadata extraction.
+14. Document comparison.
+15. Temporary storage and cleanup.
+16. Processing queues.
+17. Background jobs.
+18. Authentication and authorization.
+19. File validation.
+20. API contracts.
+21. Processing security.
+22. Backend tests.
+23. PDF output validation.
+
+### Required PDF engineering skills
+
+Discover and use suitable skills and tools for:
+- PDF internals and content streams.
+- PDF rendering.
+- Text extraction.
+- Embedded font handling.
+- Image extraction.
+- Object manipulation.
+- Form fields.
+- Annotations.
+- Digital signatures.
+- Document conversion.
+- OCR.
+- Page management.
+- Secure document processing.
+- Large-file performance.
+- Automated PDF testing.
+
+Do not assume a PDF library supports a feature merely because its documentation mentions PDF editing.
+
+Verify the actual capability before designing around it.
+
+---
+
+## PART 3 — AGENT COORDINATION AND SHARED EXECUTION
+
+Both agents must work simultaneously.
+
+### 3.1 Shared architecture
+
+Before major implementation, establish a shared understanding of:
+- Existing framework.
+- Repository structure.
+- Application routing.
+- Component architecture.
+- API conventions.
+- Processing services.
+- Data models.
+- File handling.
+- Shared types.
+- Design tokens.
+
+The agents must agree on interface contracts without waiting for one another to finish entire subsystems.
+
+### 3.2 Integration contracts
+
+Agent 1 owns the frontend experience and its interaction patterns.
+
+Agent 2 owns the underlying PDF operations and backend implementation.
+
+Agree on:
+- API endpoints.
+- Request and response schemas.
+- Upload contracts.
+- Processing status formats.
+- Error structures.
+- Document identifiers.
+- Export formats.
+- Object identifiers.
+- Editing operation contracts.
+
+Use shared types and documented contracts wherever practical.
+
+### 3.3 Parallel execution
+
+Work on independent tasks concurrently.
+
+For example:
+
+| Agent 1 | Agent 2 |
+|---|---|
+| Build design system | Inspect PDF libraries |
+| Build homepage | Implement processing infrastructure |
+| Build tool discovery | Implement conversion services |
+| Build editor interface | Implement document object model |
+| Build object panel | Implement object operations |
+| Build editing toolbar | Implement editing APIs |
+| Build export experience | Implement export pipeline |
+| Test responsive UI | Test PDF output integrity |
+
+### 3.4 Shared integration responsibility
+
+Both agents must:
+- Communicate implementation changes.
+- Respect shared contracts.
+- Avoid conflicting edits.
+- Review integration issues.
+- Resolve incompatible assumptions.
+- Test combined workflows.
+
+Agent 1 must not build fake controls to compensate for missing backend functionality.
+
+Agent 2 must not expose unstructured APIs that make the frontend unnecessarily difficult to integrate.
+
+### 3.5 Continuous integration
+
+Do not wait until both agents have completed everything before integrating.
+
+Integrate incrementally.
+
+Run the application frequently.
+
+Resolve contract mismatches, frontend/backend failures, and visual problems as they appear.
+
+### 3.6 Final ownership
+
+Both agents must contribute to the final QA process.
+
+Agent 1 verifies the user experience.
+
+Agent 2 verifies the document-processing behaviour and output integrity.
+
+The overall project is complete only when the combined application works.
+
+---
+
+# PART 4 — PRODUCT VISION
+
+Build a professional, modern, completely free online PDF productivity platform.
+
+The product combines everyday PDF utilities with advanced professional document-processing capabilities.
+
+It must offer:
+- A distinctive premium visual experience.
+- A comprehensive PDF tool catalogue.
+- A professional document editor.
+- Advanced object management.
+- Secure document processing.
+- Optional accounts.
+- Full guest functionality.
+- Responsive desktop, tablet, and mobile interfaces.
+
+The product should feel like a carefully engineered premium SaaS platform without monetization.
+
+# PART 5 — NON-NEGOTIABLE PRODUCT RULES
+
+## 5.1 Completely free
+
+Do not implement:
+- Subscription plans.
+- Free, Pro, Premium, or Business tiers.
+- Pricing pages.
+- Payment gateways.
+- Credits.
+- Paywalls.
+- Upgrade prompts.
+- Premium-only tools.
+- Feature restrictions based on authentication.
+
+All tools and processing capabilities must be equally available to guests and registered users.
+
+## 5.2 Guest and registered users
+
+Guests receive the complete application without registration.
+
+Optional accounts may provide:
+- Synchronized preferences.
+- Saved workspace settings.
+- Optional history.
+- Optional persistent document storage.
+
+The interface, tools, processing capabilities, and functionality must remain the same for both.
+
+Operational safety limits may depend on file size, page count, or processing complexity, but never on payment or authentication status.
+
+## 5.3 No AI functionality
+
+Do not implement:
+- AI document chat.
+- AI PDF assistant.
+- AI summarization.
+- AI translation.
+- AI writing.
+- AI-powered document analysis.
+- AI-generated documents.
+
+Traditional OCR, extraction, metadata inspection, and comparison are allowed.
+
+---
+
+# PART 6 — PRODUCT DESIGN AND VISUAL IDENTITY
+
+## 6.1 Design direction
+
+Premium SaaS with an editorial and elegant visual identity.
+
+Use:
+- Sophisticated layouts.
+- Refined typography.
+- Balanced whitespace.
+- Subtle depth.
+- Intentional visual hierarchy.
+- Carefully designed components.
+- Professional workspaces.
+
+## 6.2 Colour identity
+
+Primary direction: Charcoal and Violet.
+
+Use layered charcoal surfaces, sophisticated violet accents, restrained gradients, and balanced neutral tones.
+
+## 6.3 Theme presets
+
+Implement:
+
+- Obsidian: Charcoal and Violet — `#17171D`
+- Midnight: Navy and Blue — `#101C32`
+- Evergreen: Forest and Emerald — `#14251F`
+- Ivory: Warm Neutral and Plum — `#F3F0EB`
+
+Include light and dark appearances, system detection, custom accent colours, and persistence.
+
+## 6.4 Typography
+
+Use Manrope as the primary typeface.
+
+Create a consistent typographic scale for headings, body text, metadata, and controls.
+
+## 6.5 Brand identity
+
+Use a distinctive wordmark and typography-led identity.
+
+Use a temporary working name if necessary.
+
+## 6.6 Iconography
+
+Use a custom hybrid iconography system:
+- Elegant outline icons.
+- Distinctive tool illustrations.
+- Consistent sizing and stroke weights.
+
+## 6.7 Motion system
+
+Use:
+- Expressive homepage motion.
+- Refined product transitions.
+- Purposeful processing animations.
+- Minimal editor motion.
+- Reduced-motion support.
+
+---
+
+# PART 7 — HOMEPAGE
+
+Headline:
+
+**A Better Way to Work with Documents.**
+
+Build an editorial landing page containing:
+1. Immersive hero.
+2. Prominent upload experience.
+3. Popular tools.
+4. Curated bento showcase.
+5. Categorized tools.
+6. Searchable directory.
+7. Product benefits.
+8. Minimal footer.
+
+Use abstract 3D elements, floating document representations, and animated violet lighting in the hero.
+
+Keep performance and usability as priorities.
+
+Footer should contain logo, essential navigation, Privacy Policy, Terms, and copyright.
+
+---
+
+# PART 8 — NAVIGATION AND TOOL DISCOVERY
+
+Build:
+- Top navigation.
+- Categorized mega menus.
+- Contextual editor navigation.
+- Global search.
+- Searchable tool directory.
+- Category filters.
+- Popular searches.
+
+Implement a command palette with:
+- Ctrl + K.
+- Cmd + K.
+- Autocomplete.
+- Keyword and synonym matching.
+- Keyboard navigation.
+- Empty states.
+
+Only display implemented tools.
+
+---
+
+# PART 9 — COMPLETE PDF TOOL CATALOGUE
+
+Every displayed tool must perform a real operation.
+
+## 9.1 Convert to PDF
+- Word to PDF.
+- Excel to PDF.
+- PowerPoint to PDF.
+- JPG to PDF.
+- PNG to PDF.
+- Images to PDF.
+- HTML to PDF.
+- TXT to PDF.
+
+## 9.2 Convert from PDF
+- PDF to Word.
+- PDF to Excel.
+- PDF to PowerPoint.
+- PDF to JPG.
+- PDF to PNG.
+- PDF to TXT.
+- PDF to HTML.
+
+## 9.3 Organize PDF
+- Merge.
+- Split.
+- Extract pages.
+- Delete pages.
+- Reorder pages.
+- Rotate pages.
+- Organize pages.
+- Create documents from selected pages.
+
+## 9.4 Optimize PDF
+- Compress.
+- Optimize.
+- Flatten.
+- Repair.
+
+## 9.5 Edit PDF
+- Edit existing text where supported.
+- Add text.
+- Format text.
+- Insert and manipulate images.
+- Add page numbers.
+- Watermarks.
+- Headers and footers.
+- Crop pages.
+- Annotate.
+
+## 9.6 PDF security
+- Protect.
+- Unlock with the required password.
+- Encrypt.
+- Remove metadata.
+- Permanently redact.
+- Sign.
+
+Clearly distinguish visual signatures from cryptographic digital signatures.
+
+## 9.7 Advanced utilities
+- OCR.
+- Text extraction.
+- Image extraction.
+- Document comparison.
+- Metadata inspection.
+- Page dimensions.
+- Document information.
+
+---
+
+# PART 10 — PROFESSIONAL PDF DOCUMENT EDITOR
+
+**The editor is a major product feature, not a basic annotation utility.**
+
+Build a professional browser-based document editor with advanced document manipulation and a complete editing workspace.
+
+## 10.1 Editor layout
+
+### Top toolbar
+
+Include:
+- Document name.
+- Save status.
+- Undo.
+- Redo.
+- Zoom.
+- Page navigation.
+- Search.
+- Editing mode.
+- Export.
+- Download.
+
+### Left sidebar
+
+Provide panels for:
+- Page thumbnails.
+- Document outline.
+- Bookmarks.
+- Layers and objects.
+- Comments and annotations.
+- Forms.
+- Document structure.
+
+### Central canvas
+
+Support:
+- Accurate PDF rendering.
+- Page selection.
+- Zoom and pan.
+- Object selection.
+- Text selection where supported.
+- Drag and drop.
+- Resize handles.
+- Rotation.
+- Alignment guides.
+- Multi-page navigation.
+
+### Right properties panel
+
+Show contextual properties:
+- Position.
+- Dimensions.
+- Rotation.
+- Font.
+- Font size.
+- Font weight.
+- Text colour.
+- Fill.
+- Border.
+- Opacity.
+- Alignment.
+- Stacking order.
+- Other applicable object properties.
+
+Only display relevant controls for the selected object.
+
+## 10.2 Existing text editing
+
+Support genuine modification of existing PDF text wherever technically possible.
+
+Users should be able to:
+- Select text objects.
+- Modify text.
+- Change font size.
+- Change supported fonts.
+- Change font weight.
+- Change colour.
+- Adjust alignment.
+- Change position.
+- Delete text.
+
+Preserve layout, spacing, and formatting as accurately as possible.
+
+Do not present text overlays as genuine native text editing.
+
+When native modification is not possible, clearly communicate the alternative.
+
+## 10.3 Object manipulation
+
+Support:
+- Text objects.
+- Images.
+- Shapes.
+- Vector elements where supported.
+- Annotations.
+- Editor-managed elements.
+
+Allow:
+- Select.
+- Move.
+- Resize.
+- Rotate.
+- Delete.
+- Duplicate.
+- Align.
+- Group and ungroup where supported.
+- Change stacking order.
+- Inspect properties.
+
+## 10.4 Object visibility, hiding, and removal
+
+**This functionality is mandatory.**
+
+Provide an object-management experience inspired by object manipulation in Sajda PDF.
+
+Users must be able to select supported document objects and manage their visibility or remove them.
+
+### Hide objects
+
+Allow:
+- Hide selected object.
+- Show hidden object.
+- Hide multiple selected objects.
+- Toggle visibility in the object panel.
+- Identify hidden objects.
+- Restore hidden objects.
+
+Make it clear whether visibility is only an editor working-state change or is reflected in the exported PDF.
+
+Do not confuse reversible hiding with permanent removal.
+
+### Remove objects
+
+Allow:
+- Delete selected object.
+- Delete multiple objects.
+- Remove selected text blocks.
+- Remove selected images.
+- Remove supported shapes.
+- Remove annotations.
+- Remove editor-managed elements.
+- Delete using context menu.
+- Delete using keyboard shortcuts.
+- Undo deletion.
+
+The exported document must reflect actual removal.
+
+Do not merely place a white rectangle over an object and call it deleted.
+
+### Object management panel
+
+Provide a dedicated object/layer panel.
+
+Where supported, show:
+- Object type.
+- Name or descriptive label.
+- Visibility.
+- Lock status.
+- Selection status.
+- Stacking order.
+
+Allow:
+- Select.
+- Rename editor-managed objects.
+- Hide.
+- Show.
+- Lock.
+- Unlock.
+- Delete.
+- Reorder.
+- Multi-select.
+
+### Contextual object actions
+
+Expose relevant actions:
+- Hide.
+- Show.
+- Delete.
+- Duplicate.
+- Lock.
+- Unlock.
+- Bring forward.
+- Send backward.
+- Bring to front.
+- Send to back.
+- Align.
+- Resize.
+- Rotate.
+- Inspect properties.
+
+Only expose actions that genuinely work for the selected object type.
+
+### Technical requirements
+
+PDFs may contain complex content streams, grouped text runs, clipping paths, embedded images, vector paths, transparency groups, Form XObjects, and annotations.
+
+Do not assume that every visible element corresponds to one independently editable object.
+
+Implement object selection and deletion based on the actual document structure and processing capabilities.
+
+Where safe isolation is impossible, communicate the limitation rather than deleting unrelated content.
+
+### Acceptance criteria
+
+For supported objects, users must be able to:
+1. Select an object.
+2. Hide it.
+3. Restore its visibility.
+4. Remove it.
+5. Undo removal.
+6. Export the modified document.
+7. Verify that removal is reflected in the resulting PDF.
+
+## 10.5 Layer management
+
+Provide:
+- Object/layer list.
+- Visibility toggles.
+- Object locking.
+- Object ordering.
+- Renaming of editor-managed elements.
+- Grouping where supported.
+
+Clearly distinguish native PDF layers from editor-managed object collections.
+
+Do not claim every PDF contains native layers.
+
+## 10.6 Text and typography
+
+Provide:
+- Text insertion.
+- Formatting.
+- Font selection.
+- Font size.
+- Bold and italic where supported.
+- Underline.
+- Colour.
+- Alignment.
+- Line spacing.
+- Text boxes.
+- Positioning.
+- Rotation.
+
+## 10.7 Image manipulation
+
+Provide:
+- Insert.
+- Replace supported image objects.
+- Resize.
+- Move.
+- Crop.
+- Rotate.
+- Delete.
+- Opacity where supported.
+
+## 10.8 Annotation
+
+Provide:
+- Highlight.
+- Underline.
+- Strikethrough.
+- Freehand drawing.
+- Comments.
+- Sticky notes.
+- Arrows.
+- Lines.
+- Rectangles.
+- Circles.
+- Other useful shapes.
+
+Allow annotation editing and removal.
+
+## 10.9 Page management
+
+Provide:
+- Add blank pages.
+- Duplicate pages.
+- Delete pages.
+- Reorder pages.
+- Rotate pages.
+- Extract pages.
+- Insert pages from another PDF.
+- Replace pages.
+- Crop pages.
+- Change dimensions where supported.
+
+Use interactive thumbnails and drag-and-drop.
+
+## 10.10 Forms
+
+Support:
+- Fill existing forms.
+- Edit field values.
+- Add text fields.
+- Checkboxes.
+- Radio buttons.
+- Dropdowns.
+- Date fields.
+- Signature fields.
+- Configure field properties.
+- Manage field positioning.
+
+Preserve AcroForm functionality where possible.
+
+Communicate unsupported XFA limitations.
+
+## 10.11 Signatures
+
+Provide:
+- Draw signature.
+- Type signature.
+- Upload signature image.
+- Position and resize signature.
+- Apply visual signature.
+- Cryptographic signing when a proper implementation is available.
+
+Never represent a visual signature as a verified digital signature.
+
+## 10.12 Watermarks and headers
+
+Provide:
+- Text watermarks.
+- Image watermarks.
+- Headers.
+- Footers.
+- Page numbers.
+- Position.
+- Opacity.
+- Page-range selection.
+- Styling.
+
+## 10.13 Search and navigation
+
+Provide:
+- Text search.
+- Search result navigation.
+- Page navigation.
+- Zoom.
+- Fit page.
+- Fit width.
+- Thumbnail navigation.
+- Document outline where available.
+
+## 10.14 Undo and redo
+
+Implement reliable editing history for:
+- Text.
+- Objects.
+- Visibility.
+- Removal.
+- Images.
+- Annotations.
+- Page operations.
+- Other supported changes.
+
+## 10.15 Redaction
+
+Implement genuine redaction.
+
+Users must be able to:
+- Select sensitive text or regions.
+- Preview proposed redactions.
+- Apply redactions.
+- Export permanently redacted documents.
+
+Remove underlying content where applicable.
+
+A visual rectangle is not redaction.
+
+Verify output through rendering, text extraction, and document inspection where applicable.
+
+## 10.16 Export
+
+Support:
+- Save edited PDF.
+- Download.
+- Rename.
+- Preserve supported properties.
+- Export annotations.
+- Export filled forms.
+- Apply redactions.
+- Flatten where appropriate.
+
+Clearly explain what remains editable and what has been flattened.
+
+## 10.17 Editor usability
+
+Include:
+- Keyboard shortcuts.
+- Context menus.
+- Tooltips.
+- Selection indicators.
+- Active-tool states.
+- Empty states.
+- Loading states.
+- Error recovery.
+- Save indicators.
+- Confirmation for destructive operations.
+- Accessible controls.
+
+## 10.18 Editor architecture
+
+Separate:
+1. Original PDF document.
+2. Rendered representation.
+3. Editable object model.
+4. Editor-managed objects.
+5. Annotation layer.
+6. Interaction state.
+7. Selection state.
+8. Editing operations.
+9. Undo/redo history.
+10. Export and serialization.
+
+Evaluate PDF.js, pdf-lib, and other suitable technologies.
+
+Do not assume a rendering library is a complete editing engine.
+
+Test complex PDFs containing embedded fonts, images, forms, annotations, multiple pages, and scanned content.
+
+---
+
+# PART 11 — ADAPTIVE WORKSPACES
+
+Use different interfaces for:
+- Simple conversions.
+- Document editing.
+- Page management.
+- Batch operations.
+- Professional PDF editing.
+
+Do not force every tool into one generic screen.
+
+# PART 12 — UPLOAD SYSTEM
+
+Support:
+- Device upload.
+- Drag and drop.
+- Multiple files.
+- Clipboard paste where appropriate.
+- Optional cloud integrations where configured.
+- Secure URL imports where implemented.
+
+Show file names, sizes, thumbnails where applicable, file types, and contextual actions.
+
+Validate file signatures.
+
+URL imports require SSRF protection, redirect validation, and download limits.
+
+# PART 13 — PROCESSING AND EXPORT
+
+Show real processing states.
+
+Provide:
+- Meaningful progress.
+- Processing stages.
+- Previews.
+- Success and failure states.
+- Recovery suggestions.
+- Batch results.
+- Direct downloads.
+
+Never invent progress percentages.
+
+Do not require registration to download.
+
+Validate generated documents.
+
+# PART 14 — ACCOUNTS AND HISTORY
+
+Guests:
+- Complete functionality.
+- Temporary processing.
+- Local activity history where appropriate.
+- No persistent server-side retention of guest documents.
+
+Registered users:
+- Synchronized preferences.
+- Optional workspace.
+- Optional history.
+- Explicit persistent storage controls.
+
+No feature differences.
+
+# PART 15 — RESPONSIVENESS
+
+Build for desktop, tablet, and mobile.
+
+Adapt:
+- Navigation.
+- Toolbars.
+- Upload.
+- Preview.
+- Document viewer.
+- Page thumbnails.
+- Properties panels.
+- Object management.
+- Editor controls.
+
+Do not hide essential functionality on mobile.
+
+# PART 16 — ACCESSIBILITY
+
+Target WCAG 2.2 AA.
+
+Implement:
+- Keyboard navigation.
+- Screen-reader support.
+- Semantic markup.
+- Focus indicators.
+- Colour contrast.
+- Accessible forms.
+- Accessible dialogs.
+- Reduced motion.
+- Text scaling.
+- Accessible editor controls.
+
+# PART 17 — SECURITY AND PRIVACY
+
+Implement:
+- File signature validation.
+- Safe filenames.
+- File-size and page-count limits.
+- Temporary storage.
+- Secure cleanup.
+- Processing isolation.
+- Authorization.
+- Session security.
+- CSRF protection.
+- XSS prevention.
+- Injection prevention.
+- SSRF protection.
+- Resource limits.
+- Safe error handling.
+- Sensitive-data-aware logging.
+
+Prevent cross-user access.
+
+Never expose uploaded documents publicly.
+
+Explain retention and deletion practices accurately.
+
+Do not claim encryption, zero-knowledge processing, automatic deletion, or compliance without implementation and verification.
+
+# PART 18 — TECHNICAL ARCHITECTURE
+
+Inspect the existing project before replacing any architecture.
+
+Select suitable technologies according to real requirements.
+
+Potential technologies:
+- PDF.js.
+- pdf-lib.
+- LibreOffice headless.
+- Conventional OCR engines.
+- Image-processing libraries.
+- Background workers.
+- Server-side PDF processing.
+
+Evaluate compatibility, functionality, licensing, performance, and security.
+
+Maintain clear boundaries between frontend, APIs, document processing, storage, authentication, and export.
+
+# PART 19 — LOCALIZATION
+
+Launch in English.
+
+Prepare for:
+- Centralized translation strings.
+- Locale-aware formatting.
+- RTL support.
+- Translation-friendly layouts.
+
+# PART 20 — QUALITY ASSURANCE
+
+## Functional testing
+
+Test:
+- Navigation.
+- Search.
+- Themes.
+- Upload.
+- File removal.
+- Tool selection.
+- PDF processing.
+- Editor operations.
+- Object hiding.
+- Object restoration.
+- Object removal.
+- Undo and redo.
+- Redaction.
+- Export.
+- Guest workflows.
+- Authentication where configured.
+
+## PDF testing
+
+Test:
+- Valid PDFs.
+- Multi-page PDFs.
+- Scanned PDFs.
+- Password-protected PDFs.
+- Large PDFs within limits.
+- Malformed PDFs.
+- Office documents.
+- Complex layouts.
+- Embedded fonts.
+- Images.
+- Forms.
+- Annotations.
+
+## Editor testing
+
+Test:
+- Existing text modification.
+- Text insertion.
+- Image manipulation.
+- Object selection.
+- Object hiding and restoration.
+- Object removal.
+- Object ordering.
+- Layer management.
+- Page management.
+- Forms.
+- Signatures.
+- Redaction.
+- Undo and redo.
+- Export integrity.
+
+## Visual testing
+
+Inspect:
+- Desktop.
+- Tablet.
+- Mobile.
+- Typography.
+- Spacing.
+- Design consistency.
+- Navigation.
+- Editor canvas.
+- Properties panels.
+- Object panel.
+- Dialogs.
+- Empty, loading, success, and error states.
+
+## Security testing
+
+Verify:
+- File validation.
+- Document isolation.
+- Authorization.
+- Temporary-file handling.
+- Input validation.
+- Processing limits.
+- URL-import protections.
+
+# PART 21 — PERFORMANCE
+
+Optimize:
+- Initial loading.
+- Large document rendering.
+- Thumbnail generation.
+- Memory consumption.
+- Upload performance.
+- Processing queues.
+- Background jobs.
+- Mobile performance.
+
+Use lazy loading and code splitting where appropriate.
+
+Do not load heavy PDF processing libraries unnecessarily.
+
+Ensure failed processing jobs do not crash the application.
+
+# PART 22 — IMPLEMENTATION EXECUTION PLAN
+
+The two agents should execute these workstreams in parallel.
+
+### Stage 1 — Discovery
+
+Both agents inspect the existing repository and agree on architecture, contracts, and responsibilities.
+
+### Stage 2 — Parallel foundations
+
+Agent 1 builds:
+- Design system.
+- Typography.
+- Theme system.
+- Shared components.
+- Navigation.
+
+Agent 2 builds:
+- Processing architecture.
+- PDF library evaluation.
+- File validation.
+- Processing services.
+- API contracts.
+
+### Stage 3 — Parallel product implementation
+
+Agent 1 builds:
+- Homepage.
+- Tool discovery.
+- Upload interface.
+- PDF workspaces.
+- Professional editor UI.
+
+Agent 2 builds:
+- Conversion.
+- Organization.
+- Optimization.
+- Editing operations.
+- Object management.
+- Forms.
+- Redaction.
+- Export.
+
+### Stage 4 — Continuous integration
+
+Connect frontend controls to real backend operations.
+
+Resolve contract mismatches and integration failures as they appear.
+
+### Stage 5 — Security and refinement
+
+Both agents review their respective areas and collaborate on application-wide security, accessibility, and performance.
+
+### Stage 6 — Final verification
+
+Agent 1 verifies the rendered product and all important interaction states.
+
+Agent 2 verifies actual PDF processing and document integrity.
+
+Both agents resolve defects and repeat tests.
+
+### Stage 7 — Delivery
+
+Provide a working preview and accurate implementation report.
+
+Do not stop after an individual stage.
+
+---
+
+# PART 23 — FINAL PRODUCT STANDARD
+
+The final product must be:
+
+- Completely free.
+- Free of AI features.
+- Free of subscription tiers and monetization.
+- Equally accessible to guests and registered users.
+- Visually distinctive.
+- Professionally designed.
+- Fully responsive.
+- Accessible.
+- Secure.
+- Functionally complete.
+- Equipped with a professional PDF editor.
+- Capable of supported object selection, hiding, restoration, and removal.
+- Capable of genuine redaction where implemented.
+- Built with maintainable architecture.
+- Tested with real PDF files.
+
+The two agents must work simultaneously and integrate their work into one application.
+
+Do not claim that two agents worked simultaneously unless the environment actually supported and executed parallel agents.
+
+Do not advertise functionality that does not work.
+
+Do not claim tests were performed if they were not.
+
+Do not claim native document editing when only visual overlays are supported.
+
+**FINAL INSTRUCTION: Build the product. Use specialist skills. Run two agents in parallel. Integrate continuously. Inspect the actual UI. Verify actual PDF operations. Fix defects. Deliver a working application that I can preview.**
+
+**Your responsibility is the finished product, not merely the code or the plan.**

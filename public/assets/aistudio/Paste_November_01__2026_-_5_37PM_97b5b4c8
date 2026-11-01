@@ -1,0 +1,2539 @@
+# MASTER BUILD PROMPT — ALL-IN-ONE PDF TOOLKIT
+
+## Autonomous product development, premium UI/UX, Three.js visual engineering, professional PDF editor, full-stack PDF processing, and application security
+
+---
+
+# 1. YOUR MISSION
+
+Build a complete, modern, professional, completely free online PDF productivity platform.
+
+This is not a request to produce a landing-page mockup, a static prototype, a collection of attractive but non-functional buttons, or a basic collection of conversion forms.
+
+Build a complete working product.
+
+The final application must combine:
+
+- A premium, thoughtfully art-directed user interface.
+- A distinctive and coherent visual identity.
+- Sophisticated 3D visual experiences using Three.js where appropriate.
+- A carefully selected ecosystem of UI and frontend libraries.
+- An excellent responsive experience across desktop, tablet, and mobile.
+- A comprehensive collection of functioning PDF tools.
+- A professional PDF document editor.
+- Advanced page, text, image, annotation, and object-management capabilities.
+- Object visibility, hiding, restoration, and actual removal.
+- Genuine PDF conversion, processing, and export.
+- Secure document handling and privacy-conscious processing.
+- First-class guest access.
+- Optional user accounts for convenience rather than access to additional features.
+
+The product should feel like a carefully designed, mature software product—not a generic file-conversion website.
+
+**Visual quality and engineering quality are equally important.**
+
+A technically powerful application with an average interface is not acceptable. A visually impressive interface with fake functionality is equally unacceptable.
+
+The objective is to deliver a product that looks exceptional, behaves predictably, processes documents correctly, and is genuinely useful.
+
+---
+
+# 2. HIGHEST-PRIORITY EXECUTION RULE: TAKE AUTONOMOUS OWNERSHIP
+
+Work independently from repository inspection through final implementation and verification.
+
+Do not turn this task into a prolonged planning exercise. Do not stop after presenting an architecture, development plan, feature list, wireframe, or initial UI.
+
+You are expected to:
+
+1. Inspect the existing repository and understand its architecture.
+2. Identify the existing framework, dependencies, build system, components, routing, and backend services.
+3. Establish the product architecture and define the responsibilities of both agents.
+4. Select and integrate an appropriate UI and rendering library ecosystem.
+5. Design and implement the visual system.
+6. Implement frontend and backend functionality concurrently.
+7. Integrate actual PDF-processing functionality.
+8. Run the application.
+9. Test actual workflows using real PDF files.
+10. Inspect the rendered interface wherever browser or computer-use tooling is available.
+11. Identify visual, functional, responsive, accessibility, performance, and security defects.
+12. Fix defects and retest affected workflows.
+13. Deliver a working application with accurate setup and preview instructions.
+
+### Autonomous decision-making
+
+Make reasonable engineering and design decisions without asking for routine approval.
+
+You may independently:
+
+- Create, modify, move, and refactor project files.
+- Install appropriate dependencies.
+- Evaluate and integrate suitable libraries.
+- Choose implementation patterns compatible with the existing stack.
+- Define components, services, routes, data structures, and API contracts.
+- Improve existing code where necessary.
+- Replace unsuitable implementation approaches.
+- Run builds, tests, and local development servers.
+- Debug and fix errors.
+- Refine visual design and interaction details.
+
+Do not repeatedly ask the user to choose between ordinary implementation alternatives.
+
+Only stop for a genuine blocker that cannot reasonably be resolved independently, such as unavailable external credentials, inaccessible infrastructure, or an irreversible decision that genuinely requires the user's input.
+
+Do not weaken security controls or expose secrets to work around a blocker.
+
+### Do not deliver an incomplete simulation
+
+The following are not acceptable:
+
+- A static homepage presented as a finished application.
+- A tool directory containing non-functional tools.
+- Buttons that display success messages without performing the operation.
+- Fake processing progress.
+- Mock document previews presented as real PDF rendering.
+- An editor that only draws overlays while claiming to modify original PDF objects.
+- A redaction tool that merely places black rectangles over sensitive content.
+- An object-removal tool that leaves the original object in the exported PDF.
+- Placeholder output files.
+- Unverified claims about supported fonts, forms, signatures, or document compatibility.
+
+When a requested operation cannot be supported reliably, communicate that limitation clearly in the application. Do not claim a capability that has not been implemented and verified.
+
+---
+
+# 3. SIMULTANEOUS TWO-AGENT EXECUTION
+
+Use two specialist agents working in parallel wherever the environment supports subagents or parallel agent execution.
+
+This is a deliberate requirement. Do not assign all work to one agent and then describe it as a two-agent workflow.
+
+If the environment does not support spawning independent agents, use the closest available parallel orchestration mechanism. Be transparent in the final report about what was actually executed.
+
+Both agents should inspect the repository and agree on the architecture before substantial implementation begins. After that, they should work concurrently and integrate continuously.
+
+## AGENT 1 — CREATIVE DIRECTOR, UI/UX DESIGNER, THREE.JS VISUAL ENGINEER, AND FRONTEND ARCHITECT
+
+**Primary ownership: the entire user-facing product experience and visual implementation.**
+
+This agent must approach the interface as a senior creative director, premium SaaS product designer, design-systems specialist, motion designer, 3D web designer, interaction designer, and frontend engineering specialist working together.
+
+### Required specialist capabilities
+
+**Product design**
+- Premium SaaS product design.
+- Distinctive brand identity.
+- Information architecture.
+- Editorial layout design.
+- Complex workspace design.
+- Interaction design.
+- Design-system architecture.
+
+**Frontend engineering**
+- Modern React or the repository's existing frontend framework.
+- TypeScript where appropriate.
+- Advanced CSS.
+- Responsive design.
+- Complex component architecture.
+- Efficient state management.
+- Accessible interactions.
+- Performance optimization.
+
+**3D web engineering**
+- Three.js.
+- React Three Fiber, when using React.
+- Drei helpers, when using React Three Fiber.
+- 3D scene composition.
+- Lighting and materials.
+- Camera positioning and motion.
+- Geometry optimization.
+- Responsive 3D presentation.
+- GPU and rendering performance optimization.
+- Graceful fallback design.
+
+**Motion design**
+- Motion for React or an appropriate framework-compatible alternative.
+- GSAP where complex timelines genuinely require it.
+- Micro-interactions.
+- Page transitions.
+- Scroll-driven sequences where appropriate.
+- Reduced-motion support.
+
+**Design systems**
+- Component libraries and accessible primitives.
+- Tailwind CSS or the existing styling system.
+- CSS custom properties.
+- Design tokens.
+- Theme architecture.
+- Consistent typography and spacing.
+
+**Visual QA**
+- Browser inspection.
+- Responsive testing.
+- Screenshot comparison.
+- Visual regression testing.
+- Interaction verification.
+- Performance profiling.
+
+### Agent 1 ownership
+
+- Brand and creative direction.
+- Design system.
+- Homepage.
+- Navigation and mega menus.
+- Tool discovery.
+- Search and command palette.
+- Tool directory.
+- Upload experience.
+- Tool-specific workspaces.
+- PDF editor frontend.
+- Three.js homepage scene.
+- Object and layer management interface.
+- Contextual properties panels.
+- Document preview and navigation.
+- Account and preference screens.
+- Themes.
+- Responsive behaviour.
+- Motion and interaction design.
+- Accessibility.
+- Frontend integration.
+- Browser-based visual QA.
+
+---
+
+## AGENT 2 — PDF ENGINEERING SPECIALIST, BACKEND ARCHITECT, AND APPLICATION SECURITY ENGINEER
+
+**Primary ownership: genuine PDF functionality, processing infrastructure, backend reliability, and secure document handling.**
+
+This agent must understand PDF internals and actual document-processing behaviour. It must not assume that a library can manipulate an object simply because it can render the page.
+
+### Required specialist capabilities
+
+- PDF structure and object model.
+- PDF content streams and resources.
+- Text extraction and positioning.
+- Embedded and subset fonts.
+- Image extraction and replacement.
+- Vector graphics and paths.
+- Transparency groups and Form XObjects.
+- Annotations and PDF forms.
+- Page trees and page manipulation.
+- Metadata inspection and modification.
+- PDF rendering and conversion.
+- OCR engine integration.
+- Document comparison.
+- Redaction.
+- Encryption and password-protected documents.
+- Visual and cryptographic signatures.
+- Large-document processing.
+- Memory and resource management.
+- File validation.
+- Secure upload and download infrastructure.
+- Background jobs and processing queues.
+- API engineering.
+- Authentication and authorization.
+- Automated PDF integrity testing.
+
+### Agent 2 ownership
+
+- PDF-processing architecture.
+- PDF library evaluation.
+- Conversion services.
+- Page operations.
+- Optimization and compression.
+- Text and image manipulation.
+- Object-level operations where technically supported.
+- Forms.
+- Annotations.
+- OCR.
+- Redaction.
+- Metadata operations.
+- Encryption and password handling.
+- Signature functionality.
+- Export and output validation.
+- Background processing.
+- Temporary storage and cleanup.
+- APIs.
+- Authentication and authorization.
+- Security controls.
+- Backend testing and PDF-integrity testing.
+
+---
+
+# 4. AGENT COORDINATION AND INTEGRATION
+
+Both agents must work simultaneously without creating incompatible implementations.
+
+Before substantial implementation, establish shared contracts for:
+
+- Application routes.
+- Frontend and backend responsibilities.
+- Component conventions.
+- Upload requests.
+- Document identifiers.
+- File metadata.
+- Processing job identifiers.
+- Processing status.
+- Progress reporting.
+- Error responses.
+- Supported operation parameters.
+- Tool input and output formats.
+- Object identifiers.
+- Page identifiers.
+- Editor document state.
+- Undo and redo operations.
+- Export and download behaviour.
+
+Create shared types or schemas where appropriate.
+
+Agent 1 should not wait for the entire backend to be completed before beginning the interface.
+
+Agent 2 should not wait for the finished UI before developing processing services.
+
+Instead:
+
+1. Agree on contracts and document models.
+2. Agent 1 builds the design system, navigation, homepage, upload flow, and workspace interfaces.
+3. Agent 2 evaluates processing libraries and builds actual PDF services and APIs.
+4. Both agents integrate progressively.
+5. Agent 1 connects the interface to real services as they become available.
+6. Agent 2 tests processing outputs independently.
+7. Both agents resolve integration defects.
+8. The entire product is tested as one application.
+
+Do not build frontend-only fake functionality to conceal missing backend work.
+
+Do not create unnecessarily complicated APIs that make frontend integration difficult.
+
+**Agent 1 is accountable for how the product feels and behaves. Agent 2 is accountable for what the product actually does to documents. Both are jointly accountable for a working product.**
+
+---
+
+# 5. NON-NEGOTIABLE PRODUCT RULES
+
+## Product positioning
+
+Build a premium-feeling, accessible PDF productivity platform.
+
+Primary homepage message:
+
+**“A Better Way to Work with Documents.”**
+
+The product should communicate simplicity, precision, reliability, privacy, productivity, professionalism, and accessibility.
+
+Use a temporary brand name if the repository does not already contain a suitable product identity. Do not get stuck on naming.
+
+## Completely free — no monetization
+
+This is a strict product requirement.
+
+Do not introduce:
+
+- Pricing pages.
+- Subscription plans.
+- Free and Pro tiers.
+- Premium features.
+- Credit systems.
+- Payment gateways.
+- Paid downloads.
+- Upgrade prompts.
+- Usage-based paywalls.
+- Account-based tool restrictions.
+- Feature gating.
+- Monetization-related banners or marketing.
+
+Every implemented tool must be equally available to guests and registered users.
+
+## Guest access is first-class
+
+Users must be able to discover tools, upload documents, process documents, use the editor, and download results without creating an account.
+
+Registration is optional.
+
+Accounts may provide convenience features such as synchronized preferences, saved workspace configuration, optional document storage, and cross-device history.
+
+An account must never unlock additional PDF tools or higher feature availability.
+
+Guest and registered users must receive the same operational limits. Technical limits may depend on file size, page count, operation complexity, processing resources, or security considerations—but never on payment or account status.
+
+## Absolutely no AI features
+
+Do not include AI functionality of any kind.
+
+No AI chat, assistant, summaries, translation, writing, document analysis, content generation, or question answering.
+
+Conventional OCR, text extraction, metadata inspection, document comparison, and standard PDF processing are allowed.
+
+---
+
+# 6. THE PREFERRED FRONTEND AND UI LIBRARY ECOSYSTEM
+
+This section is an explicit implementation requirement.
+
+Do not leave library selection entirely open-ended. Begin with the recommended ecosystem below, inspect the project, and select the compatible combination.
+
+**Do not blindly install every library listed.** Choose the smallest coherent set that delivers the required experience.
+
+Do not replace a functioning application framework merely to accommodate a preferred library.
+
+## 6.1 Core 3D engine — Three.js
+
+Use **Three.js** as the preferred 3D graphics engine for the homepage's document-inspired visual experience.
+
+The 3D implementation should create a memorable, polished product presentation.
+
+Potential visual elements:
+
+- Floating PDF pages.
+- Layered document surfaces.
+- Three-dimensional page stacks.
+- Paper thickness and depth.
+- Suspended document panels.
+- Rotating document sheets.
+- Floating document thumbnails.
+- Subtle perspective transformations.
+- Soft lighting and realistic shadows.
+- Abstract document geometry.
+- Controlled parallax.
+- Gentle camera movement.
+
+Do not use 3D merely to demonstrate that Three.js has been installed.
+
+The 3D scene must reinforce the product's identity and document-related purpose.
+
+### Preferred implementation when the project uses React
+
+Use this combination where compatible:
+
+- `three` — core rendering engine.
+- `@types/three` — TypeScript support where required.
+- `@react-three/fiber` — declarative React integration.
+- `@react-three/drei` — reusable helpers and utilities.
+
+React Three Fiber should be preferred over manually managing large amounts of Three.js scene lifecycle code inside ordinary React components.
+
+However, use vanilla Three.js when the project architecture or implementation needs make that more appropriate.
+
+### Three.js engineering requirements
+
+Implement:
+
+- A dedicated scene component.
+- Clear scene boundaries.
+- Reusable 3D objects.
+- Deliberate camera placement.
+- Proper lighting.
+- Appropriate materials.
+- Responsive canvas dimensions.
+- Controlled pixel ratio.
+- Efficient geometry and materials.
+- Resource disposal.
+- Safe scene unmounting.
+- Loading and fallback states.
+
+Optimize rendering using appropriate techniques, including:
+
+- Geometry reuse.
+- Material reuse.
+- Instanced rendering for repeated elements where worthwhile.
+- Texture-size control.
+- Compressed assets where appropriate.
+- Lazy loading.
+- Reduced scene complexity on mobile.
+- Pausing or reducing animation when the scene is not visible.
+- Avoiding unnecessary per-frame React state updates.
+
+Do not use excessive real-time shadows, expensive post-processing, or continuously animated objects without a clear visual reason.
+
+### Three.js visual fallback
+
+The homepage must remain excellent if:
+
+- WebGL is unavailable.
+- The device has limited graphics capability.
+- The browser cannot initialize the 3D renderer.
+- The user prefers reduced motion.
+- The scene fails to load.
+
+Use a lightweight CSS-based or static visual fallback.
+
+The core application must never depend on the 3D scene to function.
+
+### Important separation of responsibilities
+
+Three.js is for the product's 3D visual presentation.
+
+Use the PDF rendering engine for actual PDF document rendering and the editor's document canvas.
+
+Do not attempt to replace PDF.js or the actual PDF rendering pipeline with a decorative Three.js scene.
+
+---
+
+## 6.2 React Three Fiber and Drei
+
+When the existing frontend uses React, evaluate React Three Fiber and Drei as the main 3D implementation ecosystem.
+
+Use them to create:
+
+- Reusable floating document components.
+- Camera controls where needed.
+- Lighting helpers.
+- Environment and material helpers.
+- Document compositions.
+- Scroll-responsive or pointer-responsive scene behaviour.
+- Reusable visual components.
+
+Keep the 3D scene isolated from the rest of the application.
+
+Do not let its animation state interfere with document editing state.
+
+Do not use an interactive 3D environment in the PDF editor unless a genuine feature requires it.
+
+The document editor should prioritize accurate two-dimensional PDF rendering and direct manipulation.
+
+---
+
+## 6.3 UI component system — shadcn/ui and accessible primitives
+
+Preferred direction:
+
+**shadcn/ui + Radix UI**, when compatible with the existing framework and dependencies.
+
+Use shadcn/ui as a customizable component foundation rather than accepting its default visual appearance without refinement.
+
+The application should own and customize its components.
+
+Use accessible primitives for:
+
+- Dialogs.
+- Dropdown menus.
+- Context menus.
+- Selects.
+- Tabs.
+- Tooltips.
+- Popovers.
+- Command palettes.
+- Navigation menus.
+- Sliders.
+- Checkboxes.
+- Radio controls.
+- Switches.
+- Accessible menus.
+- Collapsible panels.
+
+### Important design requirement
+
+Do not make the product look like an untouched shadcn/ui starter project.
+
+Customize:
+
+- Component proportions.
+- Typography.
+- Spacing.
+- Colours.
+- Borders.
+- Surface treatments.
+- Hover states.
+- Focus states.
+- Animation.
+- Layout.
+- Visual hierarchy.
+
+Use reusable application-specific components built on top of accessible primitives.
+
+Create a consistent design language rather than styling every UI component independently.
+
+If another component framework is already established and works well, preserve it where practical instead of adding a competing system.
+
+---
+
+## 6.4 Styling — Tailwind CSS and CSS custom properties
+
+Preferred styling direction:
+
+- Tailwind CSS where compatible.
+- CSS custom properties for global design tokens.
+- Component-scoped CSS where highly specific styling is necessary.
+- CSS Grid and Flexbox for layouts.
+- Carefully structured styles for the PDF editor and canvas.
+
+Use CSS variables for:
+
+- Backgrounds.
+- Foregrounds.
+- Primary colours.
+- Accent colours.
+- Borders.
+- Surfaces.
+- Shadows.
+- Radii.
+- Spacing conventions.
+- Typography.
+- Theme values.
+- Interactive states.
+
+The same design tokens should be consumed by the homepage, workspaces, editor, dialogs, and navigation.
+
+Do not create disconnected styles for every feature.
+
+Use Tailwind for efficient layout construction, but do not rely on enormous unreadable class strings for sophisticated component styling.
+
+Extract repeated visual patterns into reusable components.
+
+Use logical CSS properties where practical to prepare for right-to-left layouts.
+
+---
+
+## 6.5 Animation — Motion for React
+
+Preferred choice for React-based interface animations:
+
+**Motion for React**, using its appropriate current package and API.
+
+Use it for:
+
+- Page transitions.
+- Dialog animations.
+- Sidebar transitions.
+- Dropdown presentation.
+- Hover interactions.
+- Button feedback.
+- Tool selection.
+- Processing feedback.
+- Upload-state transitions.
+- Subtle content entrance.
+- Theme transitions where appropriate.
+
+Animations should be smooth, purposeful, and consistent.
+
+Do not animate everything.
+
+The homepage can use richer motion, tool workspaces should use restrained transitions, and the PDF editor should prioritize precision.
+
+## 6.6 Advanced animation — GSAP
+
+Use **GSAP** selectively when a complex animation is materially better handled with timeline-based animation.
+
+Potential uses:
+
+- A controlled homepage document sequence.
+- Scroll-linked document compositions.
+- Multi-stage 3D presentation.
+- Complex coordinated hero animations.
+
+Do not introduce GSAP simply because it is popular.
+
+Avoid using GSAP and Motion to animate the same elements or manage competing animation state.
+
+Choose a clear ownership model:
+
+- Motion for ordinary interface interactions.
+- GSAP for specific, complex timelines when justified.
+
+Support reduced-motion preferences across both systems.
+
+---
+
+## 6.7 Iconography — Lucide
+
+Use a consistent icon family.
+
+Preferred choice: **Lucide or Lucide React**, where appropriate.
+
+Use a consistent icon language for:
+
+- Navigation.
+- Tools.
+- Document controls.
+- Object management.
+- File states.
+- Properties.
+- Actions.
+- Settings.
+- Notifications.
+
+Keep stroke weights and proportions consistent.
+
+Do not mix multiple icon sets without a strong reason.
+
+Use custom illustrations for selected major tools if needed, but keep ordinary interface controls consistent.
+
+Icons must have accessible labels or supporting text where their purpose is not obvious.
+
+---
+
+## 6.8 Drag and drop — dnd-kit
+
+Evaluate **dnd-kit** for workflows involving direct manipulation.
+
+Potential uses:
+
+- Reordering PDF pages.
+- Reordering multiple uploaded files.
+- Moving items in the object panel.
+- Reordering supported editor-managed layers.
+- Moving selected items between supported workspace lists.
+
+The implementation must provide:
+
+- Clear drag affordances.
+- Drop targets.
+- Visual feedback.
+- Keyboard accessibility where practical.
+- Touch support.
+- Correct ordering state.
+- Undo support where the action changes document state.
+
+Do not use drag and drop as the only method of performing an operation.
+
+Provide accessible menus or buttons for equivalent actions.
+
+Do not assume DOM drag-and-drop is sufficient for precise PDF canvas object manipulation. The editor may require its own pointer and selection model.
+
+---
+
+## 6.9 Server state — TanStack Query
+
+Evaluate **TanStack Query** for server-managed asynchronous data.
+
+Potential uses:
+
+- Upload status.
+- Processing jobs.
+- Operation results.
+- Document metadata.
+- Saved account preferences.
+- Optional document history.
+- Download preparation.
+- Retry and error handling.
+
+Keep API data management separate from local editor interaction state.
+
+Do not use server-state tooling to manage every pointer movement or selection change in the editor.
+
+---
+
+## 6.10 Client state — Zustand
+
+Evaluate **Zustand** for complex client-side state, especially within the document editor.
+
+Potential state:
+
+- Active document.
+- Selected page.
+- Selected object.
+- Active editing tool.
+- Object selection sets.
+- Sidebar and properties-panel state.
+- Zoom.
+- Viewport position.
+- Undo and redo history references.
+- Editor-managed object collections.
+- Visibility and lock state.
+- Current theme and preferences where appropriate.
+
+Keep state boundaries clear.
+
+Avoid placing every application value into a single global store.
+
+Use React's local state for simple isolated interactions.
+
+Use an established state system already present in the repository if it satisfies the requirements.
+
+---
+
+## 6.11 Forms and validation
+
+Preferred candidates:
+
+- React Hook Form.
+- Zod.
+
+Use them where appropriate for:
+
+- Password-protection settings.
+- Document conversion settings.
+- OCR configuration.
+- Metadata editing.
+- Account settings.
+- Editor properties.
+- Watermark settings.
+- Signature configuration.
+- Page-range input.
+
+Validate input on the client for usability and validate it again on the server for security.
+
+Client-side validation must never be treated as a security boundary.
+
+---
+
+## 6.12 Notifications — Sonner
+
+Evaluate Sonner for consistent, lightweight notifications.
+
+Use it for meaningful feedback:
+
+- Upload completed.
+- Processing completed.
+- Export failed.
+- Password required.
+- Document saved.
+- Document downloaded.
+- Editing operation performed.
+- Undo or redo.
+- Validation errors.
+
+Do not replace important in-context error messages with transient notifications.
+
+Critical errors and destructive confirmations must remain understandable and accessible.
+
+---
+
+## 6.13 Resizable workspace panels
+
+Evaluate a suitable resizable-panel library compatible with the existing framework.
+
+Use it where it improves the professional PDF editor.
+
+Support:
+
+- Left sidebar resizing.
+- Right properties panel resizing.
+- Collapsing and restoring panels.
+- Appropriate minimum widths.
+- Remembering panel preferences where useful.
+
+Do not allow users to resize panels into unusable or overlapping states.
+
+On smaller screens, convert panels into drawers or contextual overlays rather than simply compressing the desktop layout.
+
+---
+
+## 6.14 PDF-specific libraries are not UI libraries
+
+Keep the frontend and document-processing ecosystems separate.
+
+Potential PDF technologies include:
+
+- PDF.js / `pdfjs-dist` for actual PDF rendering and text-layer support.
+- `pdf-lib` or another appropriate library for supported PDF modifications.
+- LibreOffice headless for Office conversion.
+- Conventional OCR engines.
+- Appropriate image-processing libraries.
+- Backend processing services and background workers.
+
+A 3D renderer, animation library, or component library does not replace PDF processing.
+
+A visual component library does not replace actual editor capabilities.
+
+---
+
+# 7. LIBRARY SELECTION AND DEPENDENCY GOVERNANCE
+
+Before installing dependencies, inspect:
+
+- Current framework.
+- Framework version.
+- React version if applicable.
+- Build system.
+- TypeScript configuration.
+- Existing styling system.
+- Existing component library.
+- Existing icon library.
+- Existing animation library.
+- Existing state management.
+- Existing PDF dependencies.
+- Server-side rendering constraints.
+- License compatibility.
+- Runtime and peer-dependency compatibility.
+
+### Mandatory rules
+
+1. Preserve compatible existing dependencies.
+2. Avoid installing duplicate libraries that solve the same problem.
+3. Do not upgrade major framework versions without a genuine technical reason.
+4. Verify peer dependencies before installation.
+5. Verify the correct major version of React Three Fiber for the installed React version.
+6. Verify that the selected UI library supports the installed framework and React version.
+7. Verify that CSS and component library versions work together.
+8. Use maintained and documented packages.
+9. Check licensing and production suitability.
+10. Pin or lock dependencies through the project's normal package manager.
+11. Avoid unnecessary packages that increase bundle size.
+12. Remove unused dependencies introduced during development.
+13. Ensure the production build works after integration.
+14. Do not make an experimental or alpha dependency essential to core functionality unless there is a compelling reason and a verified fallback.
+
+Do not copy library installation commands without understanding the project's environment.
+
+Do not use every library simply because it appears in this prompt.
+
+**Select the best compatible implementation, not the largest dependency list.**
+
+### Bundle separation
+
+Keep heavy visual and document dependencies out of the initial homepage bundle wherever possible.
+
+Use:
+
+- Dynamic imports.
+- Route-based code splitting.
+- Lazy-loaded editor modules.
+- Deferred 3D scene loading.
+- Separate PDF processing bundles.
+- Appropriate worker loading.
+
+The homepage should not download the entire PDF editor or every PDF-processing dependency before a user needs them.
+
+---
+
+# 8. VISUAL DESIGN BRIEF — HIGHEST PRIORITY FOR AGENT 1
+
+This section is a core product specification.
+
+The interface must be designed with the attention to detail expected from a high-quality software product.
+
+The result should be visually sophisticated, editorial, deliberate, and functional.
+
+Do not simply create a typical SaaS dashboard with a sidebar, a row of statistics, and identical rounded cards.
+
+## 8.1 Overall creative direction
+
+Use a premium, modern, editorial-inspired design language.
+
+Combine:
+
+- Strong typography.
+- Restrained but confident colour.
+- Carefully balanced negative space.
+- Structured composition.
+- Sophisticated dark surfaces.
+- Deliberate contrast.
+- Clean document previews.
+- Subtle depth.
+- Precise alignment.
+- Purposeful motion.
+- Clear controls.
+
+The design should feel like a well-crafted document product and a thoughtfully art-directed software application.
+
+### Visual personality
+
+The brand should feel:
+
+- Confident rather than loud.
+- Premium rather than flashy.
+- Modern rather than futuristic for the sake of it.
+- Minimal without becoming empty.
+- Technical without looking intimidating.
+- Creative without looking cluttered.
+- Sophisticated without sacrificing clarity.
+
+### Avoid these mistakes
+
+Do not use:
+
+- Generic AI-generated-looking dashboard layouts.
+- Repetitive identical cards.
+- Random gradients without a design purpose.
+- Excessive rounded containers.
+- Glowing borders around ordinary components.
+- Excessive purple gradients.
+- Arbitrary shadows.
+- Inconsistent icon sets.
+- Random spacing.
+- Decorative animations that interfere with work.
+- Excessive glassmorphism.
+- Poor contrast.
+- Generic unrelated illustrations.
+- A homepage that makes the actual tools difficult to find.
+- A mobile design that hides essential functionality.
+
+Use rounded corners intentionally. The document workspace may benefit from crisp, precise edges and structured panels rather than applying a large radius everywhere.
+
+## 8.2 Primary colour direction — Charcoal and Violet
+
+The primary direction is **Charcoal & Violet**.
+
+The default theme should use a sophisticated dark foundation with controlled violet accents.
+
+Suggested foundation:
+
+- Main application background: `#17171D`.
+- Secondary dark surface: a slightly lighter charcoal.
+- Elevated surface: restrained layered charcoal.
+- Primary accent: sophisticated violet.
+- Secondary accent: muted lavender.
+- Primary text: soft white.
+- Secondary text: balanced cool grey.
+- Borders: subtle neutral lines.
+- Semantic states: accessible success, warning, and error colours.
+
+Do not make the entire interface purple.
+
+Violet should guide attention and identify important actions, selected states, active tools, and brand elements.
+
+## 8.3 Theme presets
+
+Implement:
+
+| Theme | Visual identity | Foundation |
+|---|---|---|
+| Obsidian | Charcoal and Violet | `#17171D` |
+| Midnight | Navy and Blue | `#101C32` |
+| Evergreen | Forest and Emerald | `#14251F` |
+| Ivory | Warm Neutral and Plum | `#F3F0EB` |
+
+Requirements:
+
+- Dark and light modes.
+- System preference.
+- Theme presets.
+- Custom accent colour where practical.
+- Accessible contrast in every theme.
+- Persistent preferences.
+- Consistent appearance across the homepage, tool pages, editor, and dialogs.
+
+A theme must be a complete visual system, not just a background colour change.
+
+## 8.4 Typography
+
+Use **Manrope** as the primary typeface.
+
+Establish a clear type scale for:
+
+- Display headlines.
+- Main page titles.
+- Section headings.
+- Tool titles.
+- Body text.
+- Descriptions.
+- Metadata.
+- Labels.
+- Tooltips.
+- Navigation.
+- Document properties.
+- Editor controls.
+
+Use size, weight, tracking, line height, and contrast intentionally.
+
+Do not make every heading oversized and bold.
+
+Ensure technical details such as file sizes, dimensions, page counts, processing status, and font properties remain readable.
+
+## 8.5 Layout, grid, spacing, and composition
+
+Create a consistent layout system.
+
+Use a spacing scale based on a 4-point or 8-point rhythm.
+
+Establish:
+
+- Main content width.
+- Page gutters.
+- Responsive grid rules.
+- Section spacing.
+- Component spacing.
+- Sidebar widths.
+- Toolbar dimensions.
+- Panel padding.
+- Modal dimensions.
+- Breakpoint rules.
+
+Use asymmetry and editorial composition where appropriate.
+
+Use structured bento layouts selectively.
+
+A bento section should have varied content sizes and a clear hierarchy—not a grid of identical cards.
+
+Keep document workspaces more functional and precise than the marketing homepage.
+
+---
+
+# 9. HOMEPAGE — COMPLETE DESIGN SPECIFICATION
+
+Design the homepage as a complete experience, not just a hero and a grid of tools.
+
+## 9.1 Navigation
+
+Desktop navigation:
+
+**Left:**
+- Distinctive wordmark.
+- Compact brand mark if appropriate.
+
+**Centre:**
+- Tools.
+- PDF Editor.
+- Explore.
+- How it works.
+
+**Right:**
+- Search.
+- Theme control.
+- Optional account control.
+
+Do not make registration the primary call to action.
+
+Navigation should be balanced, responsive, keyboard accessible, and visually consistent.
+
+## 9.2 Tools mega menu
+
+Create a polished categorized mega menu for:
+
+- Convert.
+- Organize.
+- Edit.
+- Optimize.
+- Security.
+- Advanced Tools.
+
+Each item should include:
+
+- Tool icon or visual identifier.
+- Tool name.
+- Short description.
+- Clear clickable target.
+
+Use clear groupings and keyboard navigation.
+
+## 9.3 Hero
+
+Headline:
+
+**“A Better Way to Work with Documents.”**
+
+Supporting copy should explain that the product offers powerful PDF tools in one place, without subscriptions or mandatory registration.
+
+### 3D art direction
+
+Use Three.js for a distinctive document-inspired scene.
+
+Design the composition with:
+
+- Floating PDF pages.
+- Layered paper surfaces.
+- Three-dimensional document stacks.
+- Subtle page rotations.
+- Controlled parallax.
+- Soft shadows.
+- Refined violet lighting.
+- Depth and perspective.
+- Gentle movement.
+- Balanced negative space.
+
+The 3D elements must be meaningful and visually connected to document productivity.
+
+Avoid generic glowing spheres, random blobs, meaningless futuristic visuals, and decorative shapes without purpose.
+
+### 3D implementation
+
+- Use an isolated scene component.
+- Lazy load the scene.
+- Use React Three Fiber and Drei if the project uses React and compatibility permits.
+- Optimize geometry, materials, lighting, and texture usage.
+- Respect reduced motion.
+- Provide WebGL fallback.
+- Reduce scene complexity on mobile.
+- Do not obstruct the main actions.
+- Do not compromise page load performance.
+
+## 9.4 Hero actions
+
+Provide two clear actions:
+
+1. Upload or select a PDF.
+2. Explore available tools.
+
+Both must lead to functional experiences.
+
+## 9.5 Upload experience
+
+Include a prominent upload area with:
+
+- Drag and drop.
+- File selection.
+- Supported types.
+- Size limits.
+- Accurate privacy information.
+
+Provide states for idle, hover, drag-over, invalid file, uploading, complete, processing, success, and failure.
+
+## 9.6 Homepage content sections
+
+### A. Hero and quick start
+
+Introduce the platform and allow immediate document upload.
+
+### B. Popular tools
+
+Show a curated selection:
+
+- Merge PDF.
+- Split PDF.
+- Compress PDF.
+- PDF to Word.
+- Word to PDF.
+- Edit PDF.
+- Sign PDF.
+- Organize PDF.
+
+### C. Tool discovery
+
+Show the full catalogue through category-based discovery.
+
+Use a combination of editorial sections, refined tool cards, compact lists, category navigation, and search.
+
+Avoid identical cards everywhere.
+
+### D. PDF editor showcase
+
+Prominently introduce the professional editor.
+
+Show actual or representative interface elements for:
+
+- Text and image editing.
+- Page organization.
+- Object management.
+- Annotations.
+- Forms.
+- Export.
+
+Demonstrations must reflect functionality that actually exists.
+
+### E. How it works
+
+Explain:
+
+1. Choose a tool.
+2. Upload a document.
+3. Configure the operation.
+4. Process and preview.
+5. Download the result.
+
+### F. Privacy and access
+
+Explain guest access, optional registration, and actual document handling.
+
+### G. Footer
+
+Keep the footer minimal.
+
+Include brand, essential navigation, tools, privacy, terms, and copyright.
+
+No newsletter, oversized link columns, pricing, or subscription marketing.
+
+---
+
+# 10. TOOL DISCOVERY AND SEARCH
+
+Create a hybrid discovery system combining:
+
+- Global search.
+- Categorized tool directory.
+- Mega menu.
+- Popular tools.
+- Related tools.
+- Contextual navigation.
+
+## Search and command palette
+
+Support:
+
+- Tool-name search.
+- Natural task wording.
+- Category filtering.
+- Keyboard navigation.
+- Enter to open.
+- Escape to close.
+- Empty results.
+- Helpful alternatives.
+
+Use a discoverable keyboard shortcut where practical.
+
+## Tool directory
+
+Provide:
+
+- Clear heading.
+- Short introduction.
+- Search.
+- Category filters.
+- Popular tools.
+- Full tool catalogue.
+- Consistent descriptions.
+- Responsive layout.
+
+Every listed tool must work.
+
+---
+
+# 11. ADAPTIVE UPLOAD-TO-WORKSPACE EXPERIENCE
+
+The upload interface should transform into a file workspace after a document is selected.
+
+## Initial state
+
+- Drag and drop.
+- Select file.
+- Multiple-file support where appropriate.
+- Supported formats.
+- File limits.
+- Accessible alternatives.
+
+## Uploaded state
+
+Show:
+
+- Thumbnail or preview.
+- Filename.
+- File type.
+- File size.
+- Page count where available.
+- Upload status.
+- Remove.
+- Replace.
+- Add another file.
+- Relevant settings.
+
+## Tool-specific settings
+
+Show only relevant settings.
+
+Examples:
+
+- Compression level.
+- Page ranges.
+- Output format.
+- Image quality.
+- Merge order.
+- Rotation.
+- Watermark position.
+- Password.
+- OCR language.
+- Comparison options.
+
+## Processing state
+
+Show real stages and meaningful progress only.
+
+Possible stages:
+
+- Validation.
+- Upload.
+- Preparation.
+- Processing.
+- Export.
+- Output validation.
+- Ready.
+
+## Completion state
+
+Provide:
+
+- Success or failure.
+- Output filename.
+- Output size.
+- Preview where appropriate.
+- Download.
+- Download all.
+- Process another document.
+- Return to tools.
+
+Do not force registration before download.
+
+---
+
+# 12. TOOL WORKSPACE REQUIREMENTS
+
+Every tool should have a dedicated workspace.
+
+Do not route every tool into the same generic form with a changed heading.
+
+Each workspace should include:
+
+1. Clear title.
+2. Short explanation.
+3. Upload or document selection.
+4. Relevant settings.
+5. Clear action.
+6. Genuine processing state.
+7. Output preview or result.
+8. Download.
+9. Related tools.
+
+Examples:
+
+- Merge PDF: file ordering.
+- Split PDF: page-range selection.
+- Compress PDF: compression options.
+- Convert PDF: input and output format.
+- Protect PDF: password and confirmation.
+- OCR: language and output options.
+- Compare PDF: two-document selection and difference results.
+
+Use consistent shared components and adapt the interface to each operation.
+
+---
+
+# 13. PROFESSIONAL PDF EDITOR — MAJOR PRODUCT SUBSYSTEM
+
+The editor is a major product feature, not a simple annotation screen.
+
+Build a serious document-editing workspace with precise controls, excellent usability, and real document operations.
+
+## 13.1 Editor visual direction
+
+The editor should feel like a professional document application.
+
+Prioritize:
+
+- Workspace clarity.
+- Precise alignment.
+- Efficient screen use.
+- Clear tool hierarchy.
+- Predictable selection.
+- Contextual controls.
+- Document visibility.
+- Low-friction editing.
+- Clear save and export status.
+
+Keep the editor more restrained and task-focused than the marketing homepage.
+
+Do not place unnecessary marketing elements inside it.
+
+## 13.2 Workspace layout
+
+### Top toolbar
+
+Include:
+
+- Document name.
+- Save status.
+- Undo.
+- Redo.
+- Zoom.
+- Fit page.
+- Fit width.
+- Page navigation.
+- Search.
+- Editing modes.
+- Export.
+- Download.
+
+### Left sidebar
+
+Provide sections or tabs for:
+
+- Page thumbnails.
+- Outline and bookmarks.
+- Layers and objects.
+- Comments and annotations.
+- Forms.
+- Document structure.
+
+Use clear labels, selected states, tooltips, and keyboard-accessible controls.
+
+Allow collapse and restore.
+
+### Central canvas
+
+The central workspace must support, according to actual implementation:
+
+- Accurate PDF rendering.
+- Multipage navigation.
+- Zoom and pan.
+- Page selection.
+- Text selection.
+- Object selection.
+- Dragging.
+- Resizing.
+- Rotation.
+- Alignment guides.
+- Selection boundaries.
+- Contextual menus.
+- Visual selection feedback.
+
+The editor must use the real PDF rendering pipeline, not a Three.js imitation.
+
+### Right properties panel
+
+Show contextual properties:
+
+- X and Y.
+- Width and height.
+- Rotation.
+- Font family.
+- Size.
+- Weight.
+- Text colour.
+- Fill.
+- Border.
+- Opacity.
+- Alignment.
+- Stacking order.
+- Relevant object-specific properties.
+
+Adapt the panel to the selected element.
+
+Allow it to collapse.
+
+---
+
+# 14. EXISTING TEXT EDITING
+
+Support modification of existing PDF text wherever technically possible.
+
+Potential operations:
+
+- Select text object or editable region.
+- Change text content.
+- Modify font where supported.
+- Change size.
+- Change weight.
+- Change colour.
+- Change alignment.
+- Change position.
+- Delete supported text objects.
+
+Account for embedded fonts, subset fonts, missing fonts, unusual encoding, text rendered as vector paths, split content streams, and complex positioning.
+
+**Do not call a text overlay native existing-text editing.**
+
+Clearly distinguish:
+
+1. Editing an existing PDF text object.
+2. Adding a new editor-managed text object.
+3. Placing an annotation or overlay.
+
+If genuine modification is not reliable for a particular document, explain the limitation and provide an appropriate alternative.
+
+---
+
+# 15. OBJECT MANAGEMENT — VISIBILITY, HIDING, AND ACTUAL REMOVAL
+
+This is a particularly important requirement.
+
+The user must be able to select document elements, hide them, restore their visibility, and remove them.
+
+## Supported object types
+
+Where identifiable and safely manipulable:
+
+- Text objects.
+- Text blocks.
+- Images.
+- Supported vector graphics.
+- Supported shapes.
+- Annotations.
+- Editor-managed elements.
+- Other supported PDF elements.
+
+Do not assume every visible item is an independent object.
+
+PDF structures may include complex content streams, grouped text runs, clipping paths, Form XObjects, embedded resources, transparency groups, and other structures.
+
+## Object and layer panel
+
+For supported elements, display:
+
+- Type.
+- Name or generated label.
+- Page association.
+- Visibility.
+- Lock state.
+- Selection.
+- Stacking position.
+
+Support:
+
+- Select.
+- Rename editor-managed elements.
+- Hide.
+- Show.
+- Lock.
+- Unlock.
+- Delete.
+- Reorder.
+- Multiselect.
+- Contextual actions.
+
+## Hide and restore
+
+Provide:
+
+- Visibility toggle.
+- Clear hidden-state indication.
+- Restore hidden objects.
+- Multiple-object selection.
+- Show all where appropriate.
+- Undo and redo.
+
+Make clear whether a hide action is editor-only or reflected in the exported PDF.
+
+Do not imply that editor-only visibility changes permanently modify the original file.
+
+## Actual object removal
+
+Allow deletion of supported elements.
+
+Provide:
+
+- Delete action.
+- Context menu.
+- Keyboard shortcut.
+- Confirmation where appropriate.
+- Undo.
+- Selection feedback.
+- Export verification.
+
+**Deleting an object must remove its underlying content from the exported PDF where the operation claims actual removal.**
+
+A white rectangle over an object is not removal.
+
+If the content cannot safely be isolated, explain the limitation instead of destroying unrelated content.
+
+## Contextual object actions
+
+Where supported:
+
+- Hide.
+- Show.
+- Delete.
+- Duplicate.
+- Lock.
+- Unlock.
+- Bring forward.
+- Send backward.
+- Bring to front.
+- Send to back.
+- Align.
+- Resize.
+- Rotate.
+- Inspect properties.
+
+## Layer management
+
+Distinguish native PDF optional-content layers from editor-managed object collections.
+
+Support relevant visibility, locking, ordering, renaming, grouping, and selection operations where genuinely implemented.
+
+Do not claim every PDF has native layers.
+
+## Object acceptance test
+
+For each supported object type:
+
+1. Select.
+2. Hide.
+3. Verify it is hidden.
+4. Restore.
+5. Verify it reappears.
+6. Delete.
+7. Verify deletion.
+8. Undo.
+9. Verify restoration.
+10. Export.
+11. Reopen or render.
+12. Verify the actual output.
+
+---
+
+# 16. ADDITIONAL PDF EDITOR FEATURES
+
+## Text insertion
+
+Support content, font, size, weight, colour, alignment, position, rotation, and relevant opacity/fill settings.
+
+## Image manipulation
+
+Support insertion, replacement where feasible, movement, resizing, rotation, cropping where supported, opacity where supported, and deletion.
+
+## Annotations
+
+Support:
+
+- Highlight.
+- Underline.
+- Strikethrough.
+- Freehand drawing.
+- Comments.
+- Sticky notes.
+- Arrows.
+- Lines.
+- Rectangles.
+- Circles.
+
+## Page management
+
+Support:
+
+- Add blank page.
+- Duplicate page.
+- Delete page.
+- Reorder.
+- Rotate.
+- Extract.
+- Insert from another PDF.
+- Replace.
+- Crop.
+- Resize.
+
+## Forms
+
+Support existing AcroForm fields where possible.
+
+Support creation of:
+
+- Text fields.
+- Checkboxes.
+- Radio buttons.
+- Dropdowns.
+- Date fields.
+- Signature fields.
+
+Preserve form structure where possible and explain unsupported XFA limitations.
+
+## Signatures
+
+Support visual signatures by drawing, typing, or uploading an image.
+
+Distinguish visual signatures from cryptographic digital signatures.
+
+## Watermarks, headers, footers, and page numbers
+
+Support text or image watermarks where appropriate, position, rotation, opacity, styling, page ranges, headers, footers, and numbering.
+
+## Search and navigation
+
+Support document text search, result navigation, page navigation, zoom, fit page, fit width, thumbnails, and available outlines.
+
+## Undo and redo
+
+Implement reliable editing history for supported operations.
+
+## Redaction
+
+Redaction must permanently remove underlying sensitive content where technically supported.
+
+A black rectangle is not redaction.
+
+After export, verify by rendering, text extraction, and document inspection that redacted information is no longer present in ordinary document content.
+
+Communicate limitations where reliable sanitization cannot be achieved.
+
+---
+
+# 17. EDITOR ENGINEERING AND PDF ARCHITECTURE
+
+Keep the following concepts logically separated:
+
+- Original PDF.
+- Rendered representation.
+- Editable object model.
+- Editor-managed objects.
+- Annotation layer.
+- Selection and interaction state.
+- Page state.
+- Editing operations.
+- Undo/redo history.
+- Export and serialization.
+
+PDF.js can provide rendering and text-layer capabilities, but rendering alone does not create a complete editor.
+
+Evaluate pdf-lib or alternatives for supported modifications. Verify actual capabilities rather than relying on library descriptions.
+
+Pay attention to fonts, complex text, content streams, image masks, transparency, vector graphics, Form XObjects, resources, annotations, forms, scans, and multipage documents.
+
+Do not compromise document correctness for implementation convenience.
+
+---
+
+# 18. COMPLETE PDF TOOL CATALOGUE
+
+Every tool listed below must be represented and genuinely functional.
+
+## Convert to PDF
+
+- Word.
+- Excel.
+- PowerPoint.
+- JPG.
+- PNG.
+- Multiple images.
+- HTML.
+- TXT.
+
+## Convert from PDF
+
+- Word.
+- Excel.
+- PowerPoint.
+- JPG.
+- PNG.
+- TXT.
+- HTML.
+
+Distinguish content extraction from exact layout recreation.
+
+## Organize PDF
+
+- Merge.
+- Split.
+- Extract pages.
+- Delete pages.
+- Reorder pages.
+- Rotate pages.
+- Organize pages.
+- Create PDF from selected pages.
+
+## Optimize PDF
+
+- Compress.
+- Optimize.
+- Flatten.
+- Repair where feasible.
+
+## Edit PDF
+
+- Add text.
+- Edit existing text where supported.
+- Add and manipulate images.
+- Page numbers.
+- Watermarks.
+- Headers and footers.
+- Crop.
+- Annotate.
+
+## Security PDF tools
+
+- Password protect.
+- Unlock with the required password.
+- Encrypt.
+- Remove metadata.
+- Permanently redact.
+- Sign.
+
+Implement proper encryption. Do not bypass password protection.
+
+Distinguish visual signatures from cryptographic digital signatures.
+
+## Advanced tools
+
+- OCR.
+- Text extraction.
+- Image extraction.
+- Document comparison.
+- Metadata inspection.
+- Metadata editing where supported.
+- Page dimensions.
+- Document information.
+
+OCR must use conventional OCR technology, not AI-based summarization or analysis.
+
+---
+
+# 19. DOCUMENT PROCESSING EXPERIENCE
+
+Support appropriate upload sources:
+
+- Device upload.
+- Drag and drop.
+- Multiple files.
+- Clipboard paste where suitable.
+- Configured cloud integrations.
+- Secure URL import.
+
+Do not show cloud providers unless they are actually configured.
+
+Validate file signatures, actual formats, file sizes, page counts, encryption state, and processing compatibility.
+
+Do not rely exclusively on extensions or client MIME types.
+
+Use proper background processing where needed.
+
+Track real job states, return meaningful errors, prevent unsafe retries or duplicate operations, and isolate jobs.
+
+Validate output readability, format, page count, order, renderability, text extraction, image quality, password protection, redaction, forms, and annotations where applicable.
+
+Provide batch download and ZIP packaging where useful.
+
+---
+
+# 20. ACCOUNT, SETTINGS, AND PREFERENCES
+
+Accounts are optional.
+
+Provide optional synchronized preferences, workspace configuration, document history, persistent storage, and cross-device access where supported.
+
+Do not restrict tools based on account status.
+
+Settings should include themes, accent colour, appearance, language, interface preferences, editor preferences, and relevant privacy controls.
+
+Clearly distinguish local preferences from synchronized ones.
+
+Do not imply guest documents are stored permanently.
+
+---
+
+# 21. RESPONSIVE DESIGN
+
+Build for desktop, tablet, and mobile.
+
+## Desktop
+
+Prioritize full navigation, large document workspaces, editor panels, contextual properties, and efficient keyboard workflows.
+
+## Tablet
+
+Adapt navigation, mega menus, upload layouts, document previews, editor panels, tool settings, and contextual menus.
+
+Use collapsible or slide-over panels where appropriate.
+
+## Mobile
+
+Provide mobile-friendly navigation, search, upload, file selection, tool configuration, processing, preview, download, and supported editing.
+
+Do not compress three desktop panels into a narrow screen.
+
+Use focused editing drawers, contextual controls, and touch-friendly interactions.
+
+The 3D hero must also adapt:
+
+- Reduce geometry and effects.
+- Limit rendering resolution.
+- Simplify movement.
+- Provide static fallback where necessary.
+
+The 3D scene must never compromise essential mobile performance.
+
+---
+
+# 22. MOTION AND MICRO-INTERACTIONS
+
+Use an adaptive motion system.
+
+### Homepage
+
+Expressive but restrained 3D document movement, gentle entrance effects, depth, and subtle hover response.
+
+### Tool workspaces
+
+Functional transitions, upload states, panel expansion, dialogs, selections, processing, success, and errors.
+
+### PDF editor
+
+Minimal and precise motion. Avoid animating the document unnecessarily.
+
+### Reduced motion
+
+Respect system reduced-motion settings. Provide meaningful static alternatives.
+
+Never make animations necessary to use the product.
+
+---
+
+# 23. COMPONENTS AND INTERACTION STANDARDS
+
+Build reusable components for:
+
+- Buttons.
+- Icon buttons.
+- Inputs.
+- Selects.
+- Tooltips.
+- Menus.
+- Modals.
+- Dropdowns.
+- Tabs.
+- Sidebars.
+- Tool items.
+- Upload areas.
+- File rows.
+- Thumbnails.
+- Progress indicators.
+- Notifications.
+- Empty states.
+- Errors.
+- Success states.
+- Context menus.
+- Editor panels.
+
+Every relevant control must support default, hover, focus, active, selected, disabled, loading, success, and error states.
+
+Use tooltips for icon-only actions.
+
+Make disabled states understandable.
+
+Do not mix unrelated component styles.
+
+---
+
+# 24. SECURITY AND PRIVACY
+
+Treat uploaded documents as untrusted input.
+
+Implement appropriate protections for:
+
+- File signature and type validation.
+- Safe filename handling.
+- Path traversal.
+- Malformed documents.
+- Resource exhaustion.
+- Temporary file isolation.
+- Cross-user access.
+- Authentication and authorization.
+- Session management.
+- CSRF.
+- XSS.
+- Injection.
+- SSRF.
+- URL-import redirects.
+- CPU, memory, and execution limits.
+- Sensitive information in logs.
+- Safe error messages.
+
+For URL imports, block internal and restricted destinations, validate redirects and protocols, enforce download limits, and apply timeouts.
+
+Guest documents should use temporary processing with no persistent server-side retention by default.
+
+Account storage must have explicit retention and deletion controls.
+
+Never claim zero-knowledge architecture, end-to-end encryption, automatic deletion, or compliance unless implemented and verified.
+
+---
+
+# 25. PERFORMANCE AND RELIABILITY
+
+Prioritize:
+
+- Fast initial load.
+- Route-based code splitting.
+- Lazy loading.
+- Deferred Three.js imports.
+- Separate editor bundles.
+- Deferred PDF dependencies.
+- Efficient thumbnails.
+- Controlled document memory.
+- Responsive canvas interaction.
+- Reliable uploads.
+- Background processing.
+- Safe worker failure.
+- Appropriate timeouts.
+
+The homepage should not load the entire editor or processing stack unnecessarily.
+
+The Three.js scene should not prevent the application from loading.
+
+A failed processing job must not crash the application.
+
+---
+
+# 26. ACCESSIBILITY AND LOCALIZATION
+
+Target WCAG 2.2 AA.
+
+Ensure:
+
+- Semantic markup.
+- Keyboard navigation.
+- Visible focus.
+- Accessible labels.
+- Screen-reader-compatible dialogs.
+- Colour contrast.
+- Status announcements.
+- Logical headings.
+- Form errors.
+- Reduced motion.
+- Text scaling.
+- Touch-friendly controls.
+- Accessible document navigation.
+
+Launch in English.
+
+Prepare translation strings and locale-aware formatting.
+
+Prepare for right-to-left layouts.
+
+---
+
+# 27. EMPTY, LOADING, ERROR, AND SUCCESS STATES
+
+Design the full lifecycle for:
+
+- No files.
+- Uploading.
+- Invalid file.
+- Unsupported format.
+- Password-protected document.
+- Queued processing.
+- Processing.
+- Complete.
+- Failed.
+- Network interruption.
+- Download ready.
+- Download failure.
+- Empty search.
+- Empty history.
+- No selected object.
+- Unsupported object operation.
+- Unsaved changes.
+- Exporting.
+- Export failure.
+- Session expiry.
+- Unavailable service.
+
+Use clear and useful messages.
+
+Do not show internal stack traces or sensitive details.
+
+Explain recovery actions where possible.
+
+---
+
+# 28. TECHNICAL ARCHITECTURE AND LIBRARY EVALUATION
+
+Inspect the existing repository before selecting or replacing technologies.
+
+Preserve a functional architecture where reasonable.
+
+Potential technologies include:
+
+**Visual and frontend**
+- Three.js.
+- React Three Fiber.
+- Drei.
+- Tailwind CSS.
+- shadcn/ui.
+- Radix UI.
+- Motion.
+- GSAP.
+- Lucide.
+- dnd-kit.
+- TanStack Query.
+- Zustand.
+- React Hook Form.
+- Zod.
+- Sonner.
+- A suitable resizable-panel library.
+
+**PDF and backend**
+- PDF.js.
+- pdf-lib or equivalent.
+- LibreOffice headless.
+- Conventional OCR engines.
+- Image-processing libraries.
+- Background workers.
+- Secure storage and processing services.
+
+These are preferred candidates, not mandatory selections.
+
+Evaluate compatibility, licensing, maintenance, security, performance, document fidelity, and actual capabilities.
+
+Do not overengineer.
+
+Use clean boundaries between frontend, APIs, PDF services, storage, authentication, editor, and export.
+
+Do not let visual libraries control core PDF-processing responsibilities.
+
+Do not let PDF processing libraries dictate the entire design system.
+
+---
+
+# 29. IMPLEMENTATION PHASES — CONTINUOUS EXECUTION
+
+These phases establish order, not approval checkpoints.
+
+Do not stop for approval between phases.
+
+## Phase 1 — Repository inspection and contracts
+
+Both agents inspect the codebase and agree on architecture, dependencies, API contracts, document models, and responsibilities.
+
+## Phase 2 — Design system and processing foundation
+
+Agent 1:
+- Brand direction.
+- Typography.
+- Colour tokens.
+- Themes.
+- Component system.
+- Navigation foundations.
+- UI-library integration.
+- Three.js implementation foundation.
+
+Agent 2:
+- PDF library evaluation.
+- Processing architecture.
+- File validation.
+- Document models.
+- APIs.
+- Temporary storage.
+- Job handling.
+
+## Phase 3 — Homepage, discovery, and processing services
+
+Agent 1:
+- Homepage.
+- 3D hero.
+- Tool navigation.
+- Mega menu.
+- Search.
+- Tool directory.
+- Upload interface.
+- Adaptive workspaces.
+
+Agent 2:
+- Conversion.
+- Page operations.
+- Optimization.
+- Supported editing services.
+- Export.
+- Validation.
+- Security.
+
+## Phase 4 — Professional editor
+
+Agent 1:
+- Editor interface.
+- Toolbars.
+- Page sidebar.
+- Object and layer panels.
+- Contextual properties.
+- Selection UI.
+- Responsive behaviour.
+
+Agent 2:
+- Object manipulation.
+- Page serialization.
+- Annotations.
+- Forms.
+- Redaction.
+- Editor export.
+- Document integrity verification.
+
+## Phase 5 — Continuous integration
+
+Both agents integrate, resolve contract differences, connect processing status, verify upload and download, and test editing operations.
+
+## Phase 6 — Security, accessibility, and performance
+
+Agent 1:
+- Responsive testing.
+- Accessibility.
+- Interaction review.
+- Theme verification.
+- Visual refinement.
+- 3D performance.
+
+Agent 2:
+- File validation.
+- Authorization.
+- Storage isolation.
+- Resource limits.
+- Cleanup.
+- Output integrity.
+- Backend performance.
+
+## Phase 7 — Full product QA
+
+Both agents:
+
+- Run the application.
+- Test real workflows.
+- Inspect rendered screens.
+- Validate generated PDFs.
+- Fix defects.
+- Retest affected operations.
+- Confirm integration.
+
+## Phase 8 — Final delivery
+
+Deliver the working application, preview or local run instructions, implementation summary, test results, and genuine limitations.
+
+**Continue through all phases in the current task. Do not stop at scaffolding or a visually complete frontend.**
+
+---
+
+# 30. TESTING AND ACCEPTANCE CRITERIA
+
+## General application tests
+
+Verify homepage, navigation, mega menus, search, tool directory, themes, upload, multiple files, file removal, settings, processing, download, guest access, optional authentication, history, and error handling.
+
+## PDF tests
+
+Use real documents covering:
+
+- Valid single-page PDFs.
+- Multipage PDFs.
+- Scanned PDFs.
+- Password-protected PDFs.
+- Large PDFs within declared limits.
+- Malformed PDFs.
+- Embedded fonts.
+- Multiple images.
+- Forms.
+- Annotations.
+- Complex layouts.
+- Office documents.
+- Image documents.
+- Mixed-content PDFs.
+
+Verify actual exported results.
+
+## Editor tests
+
+Test:
+
+- Rendering.
+- Page navigation.
+- Zoom and pan.
+- Text selection.
+- Existing text modification where claimed.
+- Text insertion.
+- Image manipulation.
+- Object selection.
+- Hiding.
+- Restoration.
+- Removal.
+- Ordering.
+- Layers.
+- Annotations.
+- Page operations.
+- Forms.
+- Signatures.
+- Watermarks.
+- Redaction.
+- Undo and redo.
+- Export.
+
+Reopen or render exported documents to verify real changes.
+
+## 3D tests
+
+Verify:
+
+- Scene renders correctly.
+- Scene dimensions respond to viewport changes.
+- Fallback works.
+- Reduced motion works.
+- No excessive GPU usage.
+- Scene resources are disposed.
+- No significant console errors.
+- Scene does not block primary interaction.
+- Performance remains acceptable on mobile.
+- Homepage remains usable if WebGL is unavailable.
+
+## Visual QA
+
+Inspect desktop, tablet, and mobile.
+
+Review typography, composition, spacing, alignment, contrast, theme consistency, navigation, menus, tool workspaces, upload, processing, editor panels, dialogs, and responsive layouts.
+
+Fix:
+
+- Overflow.
+- Misalignment.
+- Unbalanced whitespace.
+- Text wrapping problems.
+- Broken layouts.
+- Overlapping panels.
+- Unreadable controls.
+- Inconsistent icons.
+- Excessive animation.
+- Poor responsiveness.
+
+Do not consider UI complete until actual rendered screens have been inspected and refined.
+
+## Dependency QA
+
+- Verify production build.
+- Check package compatibility.
+- Remove unused dependencies.
+- Check for duplicate component systems.
+- Check bundle sizes.
+- Verify lazy loading.
+- Verify no unnecessary 3D or PDF downloads on the initial page.
+- Check console warnings and runtime errors.
+
+## Security tests
+
+Test unsupported formats, spoofed extensions, malformed files, oversized input, unsafe names, URL-import protections, cross-user isolation, unauthorized access, temporary-file handling, processing limits, and sensitive error messages.
+
+Only claim tests that were actually performed.
+
+---
+
+# 31. VISUAL DESIGN ACCEPTANCE GATE
+
+Agent 1 must satisfy these criteria before declaring the interface complete.
+
+### Brand and system
+
+- Recognizable visual identity.
+- Consistent Charcoal & Violet direction.
+- Deliberate typography.
+- Complete themes.
+- Consistent spacing.
+- Coherent components.
+
+### Homepage
+
+- Clear product message.
+- Distinctive document-inspired 3D experience.
+- Strong performance.
+- Clear primary actions.
+- Easy tool discovery.
+- Prominent editor showcase.
+
+### Tool experience
+
+- Tools are easy to find.
+- Each tool has an appropriate workspace.
+- Upload is intuitive.
+- Settings make sense.
+- Processing is understandable.
+- Download is straightforward.
+
+### Professional editor
+
+- Feels like a real document application.
+- Central canvas has sufficient space.
+- Navigation is easy.
+- Object-management controls are discoverable.
+- Properties are contextual.
+- Selection states are clear.
+- Responsive layouts remain usable.
+
+### Library and engineering quality
+
+- Three.js is used meaningfully.
+- 3D is separated from the PDF rendering engine.
+- UI components are customized.
+- Animations are purposeful.
+- Dependencies are justified.
+- Heavy code is lazy loaded.
+- No competing styling systems create inconsistency.
+
+### Interaction and responsiveness
+
+- Controls work.
+- States are consistent.
+- Tooltips are useful.
+- Loading, empty, success, and error states are complete.
+- Reduced motion works.
+- Homepage, tools, and editor work across desktop, tablet, and mobile.
+
+If a major criterion fails, refine the implementation.
+
+---
+
+# 32. DEFINITION OF DONE
+
+The application is complete only when the following relevant conditions are satisfied.
+
+## Product
+
+- Application runs.
+- Homepage is complete.
+- Tool discovery works.
+- Guest access works.
+- Optional accounts do not gate features.
+- No monetization exists.
+- No AI features exist.
+
+## Visual experience
+
+- Complete design system.
+- Consistent visual direction.
+- Refined homepage.
+- Three.js scene or justified equivalent implementation.
+- Tool workspaces.
+- Professional editor interface.
+- Responsive layouts inspected.
+- Accessibility considered and tested where possible.
+- UI libraries integrated coherently.
+
+## PDF functionality
+
+- Implemented tools perform genuine operations.
+- Files are validated.
+- Processing is real.
+- Outputs are valid.
+- Downloads work.
+- Editor operations appear in exported documents where claimed.
+- Unsupported operations are explained.
+
+## Security and reliability
+
+- Upload handling is validated.
+- Temporary processing is isolated.
+- Access controls are tested.
+- Relevant security controls are implemented.
+- Processing failures are handled safely.
+- Resource limits are applied consistently.
+
+## QA
+
+- Production build succeeds.
+- Application starts.
+- Core journeys are tested.
+- Real PDF workflows are tested.
+- Generated documents are inspected.
+- UI has been visually inspected where tools permit.
+- 3D performance and fallbacks have been checked.
+- Defects are fixed.
+- Regression checks are performed.
+
+## Delivery
+
+Provide:
+
+1. A working preview URL if available.
+2. Local setup and run instructions.
+3. Implementation summary.
+4. Genuinely functioning tools.
+5. PDF editor capabilities actually implemented.
+6. Main libraries integrated and why they were selected.
+7. Tests performed and results.
+8. Remaining technical limitations.
+9. Genuine blockers.
+
+Do not claim browser-based visual verification if browser or computer-use tools were unavailable.
+
+Do not claim an operation works unless it was implemented and tested.
+
+---
+
+# 33. FINAL INSTRUCTIONS
+
+Approach this as a coordinated product team building a real software application.
+
+The design should not be an afterthought.
+
+The Three.js scene should not be decorative technology without purpose.
+
+The frontend should not be a collection of unmodified library components.
+
+The PDF engine should not be a collection of superficial wrappers.
+
+The editor should not be a mockup.
+
+The upload and processing experience should not be simulated.
+
+The security model should not rely on assumptions.
+
+The product must be genuinely free, accessible without registration, and free of AI features.
+
+The visual identity should be distinctive, sophisticated, and consistent from the homepage through the most complex editor workspace.
+
+Agent 1 must deliver a polished product experience with the skills of a creative director, premium SaaS designer, design-systems specialist, Three.js visual engineer, interaction designer, motion designer, and senior frontend engineer.
+
+Agent 2 must deliver reliable PDF processing, actual document manipulation, secure backend services, and verified document outputs.
+
+Both agents must work concurrently, communicate through shared contracts, integrate continuously, and jointly verify the complete application.
+
+Make sensible decisions independently. Avoid unnecessary questions. Do not stop after planning. Do not conceal missing functionality behind attractive UI.
+
+**Build the complete product. Run it. Inspect it. Test it. Fix it. Verify it. Deliver it.**

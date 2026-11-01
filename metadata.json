@@ -1,0 +1,6 @@
+{
+  "name": "Vellum — All-in-One PDF Toolkit & Document Studio",
+  "description": "A completely free, privacy-first online PDF productivity platform featuring a professional PDF editor, Sajda-style object management, genuine redaction, OCR, and 35+ document conversion and organization utilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
