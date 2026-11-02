@@ -5,17 +5,17 @@ import { Flip } from 'gsap/Flip';
 import {
   PdfToolDefinition,
   ToolCategory,
+  ConversionSubcategory,
   UploadedFileItem,
   ThemeSettings,
   UserAccountProfile
 } from '../types/pdf';
 import {
   PDF_TOOLS_CATALOG,
+  CONVERSION_SUBCATEGORY_LABELS,
   findToolById
 } from '../data/toolsCatalog';
-import {
-  validateFileSignature
-} from '../services/pdfRenderer';
+import { validateFileSignature } from '../services/pdfRenderer';
 import { ToolIcon } from './IconMapper';
 import { PDFDocument } from 'pdf-lib';
 import {
@@ -24,13 +24,15 @@ import {
   Sparkles,
   FileEdit,
   Layers,
-  ShieldAlert,
   SlidersHorizontal,
   ArrowUpRight,
   Lock,
   Unlock,
   FileText,
-  LayoutGrid
+  LayoutGrid,
+  ShieldCheck,
+  Sheet,
+  Image
 } from 'lucide-react';
 
 gsap.registerPlugin(Flip);
@@ -49,25 +51,78 @@ interface HomeAndDirectoryProps {
   account: UserAccountProfile | null;
 }
 
-type StudioFilterGroup = 'all' | 'edit' | 'organize' | 'security-batch' | 'word-convert';
+type StudioFilterGroup =
+  | 'all'
+  | 'convert-all'
+  | 'pdf-to-office'
+  | 'pdf-to-images-web'
+  | 'formats-to-pdf'
+  | 'archival'
+  | 'edit'
+  | 'organize'
+  | 'security-batch';
 
 const STUDIO_FILTERS: Array<{ id: StudioFilterGroup; label: string; count: number }> = [
-  { id: 'all', label: 'All 12 Core Tools', count: 12 },
-  { id: 'edit', label: 'Edit & Objects', count: 2 },
-  { id: 'organize', label: 'Organize & Reorder', count: 3 },
-  { id: 'security-batch', label: 'Security & Batch Queue', count: 5 },
-  { id: 'word-convert', label: 'Word & PDF Convert', count: 2 }
+  { id: 'all', label: 'All Studio Tools', count: PDF_TOOLS_CATALOG.length },
+  {
+    id: 'convert-all',
+    label: 'All 13 Conversions',
+    count: PDF_TOOLS_CATALOG.filter((t) => Boolean(t.conversionSubcategory)).length
+  },
+  {
+    id: 'pdf-to-office',
+    label: 'PDF to Office',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'pdf-to-office').length
+  },
+  {
+    id: 'pdf-to-images-web',
+    label: 'PDF to Images & Web',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'pdf-to-images-web').length
+  },
+  {
+    id: 'formats-to-pdf',
+    label: 'Other Formats to PDF',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'formats-to-pdf').length
+  },
+  {
+    id: 'archival',
+    label: 'Archival (PDF/A)',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'archival').length
+  },
+  {
+    id: 'edit',
+    label: 'Edit & Objects',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.category === 'edit-pdf').length
+  },
+  {
+    id: 'organize',
+    label: 'Organize Pages',
+    count: PDF_TOOLS_CATALOG.filter((t) => t.category === 'organize-pdf').length
+  },
+  {
+    id: 'security-batch',
+    label: 'Security & Batch',
+    count: PDF_TOOLS_CATALOG.filter(
+      (t) => t.category === 'pdf-security' || t.category === 'optimize-pdf'
+    ).length
+  }
 ];
 
 function matchesStudioGroup(tool: PdfToolDefinition, group: StudioFilterGroup): boolean {
   if (group === 'all') return true;
+  if (group === 'convert-all') return Boolean(tool.conversionSubcategory);
+  if (
+    group === 'pdf-to-office' ||
+    group === 'pdf-to-images-web' ||
+    group === 'formats-to-pdf' ||
+    group === 'archival'
+  ) {
+    return tool.conversionSubcategory === group;
+  }
   if (group === 'edit') return tool.category === 'edit-pdf';
   if (group === 'organize') return tool.category === 'organize-pdf';
   if (group === 'security-batch') {
     return tool.category === 'pdf-security' || tool.category === 'optimize-pdf';
-  }
-  if (group === 'word-convert') {
-    return tool.category === 'convert-to-pdf' || tool.category === 'convert-from-pdf';
   }
   return true;
 }
@@ -95,8 +150,8 @@ const SpatialToolCard: React.FC<{
     const rect = el.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    const ry = (px - 0.5) * 11;
-    const rx = (0.5 - py) * 11;
+    const ry = (px - 0.5) * 10;
+    const rx = (0.5 - py) * 10;
     setTilt({
       rx,
       ry,
@@ -109,6 +164,8 @@ const SpatialToolCard: React.FC<{
   const handlePointerLeave = () => {
     setTilt({ rx: 0, ry: 0, gx: 50, gy: 50, active: false });
   };
+
+  const badgeLabel = tool.conversionSubcategoryLabel || tool.categoryLabel;
 
   return (
     <button
@@ -126,14 +183,14 @@ const SpatialToolCard: React.FC<{
           ? 'transform 70ms linear, border-color 160ms ease'
           : 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms ease'
       }}
-      className="tool-flip-card group relative text-left p-5 rounded-xl bg-theme-surface border border-theme-subtle hover:border-theme-accent flex flex-col justify-between gap-4 cursor-pointer overflow-hidden"
+      className="tool-flip-card group relative text-left p-5 rounded-xl bg-theme-surface/90 border border-theme-subtle hover:border-theme-accent flex flex-col justify-between gap-4 cursor-pointer overflow-hidden shadow-lg"
     >
       {/* Dynamic 3D Specular Cursor Highlight */}
       <div
         aria-hidden="true"
         style={{
           opacity: tilt.active ? 1 : 0,
-          background: `radial-gradient(320px circle at ${tilt.gx}% ${tilt.gy}%, rgba(124, 58, 237, 0.14), transparent 70%)`
+          background: `radial-gradient(320px circle at ${tilt.gx}% ${tilt.gy}%, rgba(124, 58, 237, 0.15), transparent 70%)`
         }}
         className="pointer-events-none absolute inset-0 transition-opacity duration-200"
       />
@@ -145,7 +202,7 @@ const SpatialToolCard: React.FC<{
             <ToolIcon name={tool.iconName} className="w-5 h-5" />
           </div>
           <span className="text-xs font-mono text-theme-muted tabular-nums">
-            {String(index + 1).padStart(2, '0')} · {tool.categoryLabel}
+            {String(index + 1).padStart(2, '0')} · {badgeLabel}
           </span>
         </div>
 
@@ -173,7 +230,7 @@ const SpatialToolCard: React.FC<{
             ? 'Open 2D Studio'
             : tool.workspaceType === 'batch'
             ? 'Launch Batch Queue'
-            : 'Open Workspace'}
+            : 'Open Converter'}
         </span>
       </div>
     </button>
@@ -193,7 +250,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
     if (cat === 'edit-pdf') return 'edit';
     if (cat === 'organize-pdf') return 'organize';
     if (cat === 'pdf-security' || cat === 'optimize-pdf') return 'security-batch';
-    if (cat === 'convert-to-pdf' || cat === 'convert-from-pdf') return 'word-convert';
+    if (cat === 'convert-to-pdf' || cat === 'convert-from-pdf') return 'convert-all';
     return 'all';
   };
 
@@ -217,7 +274,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
     setSelectedGroup(nextGroup);
   };
 
-  // Run GSAP Flip animation whenever filtered tools change
   useEffect(() => {
     if (!flipStateRef.current || !gridContainerRef.current) return;
     Flip.from(flipStateRef.current, {
@@ -271,6 +327,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
       tool.shortName,
       tool.description,
       tool.categoryLabel,
+      tool.conversionSubcategoryLabel || '',
       ...tool.keywords
     ]
       .join(' ')
@@ -278,35 +335,54 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
     return q.split(/\s+/).every((tok) => hay.includes(tok));
   });
 
+  // Detect staged file formats for contextual Hero actions
   const hasWordFiles = heroFiles.some((f) => f.name.toLowerCase().endsWith('.docx'));
+  const hasExcelFiles = heroFiles.some((f) => /\.(xlsx|csv)$/i.test(f.name));
+  const hasPptFiles = heroFiles.some((f) => f.name.toLowerCase().endsWith('.pptx'));
+  const hasHtmlFiles = heroFiles.some((f) => /\.(html|htm)$/i.test(f.name));
+  const hasJpgFiles = heroFiles.some((f) => /\.(jpg|jpeg)$/i.test(f.name));
+  const hasPngFiles = heroFiles.some((f) => f.name.toLowerCase().endsWith('.png'));
+  const hasPdfFiles = heroFiles.some((f) => f.name.toLowerCase().endsWith('.pdf'));
+
+  const conversionSubcategoryOrder: ConversionSubcategory[] = [
+    'pdf-to-office',
+    'pdf-to-images-web',
+    'formats-to-pdf',
+    'archival'
+  ];
 
   return (
-    <div className="space-y-20 pb-20">
+    <div className="relative space-y-20 pb-20">
       {/* ========================================================= */}
-      {/* 1. HERO DROPZONE + INTERACTIVE 3D DOCUMENT STUDIO STAGE    */}
+      {/* FULL-BLEED AMBIENT 3D ARCHITECTURAL BACKGROUND CANVAS     */}
       {/* ========================================================= */}
-      <section className="relative overflow-hidden border-b border-theme-subtle pt-10 pb-16">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[920px] h-[420px] rounded-full bg-violet-600/12 blur-[130px]"
+      <Suspense fallback={null}>
+        <ThreeHeroStage
+          isDropzoneActive={isDropzoneDragging}
+          activeFilterGroup={selectedGroup}
         />
+      </Suspense>
 
-        <div className="max-w-[1440px] mx-auto px-6 relative z-10 space-y-10">
+      {/* ========================================================= */}
+      {/* 1. CENTERED EDITORIAL HERO + MAGNETIC DROPZONE            */}
+      {/* ========================================================= */}
+      <section className="relative z-10 border-b border-theme-subtle pt-10 pb-16">
+        <div className="max-w-[1440px] mx-auto px-6 space-y-12">
           {/* Top Utility Strip */}
           <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-theme-subtle text-xs">
             <div className="flex items-center gap-2 text-theme-secondary">
-              <span>ISO 32000 Document Architecture</span>
+              <span>ISO 32000 &amp; ISO 19005 PDF/A Architecture</span>
               <span aria-hidden="true">·</span>
-              <span>12 Essential Core Utilities</span>
+              <span>13 Bidirectional Conversion Engines</span>
               <span aria-hidden="true">·</span>
-              <span>100% Free &amp; Local-First</span>
+              <span>Direct 2D Canvas Object Manipulation</span>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={onOpenCommandPalette}
-                className="inline-flex items-center gap-3 px-3.5 py-1.5 rounded-lg bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
+                className="inline-flex items-center gap-3 px-3.5 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5 text-theme-accent" />
                 <span>Quick Switch Tool...</span>
@@ -318,7 +394,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
               <button
                 type="button"
                 onClick={onOpenSettingsModal}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5 text-theme-accent" />
                 <span className="capitalize">Theme: {theme.preset}</span>
@@ -332,269 +408,405 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
             </div>
           </div>
 
-          {/* Two-Column Hero Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
-            {/* Left Column: Editorial Headline + Magnetic Dropzone */}
-            <div className="lg:col-span-7 flex flex-col justify-between space-y-8">
-              <div className="space-y-5">
-                <div className="text-xs font-medium text-theme-secondary">
-                  2D PDF Studio · Sajda Object Control · Spring Page Reordering · Batch Password Vault
-                </div>
+          {/* Wide Editorial Hero & Dropzone */}
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <div className="text-xs font-mono text-theme-accent tracking-wider uppercase">
+              Vellum PDF Studio · Direct Canvas Object Editor · 13-Tool Conversion Suite · ISO PDF/A
+            </div>
 
-                <h1
-                  style={{ fontSize: 'clamp(2.35rem, 4.2vw, 3.75rem)', textWrap: 'balance' } as React.CSSProperties}
-                  className="font-extrabold tracking-tight text-theme-primary leading-[1.08]"
+            <h1
+              style={{ fontSize: 'clamp(2.5rem, 4.8vw, 4.25rem)', textWrap: 'balance' } as React.CSSProperties}
+              className="font-extrabold tracking-tight text-theme-primary leading-[1.06]"
+            >
+              Precision PDF Engineering, Conversion &amp; Canvas Control.
+            </h1>
+
+            <p className="text-base sm:text-lg text-theme-secondary max-w-2xl mx-auto leading-relaxed">
+              Manipulate PDF objects directly on a Figma-grade 2D canvas, or convert seamlessly between PDF, Word, Excel, PowerPoint, JPG, PNG, HTML5, and ISO 19005 PDF/A.
+            </p>
+          </div>
+
+          {/* Magnetic Interactive Upload Dropzone */}
+          <motion.div
+            animate={{
+              scale: isDropzoneDragging ? 1.015 : 1,
+              borderColor: isDropzoneDragging ? 'rgba(124, 58, 237, 0.9)' : undefined
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!isDropzoneDragging) setIsDropzoneDragging(true);
+            }}
+            onDragLeave={() => setIsDropzoneDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDropzoneDragging(false);
+              if (e.dataTransfer.files?.length) {
+                handleHeroFileDrop(Array.from(e.dataTransfer.files));
+              }
+            }}
+            className="max-w-4xl mx-auto p-7 rounded-2xl bg-theme-surface/95 border border-theme-strong space-y-5 shadow-2xl"
+          >
+            <input
+              ref={heroFileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.xlsx,.csv,.pptx,.html,.htm,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) {
+                  handleHeroFileDrop(Array.from(e.target.files));
+                }
+                e.target.value = '';
+              }}
+            />
+
+            <AnimatePresence mode="wait">
+              {heroFiles.length === 0 ? (
+                <motion.div
+                  key="empty-dropzone"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.16 }}
+                  className="space-y-5"
                 >
-                  Focused Document Engineering, Zero Clutter.
-                </h1>
-
-                <p className="text-base text-theme-secondary max-w-2xl leading-relaxed">
-                  Explore your document layers in interactive 3D on the right, then step into our distraction-free 2D PDF Studio to edit native text, hide or purge PDF objects, drag-and-drop reorder pages with spring physics, or lock and unlock multiple files in one go.
-                </p>
-              </div>
-
-              {/* Magnetic Interactive Upload Dropzone */}
-              <motion.div
-                animate={{
-                  scale: isDropzoneDragging ? 1.015 : 1,
-                  borderColor: isDropzoneDragging ? 'rgba(124, 58, 237, 0.9)' : undefined
-                }}
-                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!isDropzoneDragging) setIsDropzoneDragging(true);
-                }}
-                onDragLeave={() => setIsDropzoneDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDropzoneDragging(false);
-                  if (e.dataTransfer.files?.length) {
-                    handleHeroFileDrop(Array.from(e.dataTransfer.files));
-                  }
-                }}
-                className="p-6 rounded-xl bg-theme-surface border border-theme-strong space-y-5 shadow-xl"
-              >
-                <input
-                  ref={heroFileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.txt"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.length) {
-                      handleHeroFileDrop(Array.from(e.target.files));
-                    }
-                    e.target.value = '';
-                  }}
-                />
-
-                <AnimatePresence mode="wait">
-                  {heroFiles.length === 0 ? (
-                    <motion.div
-                      key="empty-dropzone"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.16 }}
-                      className="space-y-4"
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3.5">
-                          <div className="p-3 rounded-xl bg-theme-elevated border border-theme-subtle text-theme-accent shrink-0">
-                            <Upload className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <h2 className="text-sm font-bold text-theme-primary">
-                              Drop PDFs or Word (.docx) Files Here to Begin
-                            </h2>
-                            <p className="text-xs text-theme-secondary mt-0.5">
-                              Dragging files over this box magnetizes the 3D Document Stack on the right.
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
-                          <button
-                            type="button"
-                            onClick={() => heroFileInputRef.current?.click()}
-                            className="px-4 py-2.5 rounded-lg text-xs font-bold bg-theme-accent text-white hover:opacity-95 transition-opacity whitespace-nowrap cursor-pointer"
-                          >
-                            Select Files
-                          </button>
-                          <button
-                            type="button"
-                            onClick={onOpenEditorWithSample}
-                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent transition-colors whitespace-nowrap cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
-                            Open Sample in 2D Editor
-                          </button>
-                        </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3.5 rounded-xl bg-theme-elevated border border-theme-subtle text-theme-accent shrink-0">
+                        <Upload className="w-6 h-6" />
                       </div>
-
-                      {/* Quick Direct Workflow Launch Bar */}
-                      <div className="pt-3 border-t border-theme-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-theme-secondary">
-                        <span>Instant Launch:</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onSelectTool(findToolById('organize-pages')!, [])}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-theme-elevated border border-theme-subtle hover:text-theme-primary cursor-pointer"
-                          >
-                            <LayoutGrid className="w-3.5 h-3.5 text-theme-accent" />
-                            <span>Spring Page Organizer</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onSelectTool(findToolById('batch-process')!, [])}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-theme-elevated border border-theme-subtle hover:text-theme-primary cursor-pointer"
-                          >
-                            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Multi-Word &amp; PDF Password Queue</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onSelectTool(findToolById('remove-objects')!, [])}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-theme-elevated border border-theme-subtle hover:text-theme-primary cursor-pointer"
-                          >
-                            <Layers className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Sajda Object Manager</span>
-                          </button>
-                        </div>
+                      <div>
+                        <h2 className="text-base font-bold text-theme-primary">
+                          Drop PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), HTML, or Images Here
+                        </h2>
+                        <p className="text-xs text-theme-secondary mt-1">
+                          Automatically routes your file to the 2D PDF Editor, Office/Image/PDF-A Converter, or Batch Security Queue.
+                        </p>
                       </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="populated-dropzone"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                      className="space-y-4"
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => heroFileInputRef.current?.click()}
+                        className="px-4 py-2.5 rounded-lg text-xs font-bold bg-theme-accent text-white hover:opacity-95 transition-opacity whitespace-nowrap cursor-pointer"
+                      >
+                        Select Files
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenEditorWithSample}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
+                        Open Sample in 2D PDF Editor
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Direct Workflow Launch Bar */}
+                  <div className="pt-4 border-t border-theme-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-theme-secondary">
+                    <span>Direct Studio Workspaces:</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onOpenEditorWithSample}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent hover:text-theme-primary cursor-pointer"
+                      >
+                        <FileEdit className="w-3.5 h-3.5 text-theme-accent" />
+                        <span>2D Object &amp; Shape Editor</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('pdf-to-word')!, [])}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent hover:text-theme-primary cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-theme-accent" />
+                        <span>PDF to Word (.docx)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('pdf-to-excel')!, [])}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent hover:text-theme-primary cursor-pointer"
+                      >
+                        <Sheet className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>PDF to Excel (.xlsx)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('pdf-to-pdfa')!, [])}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent hover:text-theme-primary cursor-pointer"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>PDF to PDF/A Archival</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="populated-dropzone"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  className="space-y-4"
+                >
+                  <div className="flex items-center justify-between border-b border-theme-subtle pb-3">
+                    <div className="text-xs font-bold text-theme-primary font-mono tabular-nums">
+                      {heroFiles.length} file(s) staged ·{' '}
+                      {heroFiles.map((f) => f.name).join(', ').slice(0, 64)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setHeroFiles([])}
+                      className="text-xs text-theme-secondary hover:text-rose-400 cursor-pointer"
                     >
-                      <div className="flex items-center justify-between border-b border-theme-subtle pb-3">
-                        <div className="text-xs font-bold text-theme-primary font-mono tabular-nums">
-                          {heroFiles.length} file(s) staged ·{' '}
-                          {heroFiles.map((f) => f.name).join(', ').slice(0, 56)}
-                        </div>
+                      Clear Staged Files
+                    </button>
+                  </div>
+
+                  <div className="text-xs font-semibold text-theme-secondary">
+                    Choose a conversion or editing workspace for your staged file(s):
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {hasPdfFiles && (
+                      <>
                         <button
                           type="button"
-                          onClick={() => setHeroFiles([])}
-                          className="text-xs text-theme-secondary hover:text-rose-400 cursor-pointer"
+                          onClick={() => onSelectTool(findToolById('edit-pdf')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
                         >
-                          Clear Staged Files
+                          <FileEdit className="w-3.5 h-3.5" />
+                          Open in 2D PDF Editor
                         </button>
-                      </div>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-word')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-theme-accent" />
+                          PDF to Word (.docx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-excel')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          <Sheet className="w-3.5 h-3.5 text-emerald-400" />
+                          PDF to Excel (.xlsx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-ppt')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          PDF to PowerPoint (.pptx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-jpg')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          <Image className="w-3.5 h-3.5 text-theme-accent" />
+                          PDF to JPG
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-png')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          PDF to PNG
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTool(findToolById('pdf-to-pdfa')!, heroFiles)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                          PDF to PDF/A
+                        </button>
+                      </>
+                    )}
 
-                      <div className="text-xs font-semibold text-theme-secondary">
-                        Choose a workspace for your staged file(s):
-                      </div>
+                    {hasWordFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('word-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Convert Word (.docx) to PDF
+                      </button>
+                    )}
 
-                      <div className="flex flex-wrap gap-2">
-                        {!hasWordFiles && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onSelectTool(findToolById('edit-pdf')!, heroFiles)}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
-                            >
-                              <FileEdit className="w-3.5 h-3.5" />
-                              Open in 2D PDF Editor
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onSelectTool(findToolById('organize-pages')!, heroFiles)}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
-                            >
-                              <LayoutGrid className="w-3.5 h-3.5 text-theme-accent" />
-                              Reorder &amp; Organize Pages
-                            </button>
-                          </>
-                        )}
+                    {hasExcelFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('excel-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        <Sheet className="w-3.5 h-3.5" />
+                        Convert Excel (.xlsx) to PDF
+                      </button>
+                    )}
 
-                        {hasWordFiles && (
-                          <button
-                            type="button"
-                            onClick={() => onSelectTool(findToolById('word-to-pdf')!, heroFiles)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Convert Word to Protected PDF
-                          </button>
-                        )}
+                    {hasPptFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('ppt-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        Convert PowerPoint (.pptx) to PDF
+                      </button>
+                    )}
 
+                    {hasJpgFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('jpg-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        <Image className="w-3.5 h-3.5" />
+                        Convert JPG to PDF
+                      </button>
+                    )}
+
+                    {hasPngFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('png-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        <Image className="w-3.5 h-3.5" />
+                        Convert PNG to PDF
+                      </button>
+                    )}
+
+                    {hasHtmlFiles && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTool(findToolById('html-to-pdf')!, heroFiles)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-theme-accent text-white cursor-pointer"
+                      >
+                        Convert HTML to PDF
+                      </button>
+                    )}
+
+                    {hasPdfFiles && (
+                      <>
                         <button
                           type="button"
                           onClick={() => onSelectTool(findToolById('protect-pdf')!, heroFiles)}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
                         >
                           <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                          Password-Protect All
+                          Password-Protect
                         </button>
-
                         <button
                           type="button"
                           onClick={() => onSelectTool(findToolById('unlock-pdf')!, heroFiles)}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
                         >
                           <Unlock className="w-3.5 h-3.5 text-amber-400" />
-                          Unlock All in One Go
+                          Unlock PDF
                         </button>
-
-                        {heroFiles.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => onSelectTool(findToolById('merge-pdf')!, heroFiles)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
-                          >
-                            Merge {heroFiles.length} PDFs
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </div>
-
-            {/* Right Column: Interactive Three.js 3D Document Studio Stage (Homepage Exclusive) */}
-            <Suspense
-              fallback={
-                <div className="lg:col-span-5 rounded-xl bg-theme-surface border border-theme-subtle min-h-[500px] flex flex-col items-center justify-center p-6 text-center space-y-3">
-                  <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs font-mono text-theme-secondary">
-                    Initializing 3D Document Architecture Studio...
-                  </p>
-                </div>
-              }
-            >
-              <ThreeHeroStage
-                onLaunchEditorSample={onOpenEditorWithSample}
-                onSelectToolById={(id) => {
-                  const found = findToolById(id);
-                  if (found) onSelectTool(found, []);
-                }}
-                isDropzoneActive={isDropzoneDragging}
-              />
-            </Suspense>
-          </div>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </section>
 
       {/* ========================================================= */}
-      {/* 2. CURATED 12-TOOL SPATIAL STUDIO GRID (GSAP FLIP + 3D)   */}
+      {/* 2. DEDICATED 4-SUBCATEGORY CONVERSION SUITE ARCHITECTURE  */}
       {/* ========================================================= */}
-      <section id="tool-directory" className="max-w-[1440px] mx-auto px-6 space-y-8">
+      <section id="conversion-suite" className="relative z-10 max-w-[1440px] mx-auto px-6 space-y-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-theme-subtle pb-5">
+          <div className="space-y-1.5">
+            <div className="text-xs font-mono text-theme-accent uppercase tracking-wider">
+              01 · BIDIRECTIONAL CONVERSION ARCHITECTURE (13 TOOLS)
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-theme-primary">
+              Format-Accurate Document &amp; Archival Conversion Suite.
+            </h2>
+            <p className="text-sm text-theme-secondary max-w-2xl">
+              Organized into four dedicated subcategories: PDF to Office, PDF to Images &amp; Web, Other Formats to PDF, and ISO 19005 PDF/A Archival Conversion.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+          {conversionSubcategoryOrder.map((subKey, sIdx) => {
+            const subTools = PDF_TOOLS_CATALOG.filter(
+              (t) => t.conversionSubcategory === subKey
+            );
+            return (
+              <div
+                key={subKey}
+                className="p-5 rounded-2xl bg-theme-surface/95 border border-theme-subtle flex flex-col justify-between space-y-4 shadow-lg"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-theme-subtle pb-2.5">
+                    <span className="text-xs font-mono text-theme-accent font-bold">
+                      0{sIdx + 1} · {CONVERSION_SUBCATEGORY_LABELS[subKey]}
+                    </span>
+                    <span className="text-[11px] font-mono text-theme-muted">
+                      {subTools.length} {subTools.length === 1 ? 'Tool' : 'Tools'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {subTools.map((tool) => (
+                      <button
+                        key={tool.id}
+                        type="button"
+                        onClick={() => onSelectTool(tool, [])}
+                        className="w-full group p-3 rounded-xl bg-theme-elevated/80 border border-theme-subtle hover:border-theme-accent text-left transition-all flex items-center justify-between gap-3 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-2 rounded-lg bg-theme-surface border border-theme-subtle text-theme-accent shrink-0">
+                            <ToolIcon name={tool.iconName} className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-theme-primary group-hover:text-theme-accent truncate">
+                              {tool.shortName}
+                            </div>
+                            <div className="text-[10px] font-mono text-theme-muted truncate">
+                              {tool.acceptedExtensions[0]} → {tool.outputExtension}
+                            </div>
+                          </div>
+                        </div>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-theme-muted group-hover:text-theme-accent shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ========================================================= */}
+      {/* 3. COMPLETE STUDIO DIRECTORY GRID (GSAP FLIP + 3D TILT)   */}
+      {/* ========================================================= */}
+      <section id="tool-directory" className="relative z-10 max-w-[1440px] mx-auto px-6 space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-theme-subtle pb-6">
           <div className="space-y-2">
             <div className="text-xs font-mono text-theme-accent">
-              01 · CURATED 12-TOOL STUDIO
+              02 · COMPLETE STUDIO DIRECTORY ({PDF_TOOLS_CATALOG.length} VERIFIED TOOLS)
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-theme-primary">
-              Every Essential Document Workflow, Zero Bloat.
+              Direct Canvas Editing, Page Physics, Conversions &amp; Security.
             </h2>
             <p className="text-sm text-theme-secondary max-w-2xl">
-              We pruned 24 redundant utilities so your most-used PDF editing, spring page organization, batch password protection, and Word conversion tools are always one click away.
+              Filter by conversion subcategory, direct object editing, page organization, or batch security.
             </p>
           </div>
 
@@ -605,15 +817,15 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
               type="text"
               value={dirSearch}
               onChange={(e) => setDirSearch(e.target.value)}
-              placeholder="Filter the 12 core tools..."
-              aria-label="Filter the 12 core tools"
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-theme-surface border border-theme-subtle text-xs text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-accent"
+              placeholder="Filter tools (e.g. excel, pdf/a, word)..."
+              aria-label="Filter studio tools"
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-theme-surface/90 border border-theme-subtle text-xs text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-accent"
             />
           </div>
         </div>
 
         {/* Motion Shared-Layout Category Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-theme-surface border border-theme-subtle w-fit">
+        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-theme-surface/90 border border-theme-subtle w-fit">
           {STUDIO_FILTERS.map((tab) => {
             const active = selectedGroup === tab.id;
             return (
@@ -621,7 +833,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => handleFilterChange(tab.id)}
-                className={`relative px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`relative px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                   active ? 'text-white' : 'text-theme-secondary hover:text-theme-primary'
                 }`}
               >
@@ -647,7 +859,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
           })}
         </div>
 
-        {/* 12-Tool Grid with 3D Perspective Tilt & GSAP Flip Reflow */}
+        {/* Tool Grid with 3D Perspective Tilt & GSAP Flip Reflow */}
         <div
           ref={gridContainerRef}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
@@ -664,19 +876,19 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
       </section>
 
       {/* ========================================================= */}
-      {/* 3. STUDIO CAPABILITIES & SPRING REORDER SHOWCASE BANNER   */}
+      {/* 4. STUDIO CAPABILITIES & SPRING REORDER SHOWCASE BANNER   */}
       {/* ========================================================= */}
-      <section id="how-it-works" className="max-w-[1440px] mx-auto px-6">
-        <div className="p-8 rounded-2xl bg-theme-surface border border-theme-subtle grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <section id="how-it-works" className="relative z-10 max-w-[1440px] mx-auto px-6">
+        <div className="p-8 rounded-2xl bg-theme-surface/95 border border-theme-subtle grid grid-cols-1 lg:grid-cols-12 gap-8 items-center shadow-xl">
           <div className="lg:col-span-7 space-y-4">
             <div className="text-xs font-mono text-theme-accent">
-              02 · 2D PRECISION WORKSPACE + SPRING PHYSICS
+              03 · 2D PRECISION WORKSPACE + DIRECT OBJECT CONTROL
             </div>
             <h2 className="text-2xl font-extrabold tracking-tight text-theme-primary">
-              Built for Fast, Tactile Multi-Page Editing.
+              Figma-Grade Object Manipulation on Real PDF Streams.
             </h2>
             <p className="text-sm text-theme-secondary leading-relaxed max-w-2xl">
-              While the Homepage uses Three.js WebGL to visualize PDF structure in 3D, our workspaces switch to a pure 2D canvas powered by Motion springs and GSAP Flip—giving you surgical accuracy for Sajda-style object hiding, genuine byte-stream redaction, and drag-and-drop page reordering.
+              Step into our 2D PDF Editor to select, drag, resize from 8 handles, rotate, align, group, cover with background blur, or permanently delete native PDF text and vector objects—backed by faithful PDF stream export.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
@@ -691,24 +903,24 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 onClick={() => onSelectTool(findToolById('batch-process')!, [])}
                 className="px-4 py-2.5 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent transition-colors cursor-pointer"
               >
-                Open Multi-File Password Queue
+                Open Multi-File Batch Queue
               </button>
             </div>
           </div>
 
           <div className="lg:col-span-5 grid grid-cols-2 gap-3 text-xs">
             <div className="p-4 rounded-xl bg-theme-elevated border border-theme-subtle space-y-1.5">
-              <div className="font-mono text-theme-accent font-bold tabular-nums">01 · Spring Drag</div>
-              <div className="font-bold text-theme-primary">Visual Page Sorter</div>
+              <div className="font-mono text-theme-accent font-bold tabular-nums">01 · 8-Handle Transform</div>
+              <div className="font-bold text-theme-primary">Direct Object Editing</div>
               <p className="text-theme-secondary leading-relaxed">
-                Reorder pages in the sidebar rail or full-screen grid with live spring displacement.
+                Forgiving 8-way resize handles, top rotation handle, smart snap guides, and multi-select align.
               </p>
             </div>
             <div className="p-4 rounded-xl bg-theme-elevated border border-theme-subtle space-y-1.5">
-              <div className="font-mono text-amber-400 font-bold tabular-nums">02 · Sajda Layers</div>
-              <div className="font-bold text-theme-primary">Hide or Purge Objects</div>
+              <div className="font-mono text-amber-400 font-bold tabular-nums">02 · 13 Conversions</div>
+              <div className="font-bold text-theme-primary">Office, Web &amp; PDF/A</div>
               <p className="text-theme-secondary leading-relaxed">
-                Non-destructively toggle visibility or permanently strip PDF operators on export.
+                Convert between PDF, Word, Excel, PowerPoint, JPG, PNG, HTML5, and ISO 19005 PDF/A.
               </p>
             </div>
             <div className="p-4 rounded-xl bg-theme-elevated border border-theme-subtle space-y-1.5">

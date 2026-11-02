@@ -38,12 +38,20 @@ export interface BatchQueueItem {
   errorMessage?: string;
 }
 
+export type ConversionSubcategory =
+  | 'pdf-to-office'
+  | 'pdf-to-images-web'
+  | 'formats-to-pdf'
+  | 'archival';
+
 export interface PdfToolDefinition {
   id: string;
   name: string;
   shortName: string;
   category: ToolCategory;
   categoryLabel: string;
+  conversionSubcategory?: ConversionSubcategory;
+  conversionSubcategoryLabel?: string;
   description: string;
   acceptedTypes: string[];
   acceptedExtensions: string[];
@@ -75,6 +83,7 @@ export type PdfObjectType =
   | 'native-text'
   | 'native-image'
   | 'native-shape'
+  | 'ocr-text'
   | 'added-text'
   | 'added-image'
   | 'shape'
@@ -83,6 +92,34 @@ export type PdfObjectType =
   | 'signature'
   | 'watermark'
   | 'redaction';
+
+export type PageContentClassification = 'native' | 'scanned' | 'mixed';
+export type OcrLanguageCode = 'eng' | 'urd' | 'eng+urd';
+export type OcrPreprocessMode =
+  | 'auto-enhance'
+  | 'grayscale-contrast'
+  | 'adaptive-threshold'
+  | 'denoise'
+  | 'none';
+export type BgReconstructionMethod = 'auto-color' | 'inpaint-texture' | 'manual-solid';
+export type ScannedExportMode = 'visually-edited' | 'searchable-ocr' | 'redacted-sanitized';
+
+export type PdfShapeKind =
+  | 'rectangle'
+  | 'rounded-rectangle'
+  | 'circle'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'polygon'
+  | 'freehand'
+  | 'cover-overlay'
+  | 'highlight'
+  | 'underline-mark'
+  | 'strikethrough'
+  | 'sticky-note';
+
+export type StrokeStyleKind = 'solid' | 'dashed' | 'dotted';
 
 export interface PdfEditableObject {
   id: string;
@@ -94,6 +131,8 @@ export interface PdfEditableObject {
   locked: boolean;
   deleted: boolean;
   zIndex: number;
+  groupId?: string;
+  lockAspectRatio?: boolean;
 
   // Geometry in PDF page points (top-left origin normalized for UI, converted to bottom-left for pdf-lib)
   x: number;
@@ -103,7 +142,13 @@ export interface PdfEditableObject {
   rotation: number;
   opacity: number;
 
-  // Text properties (for native-text, added-text, watermark, annotation comment)
+  // Original native geometry (so moving/modifying native objects knows where to mask original stream content)
+  originalX?: number;
+  originalY?: number;
+  originalWidth?: number;
+  originalHeight?: number;
+
+  // Text properties (for native-text, ocr-text, added-text, watermark, annotation comment)
   text?: string;
   originalText?: string;
   fontFamily?: 'Helvetica' | 'Times-Roman' | 'Courier';
@@ -114,18 +159,64 @@ export interface PdfEditableObject {
   color?: string;
   textAlign?: 'left' | 'center' | 'right';
   lineHeight?: number;
+  letterSpacing?: number;
 
-  // Shape / Annotation / Redaction properties
-  shapeKind?: 'rectangle' | 'circle' | 'line' | 'arrow' | 'highlight' | 'underline-mark' | 'strikethrough' | 'freehand' | 'sticky-note';
+  // OCR & Scanned Document Editing properties (Sections 6–12)
+  ocrConfidence?: number; // 0 to 100
+  ocrConfidenceVerified?: boolean;
+  ocrLanguage?: OcrLanguageCode;
+  textDirection?: 'ltr' | 'rtl';
+  readingOrder?: number;
+  bgReconstructionMethod?: BgReconstructionMethod;
+  sampledBgColor?: string;
+  sampledTextColor?: string;
+  bgPatchDataUrl?: string;
+  bgMaskPadding?: number; // -4 to +12 pt
+  ocrEdited?: boolean;
+  isScannedFormField?: boolean;
+  scannedFieldLabel?: string;
+
+  // Shape / Annotation / Cover Overlay / Redaction properties
+  shapeKind?: PdfShapeKind;
   fillColor?: string;
+  fillOpacity?: number; // 0 to 1, independent from strokeOpacity
+  transparentFill?: boolean;
+  gradientFill?: {
+    enabled: boolean;
+    toColor: string;
+    angle: number;
+  };
   strokeColor?: string;
   strokeWidth?: number;
-  points?: Array<{ x: number; y: number }>; // For freehand drawing
+  strokeOpacity?: number; // 0 to 1, independent from fillOpacity
+  strokeStyle?: StrokeStyleKind;
+  cornerRadius?: number; // For rounded-rectangle and cover-overlay
+  polygonSides?: number; // For regular polygon (3 = triangle, 5 = pentagon, 6 = hexagon, etc.)
+  closePath?: boolean; // For freehand / custom polygon paths
+  isCoverOverlay?: boolean; // Method A: non-destructive visual cover overlay
+  points?: Array<{ x: number; y: number }>; // For freehand / custom path drawing
   redactionCode?: string; // e.g., "CONFIDENTIAL", "PII - REDACTED"
+
+  // Visual Effects: Background Blur vs Object Blur & Drop Shadow
+  backdropBlur?: number; // Blurs underlying PDF page content inside the shape boundary (0 - 24px)
+  objectBlur?: number; // Blurs the object itself (0 - 20px)
+  shadow?: {
+    enabled: boolean;
+    color: string;
+    blur: number;
+    offsetX: number;
+    offsetY: number;
+  };
 
   // Image / Signature properties
   imageDataUrl?: string;
   imageMimeType?: 'image/png' | 'image/jpeg';
+  crop?: {
+    top: number; // 0 to 45%
+    right: number;
+    bottom: number;
+    left: number;
+  };
   signatureKind?: 'visual-drawn' | 'visual-typed' | 'visual-uploaded' | 'cryptographic-sha256';
   signerName?: string;
   signatureHash?: string;
@@ -148,6 +239,14 @@ export interface PdfPageDescriptor {
   height: number;
   rotation: number; // 0, 90, 180, 270
   deleted: boolean;
+  isScannedCandidate?: boolean; // True when page is 'scanned' or 'mixed'
+  pageClassification?: PageContentClassification; // 'native' | 'scanned' | 'mixed'
+  nativeTextRunCount?: number;
+  imageXObjectCount?: number;
+  ocrProcessed?: boolean;
+  ocrRegionCount?: number;
+  ocrAvgConfidence?: number;
+  ocrLanguageUsed?: OcrLanguageCode;
   cropBox?: { x: number; y: number; width: number; height: number };
   thumbnailUrl?: string;
 }

@@ -54,7 +54,18 @@ export const TopNav: React.FC<TopNavProps> = ({
             }}
             className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
           >
-            12 Core Tools
+            All Tools ({PDF_TOOLS_CATALOG.length})
+          </a>
+          <a
+            href="#conversions"
+            onClick={(e) => {
+              e.preventDefault();
+              setMegaMenuOpen(false);
+              onNavigateDirectory('convert-from-pdf');
+            }}
+            className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+          >
+            Conversions (13)
           </a>
           <a
             href="#pdf-editor"
@@ -68,17 +79,6 @@ export const TopNav: React.FC<TopNavProps> = ({
             PDF Editor
           </a>
           <a
-            href="#organize"
-            onClick={(e) => {
-              e.preventDefault();
-              setMegaMenuOpen(false);
-              onNavigateDirectory('organize-pdf');
-            }}
-            className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
-          >
-            Organize
-          </a>
-          <a
             href="#security"
             onClick={(e) => {
               e.preventDefault();
@@ -87,7 +87,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             }}
             className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
           >
-            Security
+            Security &amp; Batch
           </a>
         </nav>
 
@@ -115,7 +115,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         </div>
       </div>
 
-      {/* Curated 12-Tool Quick Launcher Drawer */}
+      {/* Quick Launcher Drawer */}
       {megaMenuOpen && (
         <div
           onMouseLeave={() => setMegaMenuOpen(false)}
@@ -125,10 +125,10 @@ export const TopNav: React.FC<TopNavProps> = ({
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-theme-subtle">
               <div>
                 <h2 className="text-sm font-bold text-theme-primary">
-                  Curated 12-Tool Document Studio
+                  Vellum PDF Studio &amp; 13-Tool Conversion Suite
                 </h2>
                 <p className="text-xs text-theme-secondary mt-0.5">
-                  100% free with zero paywalls, zero watermarks, and full guest parity.
+                  Direct 2D canvas editing, PDF to Office/Images/Web/PDF-A, and Formats to PDF—100% free.
                 </p>
               </div>
               <button
@@ -139,11 +139,11 @@ export const TopNav: React.FC<TopNavProps> = ({
                 }}
                 className="px-3 py-1.5 text-xs font-semibold text-theme-accent border border-theme-subtle rounded-lg hover:bg-theme-muted whitespace-nowrap shrink-0 cursor-pointer"
               >
-                View Studio Grid
+                View Full Studio Grid
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 max-h-[65vh] overflow-y-auto pr-1">
               {PDF_TOOLS_CATALOG.map((tool) => (
                 <button
                   key={tool.id}
@@ -152,7 +152,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     setMegaMenuOpen(false);
                     onSelectTool(tool);
                   }}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-theme-surface border border-theme-subtle hover:border-theme-accent text-left transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-lg bg-theme-surface border border-theme-subtle hover:border-theme-accent text-left transition-colors cursor-pointer"
                 >
                   <div className="p-2 rounded-md bg-theme-elevated text-theme-accent shrink-0">
                     <ToolIcon name={tool.iconName} className="w-4 h-4" />
@@ -162,7 +162,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                       {tool.name}
                     </div>
                     <div className="text-[11px] text-theme-muted truncate">
-                      {tool.categoryLabel}
+                      {tool.conversionSubcategoryLabel || tool.categoryLabel}
                     </div>
                   </div>
                 </button>
@@ -200,11 +200,11 @@ export const TopNav: React.FC<TopNavProps> = ({
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onNavigateDirectory('all');
+                onNavigateDirectory('convert-from-pdf');
               }}
               className="text-left py-2 text-theme-primary border-b border-theme-subtle"
             >
-              All 12 Core Tools
+              13-Tool Conversion Suite
             </button>
             <button
               type="button"

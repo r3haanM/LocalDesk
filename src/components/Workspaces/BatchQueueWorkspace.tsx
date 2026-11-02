@@ -43,27 +43,16 @@ const BATCH_COMPATIBLE_TOOL_IDS = [
   'protect-pdf',
   'unlock-pdf',
   'compress-pdf',
-  'optimize-pdf',
-  'flatten-pdf',
-  'repair-pdf',
-  'watermark-pdf',
-  'page-numbers',
-  'header-footer',
-  'crop-pdf',
-  'rotate-pages',
-  'remove-metadata',
   'excel-to-pdf',
   'ppt-to-pdf',
   'jpg-to-pdf',
   'png-to-pdf',
-  'txt-to-pdf',
   'html-to-pdf',
   'pdf-to-word',
   'pdf-to-excel',
   'pdf-to-ppt',
-  'pdf-to-txt',
   'pdf-to-html',
-  'inspect-metadata'
+  'pdf-to-pdfa'
 ];
 
 const CONVERT_TO_PDF_IDS = [
@@ -72,7 +61,6 @@ const CONVERT_TO_PDF_IDS = [
   'ppt-to-pdf',
   'jpg-to-pdf',
   'png-to-pdf',
-  'txt-to-pdf',
   'html-to-pdf'
 ];
 
@@ -1045,7 +1033,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.docx,.xlsx,.pptx,.txt,.html,.jpg,.jpeg,.png"
+              accept=".pdf,.docx,.xlsx,.csv,.pptx,.html,.jpg,.jpeg,.png"
               className="hidden"
               onChange={(e) => {
                 if (e.target.files?.length) {

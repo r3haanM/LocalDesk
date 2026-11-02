@@ -3,18 +3,24 @@ import {
   StandardFonts,
   rgb,
   degrees,
-  PDFName,
   PDFRawStream,
   decodePDFRawStream
 } from 'pdf-lib';
 import {
   PdfEditableObject,
-  PdfPageDescriptor
+  PdfPageDescriptor,
+  ScannedExportMode
 } from '../types/pdf';
 import {
   extractPdfTextAndLayout,
+  loadPdfJsDocument,
   renderPdfPageToDataUrl
 } from './pdfRenderer';
+import {
+  classifyPdfPageContent,
+  hasNonWinAnsiChars,
+  renderUnicodeTextToPngDataUrl
+} from './scannedOcrEngine';
 
 export interface ParsedEditorDocument {
   pages: PdfPageDescriptor[];
@@ -49,11 +55,88 @@ function hexToRgbNormalized(hex = '#18181B'): { r: number; g: number; b: number 
   };
 }
 
+/**
+ * Extracts significant vector rectangles (`x y w h re`) from a PDF page's content stream
+ * so cards, banners, and graphic blocks can be selected, moved, resized, or deleted.
+ */
+function extractNativeVectorRectanglesFromPage(
+  pdfPage: any,
+  pageWidth: number,
+  pageHeight: number
+): Array<{ x: number; y: number; width: number; height: number; fillHex: string; strokeHex: string }> {
+  const detected: Array<{ x: number; y: number; width: number; height: number; fillHex: string; strokeHex: string }> = [];
+  try {
+    const { Contents } = pdfPage.node.normalizedEntries();
+    if (!Contents) return detected;
+    const context = pdfPage.doc.context;
+
+    const inspectStreamRef = (ref: any) => {
+      const stream = context.lookup(ref);
+      if (!(stream instanceof PDFRawStream)) return;
+      const decodedBytes = decodePDFRawStream(stream).decode();
+      const contentStr = new TextDecoder('latin1').decode(decodedBytes);
+
+      // Match `x y w h re` operators
+      const reRegex = /(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+re/g;
+      let match: RegExpExecArray | null;
+      while ((match = reRegex.exec(contentStr)) !== null) {
+        const rx = parseFloat(match[1]);
+        const ry = parseFloat(match[2]);
+        const rw = parseFloat(match[3]);
+        const rh = parseFloat(match[4]);
+
+        if (isNaN(rx) || isNaN(ry) || isNaN(rw) || isNaN(rh)) continue;
+        const absW = Math.abs(rw);
+        const absH = Math.abs(rh);
+
+        // Ignore full-page background rectangles or tiny hairlines (< 18pt)
+        if (absW >= pageWidth * 0.94 && absH >= pageHeight * 0.94) continue;
+        if (absW < 28 || absH < 18) continue;
+
+        const normX = Math.max(0, Math.round(rw < 0 ? rx + rw : rx));
+        const normBottomY = rh < 0 ? ry + rh : ry;
+        const topY = Math.max(0, Math.round(pageHeight - normBottomY - absH));
+
+        // Avoid duplicate rectangles at the exact same coordinates
+        const isDup = detected.some(
+          (d) =>
+            Math.abs(d.x - normX) < 4 &&
+            Math.abs(d.y - topY) < 4 &&
+            Math.abs(d.width - Math.round(absW)) < 4 &&
+            Math.abs(d.height - Math.round(absH)) < 4
+        );
+        if (!isDup && detected.length < 18) {
+          detected.push({
+            x: normX,
+            y: topY,
+            width: Math.round(absW),
+            height: Math.round(absH),
+            fillHex: '#F4F3FF',
+            strokeHex: '#DDD6FE'
+          });
+        }
+      }
+    };
+
+    if (typeof Contents.size === 'function') {
+      for (let i = 0; i < Contents.size(); i++) {
+        inspectStreamRef(Contents.get(i));
+      }
+    } else {
+      inspectStreamRef(Contents);
+    }
+  } catch {
+    // Safe fallback if stream is non-standard
+  }
+  return detected;
+}
+
 export async function parseDocumentIntoEditorModel(
   pdfBytes: Uint8Array
 ): Promise<ParsedEditorDocument> {
   const layout = await extractPdfTextAndLayout(pdfBytes);
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const pdfJsDoc = await loadPdfJsDocument(pdfBytes.slice(0));
 
   const pages: PdfPageDescriptor[] = [];
   const objects: PdfEditableObject[] = [];
@@ -71,6 +154,29 @@ export async function parseDocumentIntoEditorModel(
       thumbnailUrl = '';
     }
 
+    const charCount = pageStruct.textRuns.reduce((acc, r) => acc + r.str.trim().length, 0);
+    let pageClassInfo = {
+      classification: (pageStruct.textRuns.length === 0 ? 'scanned' : 'native') as
+        | 'native'
+        | 'scanned'
+        | 'mixed',
+      nativeTextRunCount: pageStruct.textRuns.length,
+      characterCount: charCount,
+      imageXObjectCount: 0,
+      isScannedCandidate: pageStruct.textRuns.length === 0
+    };
+
+    try {
+      const pdfJsPage = await pdfJsDoc.getPage(i + 1);
+      pageClassInfo = await classifyPdfPageContent(
+        pdfJsPage,
+        pageStruct.textRuns.length,
+        charCount
+      );
+    } catch {
+      // Fallback to text run heuristic
+    }
+
     pages.push({
       pageIndex: i,
       originalPageIndex: i,
@@ -78,15 +184,69 @@ export async function parseDocumentIntoEditorModel(
       height: pageStruct.height,
       rotation,
       deleted: false,
+      isScannedCandidate: pageClassInfo.isScannedCandidate,
+      pageClassification: pageClassInfo.classification,
+      nativeTextRunCount: pageClassInfo.nativeTextRunCount,
+      imageXObjectCount: pageClassInfo.imageXObjectCount,
+      ocrProcessed: false,
+      ocrRegionCount: 0,
       thumbnailUrl
     });
 
-    // Populate Native Text Objects from extracted runs
+    // 1. Populate Native Vector Graphic / Box Objects from PDF content stream
+    const nativeRects = extractNativeVectorRectanglesFromPage(
+      pdfLibPage,
+      pageStruct.width,
+      pageStruct.height
+    );
+    nativeRects.forEach((nr, vIdx) => {
+      objects.push({
+        id: `obj-p${i + 1}-vec-${vIdx}`,
+        pageIndex: i,
+        type: 'native-shape',
+        name: `PDF Graphic Block #${vIdx + 1} (${nr.width}×${nr.height}pt)`,
+        isNative: true,
+        visible: true,
+        locked: false,
+        deleted: false,
+        zIndex: 2 + vIdx,
+        x: nr.x,
+        y: nr.y,
+        width: nr.width,
+        height: nr.height,
+        originalX: nr.x,
+        originalY: nr.y,
+        originalWidth: nr.width,
+        originalHeight: nr.height,
+        rotation: 0,
+        opacity: 1,
+        shapeKind: 'rectangle',
+        fillColor: nr.fillHex,
+        fillOpacity: 1,
+        transparentFill: false,
+        strokeColor: nr.strokeHex,
+        strokeWidth: 1,
+        strokeOpacity: 1,
+        strokeStyle: 'solid',
+        cornerRadius: 0
+      });
+    });
+
+    // 2. Populate Native Text Objects from extracted runs
     pageStruct.textRuns.forEach((run, rIdx) => {
-      const isMono = run.fontName.toLowerCase().includes('courier') || run.fontName.toLowerCase().includes('mono');
-      const isSerif = run.fontName.toLowerCase().includes('times') || run.fontName.toLowerCase().includes('serif');
+      const isMono =
+        run.fontName.toLowerCase().includes('courier') ||
+        run.fontName.toLowerCase().includes('mono');
+      const isSerif =
+        run.fontName.toLowerCase().includes('times') ||
+        run.fontName.toLowerCase().includes('serif');
       const isBold = run.fontName.toLowerCase().includes('bold');
-      const isItalic = run.fontName.toLowerCase().includes('italic') || run.fontName.toLowerCase().includes('oblique');
+      const isItalic =
+        run.fontName.toLowerCase().includes('italic') ||
+        run.fontName.toLowerCase().includes('oblique');
+
+      const normW = Math.max(24, run.width);
+      const normH = Math.max(14, run.height);
 
       objects.push({
         id: `obj-p${i + 1}-text-${rIdx}`,
@@ -97,11 +257,15 @@ export async function parseDocumentIntoEditorModel(
         visible: true,
         locked: false,
         deleted: false,
-        zIndex: 10 + rIdx,
+        zIndex: 20 + rIdx,
         x: run.x,
         y: run.y,
-        width: Math.max(24, run.width),
-        height: Math.max(14, run.height),
+        width: normW,
+        height: normH,
+        originalX: run.x,
+        originalY: run.y,
+        originalWidth: normW,
+        originalHeight: normH,
         rotation: 0,
         opacity: 1,
         text: run.str,
@@ -112,12 +276,20 @@ export async function parseDocumentIntoEditorModel(
         fontStyle: isItalic ? 'italic' : 'normal',
         underline: false,
         color: '#18181B',
-        textAlign: 'left'
+        textAlign: 'left',
+        lineHeight: 1.2,
+        letterSpacing: 0
       });
     });
   }
 
-  // Inspect existing AcroForm fields and add them to the object model
+  try {
+    await (pdfJsDoc as any).destroy?.();
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  // 3. Inspect existing AcroForm fields and add them to the object model
   let hasXfa = false;
   try {
     const form = pdfDoc.getForm();
@@ -128,7 +300,6 @@ export async function parseDocumentIntoEditorModel(
       const widgets = field.acroField.getWidgets();
       widgets.forEach((w, wIdx) => {
         const rect = w.getRectangle();
-        // Find page index for widget
         let pageIdx = 0;
         const pageRef = w.P();
         if (pageRef) {
@@ -151,6 +322,9 @@ export async function parseDocumentIntoEditorModel(
           fieldVal = '';
         }
 
+        const fw = Math.max(18, Math.round(rect.width));
+        const fh = Math.max(18, Math.round(rect.height));
+
         objects.push({
           id: `obj-p${pageIdx + 1}-form-${fIdx}-${wIdx}`,
           pageIndex: pageIdx,
@@ -163,8 +337,12 @@ export async function parseDocumentIntoEditorModel(
           zIndex: 200 + fIdx,
           x: Math.round(rect.x),
           y: Math.round(topY),
-          width: Math.max(18, Math.round(rect.width)),
-          height: Math.max(18, Math.round(rect.height)),
+          width: fw,
+          height: fh,
+          originalX: Math.round(rect.x),
+          originalY: Math.round(topY),
+          originalWidth: fw,
+          originalHeight: fh,
           rotation: 0,
           opacity: 1,
           fieldType: isCheck ? 'checkbox' : 'text',
@@ -235,7 +413,6 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
         for (const target of stringsToPurge) {
           if (!target || target.trim().length < 2) continue;
 
-          // 1. Match parenthesized literal strings: (...target...) Tj
           const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const literalRegex = new RegExp(`\\([^()]*${escaped}[^()]*\\)\\s*(Tj|')`, 'g');
           if (literalRegex.test(contentStr)) {
@@ -243,7 +420,6 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
             modified = true;
           }
 
-          // 2. Match hex-encoded PDF strings: <...HEX...> Tj
           const fullHex = stringToHexPattern(target);
           if (fullHex.length >= 4) {
             const hexRegex = new RegExp(`<[0-9a-fA-F]*${fullHex}[0-9a-fA-F]*>\\s*(Tj|')`, 'gi');
@@ -253,7 +429,6 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
             }
           }
 
-          // 3. Also purge individual tokens (>= 3 chars) in case of split runs or TJ arrays
           const tokens = target.split(/\s+/).filter((t) => t.length >= 3);
           for (const tok of tokens) {
             const tokEsc = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -294,10 +469,170 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
   }
 }
 
+/**
+ * Helper to load a data URL into an HTMLImageElement in browser context
+ */
+function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Renders a complex shape (with Background Blur of underlying PDF content, Object Blur,
+ * Rounded Corners, Polygon sides, Gradient Fill, Dashed/Dotted Borders, or Drop Shadow)
+ * to a high-DPI PNG byte array so the exported PDF matches the editor canvas 100%.
+ */
+async function renderAdvancedShapeToPngBytes(
+  obj: PdfEditableObject,
+  pageBgImage: HTMLImageElement | null,
+  pageWidth: number,
+  pageHeight: number
+): Promise<Uint8Array | null> {
+  if (typeof document === 'undefined') return null;
+
+  const scale = 2; // 2x retina rasterization for crisp vector-grade edges
+  const pad = obj.shadow?.enabled ? Math.ceil((obj.shadow.blur + Math.max(Math.abs(obj.shadow.offsetX), Math.abs(obj.shadow.offsetY))) * scale) : 4;
+  const w = Math.max(4, Math.round(obj.width * scale));
+  const h = Math.max(4, Math.round(obj.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w + pad * 2;
+  canvas.height = h + pad * 2;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const kind = obj.shapeKind || 'rectangle';
+  const strokeW = (obj.strokeWidth ?? 2) * scale;
+  const inset = strokeW / 2;
+
+  const defineShapePath = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    if (kind === 'circle' || kind === 'ellipse') {
+      c.ellipse(
+        pad + w / 2,
+        pad + h / 2,
+        Math.max(1, w / 2 - inset),
+        Math.max(1, h / 2 - inset),
+        0,
+        0,
+        Math.PI * 2
+      );
+    } else if (kind === 'polygon') {
+      const sides = Math.max(3, Math.min(12, obj.polygonSides || 5));
+      const cx = pad + w / 2;
+      const cy = pad + h / 2;
+      const rx = Math.max(2, w / 2 - inset);
+      const ry = Math.max(2, h / 2 - inset);
+      for (let s = 0; s < sides; s++) {
+        const angle = (s * 2 * Math.PI) / sides - Math.PI / 2;
+        const px = cx + rx * Math.cos(angle);
+        const py = cy + ry * Math.sin(angle);
+        if (s === 0) c.moveTo(px, py);
+        else c.lineTo(px, py);
+      }
+      c.closePath();
+    } else if (kind === 'rounded-rectangle' || (obj.cornerRadius && obj.cornerRadius > 0)) {
+      const r = Math.min((obj.cornerRadius || 12) * scale, w / 2 - inset, h / 2 - inset);
+      c.roundRect(pad + inset, pad + inset, Math.max(2, w - inset * 2), Math.max(2, h - inset * 2), Math.max(0, r));
+    } else {
+      c.rect(pad + inset, pad + inset, Math.max(2, w - inset * 2), Math.max(2, h - inset * 2));
+    }
+  };
+
+  ctx.save();
+  if (obj.objectBlur && obj.objectBlur > 0) {
+    ctx.filter = `blur(${obj.objectBlur * scale}px)`;
+  }
+
+  // 1. If Background Blur (`backdropBlur > 0`) is enabled and we have the underlying page image,
+  // clip strictly to the shape geometry and draw the blurred underlying PDF page region!
+  if (obj.backdropBlur && obj.backdropBlur > 0 && pageBgImage) {
+    ctx.save();
+    defineShapePath(ctx);
+    ctx.clip();
+    ctx.filter = `blur(${obj.backdropBlur * scale}px)`;
+
+    const imgScaleX = pageBgImage.width / pageWidth;
+    const imgScaleY = pageBgImage.height / pageHeight;
+    ctx.drawImage(
+      pageBgImage,
+      0,
+      0,
+      pageBgImage.width,
+      pageBgImage.height,
+      pad - obj.x * scale,
+      pad - obj.y * scale,
+      pageWidth * scale * (imgScaleX / (pageBgImage.width / pageWidth)),
+      pageHeight * scale * (imgScaleY / (pageBgImage.height / pageHeight))
+    );
+    ctx.restore();
+  }
+
+  // 2. Apply Drop Shadow if enabled
+  if (obj.shadow?.enabled) {
+    ctx.shadowColor = obj.shadow.color || 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = (obj.shadow.blur || 8) * scale;
+    ctx.shadowOffsetX = (obj.shadow.offsetX || 0) * scale;
+    ctx.shadowOffsetY = (obj.shadow.offsetY || 4) * scale;
+  }
+
+  // 3. Fill Shape (unless transparentFill is true)
+  const fillOpacity = obj.fillOpacity ?? (kind === 'highlight' ? 0.38 : 1);
+  if (!obj.transparentFill && obj.fillColor && fillOpacity > 0) {
+    ctx.save();
+    defineShapePath(ctx);
+    ctx.globalAlpha = fillOpacity * (obj.opacity ?? 1);
+    if (obj.gradientFill?.enabled && obj.gradientFill.toColor) {
+      const grad = ctx.createLinearGradient(pad, pad, pad + w, pad + h);
+      grad.addColorStop(0, obj.fillColor);
+      grad.addColorStop(1, obj.gradientFill.toColor);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = obj.fillColor;
+    }
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Reset shadow before drawing border
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // 4. Stroke Border (with independent strokeOpacity and strokeStyle)
+  const strokeOpacity = obj.strokeOpacity ?? 1;
+  if (strokeW > 0 && obj.strokeColor && strokeOpacity > 0 && kind !== 'highlight') {
+    ctx.save();
+    defineShapePath(ctx);
+    ctx.globalAlpha = strokeOpacity * (obj.opacity ?? 1);
+    ctx.strokeStyle = obj.strokeColor;
+    ctx.lineWidth = strokeW;
+    if (obj.strokeStyle === 'dashed') {
+      ctx.setLineDash([strokeW * 3, strokeW * 2]);
+    } else if (obj.strokeStyle === 'dotted') {
+      ctx.setLineDash([strokeW * 1.2, strokeW * 1.8]);
+      ctx.lineCap = 'round';
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const base64 = dataUrl.split(',')[1];
+  if (!base64) return null;
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
 export interface ExportEditorOptions {
   applyHiddenToExport: boolean;
   flattenForms: boolean;
   stripMetadataOnRedact: boolean;
+  scannedExportMode?: ScannedExportMode;
   documentTitle?: string;
 }
 
@@ -307,6 +642,9 @@ export interface ExportVerificationReport {
   removedCount: number;
   hiddenAppliedCount: number;
   redactionCount: number;
+  ocrRegionsExportedCount?: number;
+  scannedBgPatchesCount?: number;
+  scannedExportModeUsed?: ScannedExportMode;
   purgedStringsVerifiedAbsent: boolean;
   cryptoSignatures: Array<{ signer: string; sha256: string; timestamp: string }>;
 }
@@ -326,7 +664,6 @@ export async function exportEditedPdfDocument(
     outDoc.setTitle(srcDoc.getTitle()!);
   }
 
-  // Embed standard fonts
   const fonts = {
     'Helvetica-normal-normal': await outDoc.embedFont(StandardFonts.Helvetica),
     'Helvetica-bold-normal': await outDoc.embedFont(StandardFonts.HelveticaBold),
@@ -385,9 +722,28 @@ export async function exportEditedPdfDocument(
     const pageRedactions = pageObjects.filter((o) => o.type === 'redaction' && !o.deleted);
     redactionCount += pageRedactions.length;
 
-    // Identify native text objects that were removed, hidden, modified, or redacted
+    // Pre-render page background image only if at least one object on this page uses backdropBlur
+    let pageBgImage: HTMLImageElement | null = null;
+    const needsPageBgForBlur = pageObjects.some(
+      (o) => !o.deleted && o.visible && o.backdropBlur && o.backdropBlur > 0
+    );
+    if (needsPageBgForBlur && pageDesc.originalPageIndex >= 0) {
+      try {
+        const rendered = await renderPdfPageToDataUrl(
+          originalBytes,
+          pageDesc.originalPageIndex + 1,
+          2.0,
+          'image/png'
+        );
+        pageBgImage = await loadImageFromDataUrl(rendered.dataUrl);
+      } catch {
+        pageBgImage = null;
+      }
+    }
+
     const stringsToPurgeOnPage: string[] = [];
 
+    // Pass 1: Handle Native Objects (native-shape, native-image, native-text)
     for (const obj of pageObjects) {
       const isIntersectedByRedaction = pageRedactions.some((red) =>
         rectsIntersect(
@@ -396,15 +752,72 @@ export async function exportEditedPdfDocument(
         )
       );
 
+      if (obj.isNative && (obj.type === 'native-shape' || obj.type === 'native-image')) {
+        const isRemoved = obj.deleted;
+        const isHiddenOnExport = !obj.visible && options.applyHiddenToExport;
+        const origX = obj.originalX ?? obj.x;
+        const origY = obj.originalY ?? obj.y;
+        const origW = obj.originalWidth ?? obj.width;
+        const origH = obj.originalHeight ?? obj.height;
+        const hasMovedOrResized =
+          Math.abs(obj.x - origX) > 1 ||
+          Math.abs(obj.y - origY) > 1 ||
+          Math.abs(obj.width - origW) > 1 ||
+          Math.abs(obj.height - origH) > 1 ||
+          (obj.rotation || 0) !== 0;
+
+        if (isRemoved) removedCount++;
+        if (isHiddenOnExport) hiddenAppliedCount++;
+
+        if (isRemoved || isHiddenOnExport || hasMovedOrResized || isIntersectedByRedaction) {
+          // Cleanly mask original graphic region on page
+          const origPdfY = Math.max(0, pageDesc.height - origY - origH);
+          outPage.drawRectangle({
+            x: Math.max(0, origX - 1),
+            y: Math.max(0, origPdfY - 1),
+            width: origW + 2,
+            height: origH + 2,
+            color: rgb(1, 1, 1)
+          });
+        }
+
+        // If moved/resized/restyled and still active, redraw at new geometry
+        if (hasMovedOrResized && !isRemoved && !isHiddenOnExport && !isIntersectedByRedaction) {
+          const fill = hexToRgbNormalized(obj.fillColor || '#F4F3FF');
+          const stroke = hexToRgbNormalized(obj.strokeColor || '#DDD6FE');
+          const pdfY = Math.max(0, pageDesc.height - obj.y - obj.height);
+          outPage.drawRectangle({
+            x: obj.x,
+            y: pdfY,
+            width: obj.width,
+            height: obj.height,
+            color: obj.transparentFill ? undefined : rgb(fill.r, fill.g, fill.b),
+            opacity: (obj.fillOpacity ?? 1) * (obj.opacity ?? 1),
+            borderColor: rgb(stroke.r, stroke.g, stroke.b),
+            borderWidth: obj.strokeWidth ?? 1,
+            borderOpacity: (obj.strokeOpacity ?? 1) * (obj.opacity ?? 1),
+            rotate: degrees(obj.rotation || 0)
+          });
+        }
+      }
+
       if (obj.isNative && obj.type === 'native-text') {
         const isRemoved = obj.deleted;
         const isHiddenOnExport = !obj.visible && options.applyHiddenToExport;
+        const origX = obj.originalX ?? obj.x;
+        const origY = obj.originalY ?? obj.y;
+        const origW = obj.originalWidth ?? obj.width;
+        const origH = obj.originalHeight ?? obj.height;
+        const hasMoved = Math.abs(obj.x - origX) > 1 || Math.abs(obj.y - origY) > 1;
         const isModified =
+          hasMoved ||
           obj.text !== obj.originalText ||
           obj.color !== '#18181B' ||
           obj.fontWeight === 'bold' ||
           obj.fontStyle === 'italic' ||
-          obj.underline;
+          obj.underline ||
+          (obj.rotation || 0) !== 0 ||
+          (obj.opacity ?? 1) < 1;
 
         if (isRemoved) removedCount++;
         if (isHiddenOnExport) hiddenAppliedCount++;
@@ -416,18 +829,17 @@ export async function exportEditedPdfDocument(
               allPurgedStrings.push(obj.originalText);
             }
           }
-          // Mask original bounding area cleanly on canvas in case partial glyph operators remain
-          const pdfY = Math.max(0, pageDesc.height - obj.y - obj.height);
+          // Mask original bounding area cleanly on canvas
+          const origPdfY = Math.max(0, pageDesc.height - origY - origH);
           outPage.drawRectangle({
-            x: Math.max(0, obj.x - 1),
-            y: Math.max(0, pdfY - 2),
-            width: obj.width + 2,
-            height: obj.height + 4,
+            x: Math.max(0, origX - 1),
+            y: Math.max(0, origPdfY - 2),
+            width: origW + 2,
+            height: origH + 4,
             color: rgb(1, 1, 1)
           });
         }
 
-        // If modified and still visible and not deleted and not redacted, draw the updated native text
         if (
           isModified &&
           !isRemoved &&
@@ -463,12 +875,151 @@ export async function exportEditedPdfDocument(
       }
     }
 
+    const scannedExportMode: ScannedExportMode =
+      options.scannedExportMode || 'visually-edited';
+
+    // Pass 1.5: Handle OCR Scanned Text Regions ('ocr-text') — Background Reconstruction & Replacement
+    for (const obj of pageObjects) {
+      if (obj.type !== 'ocr-text') continue;
+
+      const isRemoved = obj.deleted;
+      const isHiddenOnExport = !obj.visible && options.applyHiddenToExport;
+      const isIntersectedByRedaction = pageRedactions.some((red) =>
+        rectsIntersect(
+          { x: obj.x, y: obj.y, width: obj.width, height: obj.height },
+          { x: red.x, y: red.y, width: red.width, height: red.height }
+        )
+      );
+
+      const origX = obj.originalX ?? obj.x;
+      const origY = obj.originalY ?? obj.y;
+      const origW = obj.originalWidth ?? obj.width;
+      const origH = obj.originalHeight ?? obj.height;
+      const hasMoved = Math.abs(obj.x - origX) > 1 || Math.abs(obj.y - origY) > 1;
+      const isTextModified = obj.ocrEdited || obj.text !== obj.originalText || hasMoved;
+
+      if (isRemoved) removedCount++;
+      if (isHiddenOnExport) hiddenAppliedCount++;
+
+      // Reconstruct background over original scanned text region if modified, moved, deleted, hidden, or redacted
+      if (
+        (isRemoved || isHiddenOnExport || isTextModified || isIntersectedByRedaction) &&
+        scannedExportMode !== 'searchable-ocr'
+      ) {
+        const pad = obj.bgMaskPadding ?? 2;
+        const patchX = Math.max(0, origX - pad);
+        const patchY = Math.max(0, origY - pad);
+        const patchW = Math.max(6, origW + pad * 2);
+        const patchH = Math.max(6, origH + pad * 2);
+        const patchPdfY = Math.max(0, pageDesc.height - patchY - patchH);
+
+        if (obj.bgPatchDataUrl && obj.bgReconstructionMethod !== 'manual-solid') {
+          try {
+            const b64 = obj.bgPatchDataUrl.split(',')[1];
+            const patchBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            const embeddedPatch = await outDoc.embedPng(patchBytes);
+            outPage.drawImage(embeddedPatch, {
+              x: patchX,
+              y: patchPdfY,
+              width: patchW,
+              height: patchH
+            });
+          } catch {
+            const bgRgb = hexToRgbNormalized(obj.sampledBgColor || '#FAF8F5');
+            outPage.drawRectangle({
+              x: patchX,
+              y: patchPdfY,
+              width: patchW,
+              height: patchH,
+              color: rgb(bgRgb.r, bgRgb.g, bgRgb.b)
+            });
+          }
+        } else {
+          const fillHex =
+            obj.bgReconstructionMethod === 'manual-solid' && obj.fillColor
+              ? obj.fillColor
+              : obj.sampledBgColor || '#FAF8F5';
+          const bgRgb = hexToRgbNormalized(fillHex);
+          outPage.drawRectangle({
+            x: patchX,
+            y: patchPdfY,
+            width: patchW,
+            height: patchH,
+            color: rgb(bgRgb.r, bgRgb.g, bgRgb.b)
+          });
+        }
+      }
+
+      if (isRemoved || isHiddenOnExport || isIntersectedByRedaction) {
+        continue;
+      }
+
+      // Render replacement text (if modified/moved) OR searchable invisible OCR layer
+      if (isTextModified && scannedExportMode !== 'searchable-ocr' && obj.text && obj.text.trim()) {
+        if (hasNonWinAnsiChars(obj.text) && typeof document !== 'undefined') {
+          // High-DPI Unicode / Urdu RTL rasterized glyph layer
+          try {
+            const rendered = renderUnicodeTextToPngDataUrl(obj);
+            const b64 = rendered.dataUrl.split(',')[1];
+            const pngBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            const embeddedGlyphs = await outDoc.embedPng(pngBytes);
+            const glyphPdfY = Math.max(0, pageDesc.height - obj.y - rendered.heightPt);
+            outPage.drawImage(embeddedGlyphs, {
+              x: obj.x,
+              y: glyphPdfY,
+              width: rendered.widthPt,
+              height: rendered.heightPt,
+              opacity: obj.opacity ?? 1,
+              rotate: degrees(obj.rotation || 0)
+            });
+          } catch {
+            // Safe fallback
+          }
+        } else {
+          const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
+          const fontSize = obj.fontSize || 11;
+          const { r, g, b } = hexToRgbNormalized(
+            obj.color || obj.sampledTextColor || '#18181B'
+          );
+          const pdfY = Math.max(0, pageDesc.height - obj.y - fontSize * 0.88);
+          const safeAscii = (obj.text || '').replace(/[^\x20-\xFF]/g, '');
+          if (safeAscii) {
+            outPage.drawText(safeAscii, {
+              x: obj.x,
+              y: pdfY,
+              size: fontSize,
+              font,
+              color: rgb(r, g, b),
+              opacity: obj.opacity ?? 1,
+              rotate: degrees(obj.rotation || 0)
+            });
+          }
+        }
+      } else if (scannedExportMode === 'searchable-ocr' && obj.text && obj.text.trim()) {
+        // Mode A: Searchable Scanned PDF — embed invisible selectable text layer at exact OCR coordinates
+        const safeWinAnsi = (obj.text || '').replace(/[^\x20-\xFF]/g, '');
+        if (safeWinAnsi.trim()) {
+          const font = getFont('Helvetica', 'normal', 'normal');
+          const fontSize = Math.max(6, obj.fontSize || 10);
+          const pdfY = Math.max(0, pageDesc.height - obj.y - fontSize * 0.88);
+          outPage.drawText(safeWinAnsi, {
+            x: obj.x,
+            y: pdfY,
+            size: fontSize,
+            font,
+            color: rgb(0, 0, 0),
+            opacity: 0.01 // Visually invisible, 100% searchable & selectable in PDF viewers
+          });
+        }
+      }
+    }
+
     // Purge deleted/redacted/modified strings from the underlying raw PDF stream
     purgeStringsFromPageContentStream(outPage, stringsToPurgeOnPage);
 
-    // Render non-native / editor-managed objects + modified form fields + redactions
+    // Pass 2: Render added/editor-managed objects, cover overlays, shapes, images, form fields
     for (const obj of pageObjects) {
-      if (obj.deleted) continue;
+      if (obj.deleted || obj.type === 'ocr-text') continue;
       if (!obj.visible && options.applyHiddenToExport) continue;
 
       const isIntersectedByRedaction =
@@ -484,41 +1035,88 @@ export async function exportEditedPdfDocument(
       const pdfY = Math.max(0, pageDesc.height - obj.y - obj.height);
 
       if (obj.type === 'added-text' || obj.type === 'watermark') {
-        const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
-        const fontSize = obj.fontSize || (obj.type === 'watermark' ? 42 : 14);
-        const { r, g, b } = hexToRgbNormalized(obj.color || '#18181B');
-        const textLines = (obj.text || '').split('\n');
-        const lineHeight = (obj.lineHeight || 1.25) * fontSize;
+        if (hasNonWinAnsiChars(obj.text || '') && typeof document !== 'undefined') {
+          try {
+            const rendered = renderUnicodeTextToPngDataUrl(obj);
+            const b64 = rendered.dataUrl.split(',')[1];
+            const pngBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            const embeddedGlyphs = await outDoc.embedPng(pngBytes);
+            const glyphPdfY = Math.max(0, pageDesc.height - obj.y - rendered.heightPt);
+            outPage.drawImage(embeddedGlyphs, {
+              x: obj.x,
+              y: glyphPdfY,
+              width: rendered.widthPt,
+              height: rendered.heightPt,
+              opacity: obj.opacity ?? (obj.type === 'watermark' ? 0.22 : 1),
+              rotate: degrees(obj.rotation || 0)
+            });
+          } catch {
+            // Safe fallback
+          }
+        } else {
+          const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
+          const fontSize = obj.fontSize || (obj.type === 'watermark' ? 42 : 14);
+          const { r, g, b } = hexToRgbNormalized(obj.color || '#18181B');
+          const textLines = (obj.text || '').split('\n');
+          const lineHeight = (obj.lineHeight || 1.25) * fontSize;
 
-        textLines.forEach((line, lIdx) => {
-          const lineY = pageDesc.height - obj.y - fontSize * 0.88 - lIdx * lineHeight;
-          outPage.drawText(line, {
-            x: obj.x,
-            y: Math.max(0, lineY),
-            size: fontSize,
-            font,
-            color: rgb(r, g, b),
-            opacity: obj.opacity ?? (obj.type === 'watermark' ? 0.22 : 1),
-            rotate: degrees(obj.rotation || 0)
+          textLines.forEach((line, lIdx) => {
+            const safeLine = line.replace(/[^\x20-\xFF]/g, '');
+            const lineY = pageDesc.height - obj.y - fontSize * 0.88 - lIdx * lineHeight;
+            outPage.drawText(safeLine, {
+              x: obj.x,
+              y: Math.max(0, lineY),
+              size: fontSize,
+              font,
+              color: rgb(r, g, b),
+              opacity: obj.opacity ?? (obj.type === 'watermark' ? 0.22 : 1),
+              rotate: degrees(obj.rotation || 0)
+            });
           });
-        });
 
-        if (obj.underline) {
-          outPage.drawLine({
-            start: { x: obj.x, y: pageDesc.height - obj.y - fontSize - 2 },
-            end: { x: obj.x + obj.width, y: pageDesc.height - obj.y - fontSize - 2 },
-            thickness: 1,
-            color: rgb(r, g, b),
-            opacity: obj.opacity ?? 1
-          });
+          if (obj.underline) {
+            outPage.drawLine({
+              start: { x: obj.x, y: pageDesc.height - obj.y - fontSize - 2 },
+              end: { x: obj.x + obj.width, y: pageDesc.height - obj.y - fontSize - 2 },
+              thickness: 1,
+              color: rgb(r, g, b),
+              opacity: obj.opacity ?? 1
+            });
+          }
         }
       } else if (obj.type === 'added-image' || obj.type === 'signature') {
         if (obj.imageDataUrl) {
           try {
-            const base64Data = obj.imageDataUrl.split(',')[1];
+            let finalDataUrl = obj.imageDataUrl;
+            // If image has crop or objectBlur, process through offscreen canvas
+            const hasCrop =
+              obj.crop &&
+              (obj.crop.top > 0 || obj.crop.right > 0 || obj.crop.bottom > 0 || obj.crop.left > 0);
+            if ((hasCrop || (obj.objectBlur && obj.objectBlur > 0)) && typeof document !== 'undefined') {
+              const srcImg = await loadImageFromDataUrl(obj.imageDataUrl);
+              const c = document.createElement('canvas');
+              const cropL = ((obj.crop?.left || 0) / 100) * srcImg.width;
+              const cropR = ((obj.crop?.right || 0) / 100) * srcImg.width;
+              const cropT = ((obj.crop?.top || 0) / 100) * srcImg.height;
+              const cropB = ((obj.crop?.bottom || 0) / 100) * srcImg.height;
+              const sw = Math.max(4, srcImg.width - cropL - cropR);
+              const sh = Math.max(4, srcImg.height - cropT - cropB);
+              c.width = sw;
+              c.height = sh;
+              const cCtx = c.getContext('2d');
+              if (cCtx) {
+                if (obj.objectBlur && obj.objectBlur > 0) {
+                  cCtx.filter = `blur(${obj.objectBlur}px)`;
+                }
+                cCtx.drawImage(srcImg, cropL, cropT, sw, sh, 0, 0, sw, sh);
+                finalDataUrl = c.toDataURL('image/png');
+              }
+            }
+
+            const base64Data = finalDataUrl.split(',')[1];
             const imgBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
             const embeddedImg =
-              obj.imageDataUrl.includes('image/jpeg') || obj.imageMimeType === 'image/jpeg'
+              finalDataUrl.includes('image/jpeg') && !finalDataUrl.includes('image/png')
                 ? await outDoc.embedJpg(imgBytes)
                 : await outDoc.embedPng(imgBytes);
 
@@ -569,9 +1167,56 @@ export async function exportEditedPdfDocument(
           });
         }
       } else if (obj.type === 'shape' || obj.type === 'annotation') {
-        const fill = obj.fillColor ? hexToRgbNormalized(obj.fillColor) : null;
+        const fill = !obj.transparentFill && obj.fillColor ? hexToRgbNormalized(obj.fillColor) : null;
         const stroke = hexToRgbNormalized(obj.strokeColor || obj.color || '#7C3AED');
         const kind = obj.shapeKind || 'rectangle';
+        const fillAlpha = (obj.fillOpacity ?? 1) * (obj.opacity ?? 1);
+        const strokeAlpha = (obj.strokeOpacity ?? 1) * (obj.opacity ?? 1);
+        const dashArray =
+          obj.strokeStyle === 'dashed'
+            ? [6, 4]
+            : obj.strokeStyle === 'dotted'
+            ? [2, 3]
+            : undefined;
+
+        // Check if this shape uses advanced visual effects (Background Blur, Object Blur, Shadow, Rounded Rect, Polygon, Gradient)
+        const usesAdvancedCanvasRender =
+          (obj.backdropBlur && obj.backdropBlur > 0) ||
+          (obj.objectBlur && obj.objectBlur > 0) ||
+          obj.shadow?.enabled ||
+          obj.gradientFill?.enabled ||
+          kind === 'rounded-rectangle' ||
+          kind === 'polygon' ||
+          (obj.cornerRadius && obj.cornerRadius > 0);
+
+        if (
+          usesAdvancedCanvasRender &&
+          kind !== 'line' &&
+          kind !== 'arrow' &&
+          kind !== 'freehand' &&
+          kind !== 'sticky-note'
+        ) {
+          const pngBytes = await renderAdvancedShapeToPngBytes(
+            obj,
+            pageBgImage,
+            pageDesc.width,
+            pageDesc.height
+          );
+          if (pngBytes) {
+            const embeddedPatch = await outDoc.embedPng(pngBytes);
+            const padPt = obj.shadow?.enabled
+              ? Math.ceil(obj.shadow.blur + Math.max(Math.abs(obj.shadow.offsetX), Math.abs(obj.shadow.offsetY)))
+              : 2;
+            outPage.drawImage(embeddedPatch, {
+              x: obj.x - padPt,
+              y: pdfY - padPt,
+              width: obj.width + padPt * 2,
+              height: obj.height + padPt * 2,
+              rotate: degrees(obj.rotation || 0)
+            });
+            continue;
+          }
+        }
 
         if (kind === 'highlight') {
           const hl = hexToRgbNormalized(obj.fillColor || '#FACC15');
@@ -581,7 +1226,7 @@ export async function exportEditedPdfDocument(
             width: obj.width,
             height: obj.height,
             color: rgb(hl.r, hl.g, hl.b),
-            opacity: obj.opacity ?? 0.38
+            opacity: obj.fillOpacity ?? obj.opacity ?? 0.38
           });
         } else if (kind === 'underline-mark') {
           outPage.drawLine({
@@ -589,7 +1234,8 @@ export async function exportEditedPdfDocument(
             end: { x: obj.x + obj.width, y: pdfY + 2 },
             thickness: obj.strokeWidth || 2,
             color: rgb(stroke.r, stroke.g, stroke.b),
-            opacity: obj.opacity ?? 1
+            opacity: strokeAlpha,
+            dashArray
           });
         } else if (kind === 'strikethrough') {
           outPage.drawLine({
@@ -597,18 +1243,21 @@ export async function exportEditedPdfDocument(
             end: { x: obj.x + obj.width, y: pdfY + obj.height / 2 },
             thickness: obj.strokeWidth || 2,
             color: rgb(stroke.r, stroke.g, stroke.b),
-            opacity: obj.opacity ?? 1
+            opacity: strokeAlpha,
+            dashArray
           });
-        } else if (kind === 'circle') {
+        } else if (kind === 'circle' || kind === 'ellipse') {
           outPage.drawEllipse({
             x: obj.x + obj.width / 2,
             y: pdfY + obj.height / 2,
             xScale: obj.width / 2,
             yScale: obj.height / 2,
             color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
-            borderColor: rgb(stroke.r, stroke.g, stroke.b),
+            opacity: fill ? fillAlpha : 0,
+            borderColor: (obj.strokeWidth ?? 2) > 0 ? rgb(stroke.r, stroke.g, stroke.b) : undefined,
             borderWidth: obj.strokeWidth ?? 2,
-            opacity: obj.opacity ?? 1
+            borderOpacity: strokeAlpha,
+            borderDashArray: dashArray
           });
         } else if (kind === 'line' || kind === 'arrow') {
           outPage.drawLine({
@@ -616,7 +1265,8 @@ export async function exportEditedPdfDocument(
             end: { x: obj.x + obj.width, y: pdfY + obj.height / 2 },
             thickness: obj.strokeWidth || 2,
             color: rgb(stroke.r, stroke.g, stroke.b),
-            opacity: obj.opacity ?? 1
+            opacity: strokeAlpha,
+            dashArray
           });
           if (kind === 'arrow') {
             const endX = obj.x + obj.width;
@@ -625,13 +1275,15 @@ export async function exportEditedPdfDocument(
               start: { x: endX - 8, y: midY + 5 },
               end: { x: endX, y: midY },
               thickness: obj.strokeWidth || 2,
-              color: rgb(stroke.r, stroke.g, stroke.b)
+              color: rgb(stroke.r, stroke.g, stroke.b),
+              opacity: strokeAlpha
             });
             outPage.drawLine({
               start: { x: endX - 8, y: midY - 5 },
               end: { x: endX, y: midY },
               thickness: obj.strokeWidth || 2,
-              color: rgb(stroke.r, stroke.g, stroke.b)
+              color: rgb(stroke.r, stroke.g, stroke.b),
+              opacity: strokeAlpha
             });
           }
         } else if (kind === 'freehand' && obj.points && obj.points.length > 1) {
@@ -643,7 +1295,20 @@ export async function exportEditedPdfDocument(
               end: { x: obj.x + pt2.x, y: pageDesc.height - (obj.y + pt2.y) },
               thickness: obj.strokeWidth || 2.5,
               color: rgb(stroke.r, stroke.g, stroke.b),
-              opacity: obj.opacity ?? 1
+              opacity: strokeAlpha,
+              dashArray
+            });
+          }
+          if (obj.closePath && obj.points.length > 2) {
+            const firstPt = obj.points[0];
+            const lastPt = obj.points[obj.points.length - 1];
+            outPage.drawLine({
+              start: { x: obj.x + lastPt.x, y: pageDesc.height - (obj.y + lastPt.y) },
+              end: { x: obj.x + firstPt.x, y: pageDesc.height - (obj.y + firstPt.y) },
+              thickness: obj.strokeWidth || 2.5,
+              color: rgb(stroke.r, stroke.g, stroke.b),
+              opacity: strokeAlpha,
+              dashArray
             });
           }
         } else if (kind === 'sticky-note') {
@@ -677,15 +1342,17 @@ export async function exportEditedPdfDocument(
             width: obj.width,
             height: obj.height,
             color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
-            borderColor: rgb(stroke.r, stroke.g, stroke.b),
+            opacity: fill ? fillAlpha : 0,
+            borderColor: (obj.strokeWidth ?? 2) > 0 ? rgb(stroke.r, stroke.g, stroke.b) : undefined,
             borderWidth: obj.strokeWidth ?? 2,
-            opacity: obj.opacity ?? 1
+            borderOpacity: strokeAlpha,
+            borderDashArray: dashArray,
+            rotate: degrees(obj.rotation || 0)
           });
         }
       } else if (obj.type === 'form-field') {
         const safeName = `${obj.fieldName || 'field'}_${outIdx}_${obj.id.replace(/[^a-zA-Z0-9]/g, '')}`;
         if (options.flattenForms) {
-          // Render static flattened representation
           outPage.drawRectangle({
             x: obj.x,
             y: pdfY,
@@ -712,7 +1379,6 @@ export async function exportEditedPdfDocument(
             });
           }
         } else if (!obj.isNative) {
-          // Create new interactive AcroForm field
           try {
             if (obj.fieldType === 'checkbox') {
               const cb = outForm.createCheckBox(safeName);
@@ -727,7 +1393,6 @@ export async function exportEditedPdfDocument(
             // Ignore duplicate field name errors
           }
         } else {
-          // Update existing native AcroForm field value
           try {
             const existing = outForm.getFieldMaybe(obj.fieldName || '');
             if (existing) {
@@ -788,7 +1453,6 @@ export async function exportEditedPdfDocument(
 
   const exportedBytes = await outDoc.save({ useObjectStreams: true });
 
-  // Verify exported PDF integrity
   const headerStr = new TextDecoder('ascii').decode(exportedBytes.slice(0, 8));
   const validPdfHeader = headerStr.startsWith('%PDF-');
   let purgedStringsVerifiedAbsent = true;
@@ -806,6 +1470,15 @@ export async function exportEditedPdfDocument(
     }
   }
 
+  const ocrRegionsExportedCount = objects.filter(
+    (o) => o.type === 'ocr-text' && !o.deleted
+  ).length;
+  const scannedBgPatchesCount = objects.filter(
+    (o) =>
+      o.type === 'ocr-text' &&
+      (o.deleted || o.ocrEdited || o.text !== o.originalText)
+  ).length;
+
   return {
     bytes: exportedBytes,
     verification: {
@@ -814,6 +1487,9 @@ export async function exportEditedPdfDocument(
       removedCount,
       hiddenAppliedCount,
       redactionCount,
+      ocrRegionsExportedCount,
+      scannedBgPatchesCount,
+      scannedExportModeUsed: options.scannedExportMode || 'visually-edited',
       purgedStringsVerifiedAbsent,
       cryptoSignatures
     }

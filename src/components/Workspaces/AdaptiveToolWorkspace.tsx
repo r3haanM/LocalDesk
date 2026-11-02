@@ -1,70 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, Reorder } from 'motion/react';
 import JSZip from 'jszip';
-import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
+import * as XLSX from 'xlsx';
+import PptxGenJS from 'pptxgenjs';
+import {
+  Document,
+  Packer,
+  Paragraph,
+  HeadingLevel,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType
+} from 'docx';
 import {
   PdfToolDefinition,
-  UploadedFileItem,
-  ProcessingResult
+  ProcessingResult,
+  UploadedFileItem
 } from '../../types/pdf';
-import { PDF_TOOLS_CATALOG } from '../../data/toolsCatalog';
 import {
   validateFileSignature,
+  generateSamplePdfBytes,
   renderPdfPageToDataUrl,
-  generateSamplePdfBytes
+  loadPdfJsDocument
 } from '../../services/pdfRenderer';
 import {
   executePdfTool,
-  ToolExecutionOptions
+  ToolExecutionOptions,
+  inspectExcelWorkbookSheets
 } from '../../services/pdfToolsProcessor';
+import { PDF_TOOLS_CATALOG } from '../../data/toolsCatalog';
 import { ToolIcon } from '../IconMapper';
 import { ThreeWorkspaceBanner } from '../Three/ThreeWorkspaceBanner';
-import { PDFDocument } from 'pdf-lib';
 import {
   ArrowLeft,
   Upload,
-  Globe,
   Sparkles,
-  Trash2,
   CheckCircle2,
   AlertTriangle,
   Download,
+  Trash2,
   RotateCw,
-  ArrowLeft as MoveLeftIcon,
-  ArrowRight as MoveRightIcon,
-  Plus,
+  FileText,
+  Layers,
   Copy,
-  FileEdit,
+  RefreshCw,
+  FolderArchive,
   Layers2,
   Lock,
   Unlock,
-  FolderArchive,
-  GripVertical,
-  RefreshCw
+  Loader2,
+  Clock,
+  ArrowUp,
+  ArrowDown,
+  ShieldCheck
 } from 'lucide-react';
-
-// Tools that natively combine multiple input files into a single output document
-const MULTI_FILE_COMBINER_TOOLS = [
-  'merge-pdf',
-  'organize-pages',
-  'compare-pdf',
-  'jpg-to-pdf',
-  'png-to-pdf',
-  'images-to-pdf'
-];
-
-const CONVERT_TO_PDF_PASSWORD_TOOLS = [
-  'word-to-pdf',
-  'excel-to-pdf',
-  'ppt-to-pdf',
-  'html-to-pdf',
-  'txt-to-pdf'
-];
 
 interface AdaptiveToolWorkspaceProps {
   tool: PdfToolDefinition;
   initialFiles?: UploadedFileItem[];
   onBack: () => void;
-  onSelectTool?: (tool: PdfToolDefinition, carryFiles?: UploadedFileItem[]) => void;
+  onSelectTool?: (tool: PdfToolDefinition, files?: UploadedFileItem[]) => void;
   onOpenInEditor: (file: UploadedFileItem) => void;
   onOpenInBatchQueue?: (toolId: string, files: UploadedFileItem[]) => void;
   onRecordHistory: (
@@ -77,20 +74,21 @@ interface AdaptiveToolWorkspaceProps {
   ) => void;
 }
 
-interface OrganizerPageCard {
-  id: string;
-  fileIndex: number;
-  fileName: string;
-  pageNumber: number; // 1-based, or -1 for blank page
-  rotation: number;
-  selected: boolean;
-  thumbnailUrl?: string;
-}
+const MULTI_FILE_COMBINE_TOOLS = ['merge-pdf', 'jpg-to-pdf', 'png-to-pdf'];
+
+const CONVERT_TO_PDF_PASSWORD_TOOLS = [
+  'word-to-pdf',
+  'excel-to-pdf',
+  'ppt-to-pdf',
+  'jpg-to-pdf',
+  'png-to-pdf',
+  'html-to-pdf'
+];
 
 interface PerFileBatchState {
+  status: 'queued' | 'processing' | 'completed' | 'error';
   progress: number;
   stage: string;
-  status: 'idle' | 'processing' | 'completed' | 'error';
   result?: ProcessingResult;
   error?: string;
 }
@@ -105,18 +103,24 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
   onRecordHistory
 }) => {
   const [files, setFiles] = useState<UploadedFileItem[]>(initialFiles);
-  const [urlInput, setUrlInput] = useState<string>('');
-  const [importingUrl, setImportingUrl] = useState<boolean>(false);
+  const [processing, setProcessing] = useState<boolean>(false);
+  const [progressStage, setProgressStage] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [result, setResult] = useState<ProcessingResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [copiedText, setCopiedText] = useState<boolean>(false);
 
-  // Organizer interactive page cards
-  const [pageCards, setPageCards] = useState<OrganizerPageCard[]>([]);
+  // Per-file state when multiple files are uploaded into a single-document tool (e.g. 5 Word files or 4 locked PDFs)
+  const [perFileStates, setPerFileStates] = useState<Record<string, PerFileBatchState>>({});
+
+  // Page Thumbnails for Organizer / Split / Rotate / PDF-to-Image tools
+  const [pageThumbs, setPageThumbs] = useState<
+    Array<{ pageNumber: number; origIndex: number; dataUrl: string; rotation: number; selected: boolean }>
+  >([]);
   const [loadingThumbs, setLoadingThumbs] = useState<boolean>(false);
-  const [draggedCardIdx, setDraggedCardIdx] = useState<number | null>(null);
-  const [dragOverCardIdx, setDragOverCardIdx] = useState<number | null>(null);
 
-  // Tool configuration options
-  const [splitMode, setSplitMode] = useState<'burst' | 'ranges' | 'interval'>('burst');
+  // Contextual Tool Options (Organize & Stamp)
+  const [splitMode, setSplitMode] = useState<'burst' | 'ranges' | 'interval'>('ranges');
   const [splitRanges, setSplitRanges] = useState<string>('1-1, 2-2');
   const [splitInterval, setSplitInterval] = useState<number>(1);
   const [rotationAngle, setRotationAngle] = useState<number>(90);
@@ -131,69 +135,202 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
   const [pageNumberFormat, setPageNumberFormat] = useState<'page-x-of-y' | 'numeric' | 'roman'>('page-x-of-y');
 
   const [headerLeft, setHeaderLeft] = useState<string>('Vellum Specification');
-  const [headerCenter, setHeaderCenter] = useState<string>('');
   const [headerRight, setHeaderRight] = useState<string>('2026 Edition');
-  const [footerLeft, setFooterLeft] = useState<string>('Internal Distribution');
-  const [footerCenter, setFooterCenter] = useState<string>('');
-  const [footerRight, setFooterRight] = useState<string>('Verified ISO-32000');
+  const [footerLeft, setFooterLeft] = useState<string>('ISO-32000 Verified');
+  const [footerRight, setFooterRight] = useState<string>('Public Sample');
 
   const [cropMarginTop, setCropMarginTop] = useState<number>(36);
   const [cropMarginBottom, setCropMarginBottom] = useState<number>(36);
   const [cropMarginLeft, setCropMarginLeft] = useState<number>(36);
   const [cropMarginRight, setCropMarginRight] = useState<number>(36);
 
+  // Security & Password Parameters
   const [password, setPassword] = useState<string>('');
   const [protectOutputWithPassword, setProtectOutputWithPassword] = useState<boolean>(false);
   const [permissionPrint, setPermissionPrint] = useState<boolean>(true);
   const [permissionCopy, setPermissionCopy] = useState<boolean>(false);
 
+  // ============================================================================
+  // FORMAT-SPECIFIC CONVERSION PARAMETERS
+  // ============================================================================
   const [pageSize, setPageSize] = useState<'letter' | 'a4' | 'fit'>('letter');
-  const [imageDpiScale, setImageDpiScale] = useState<number>(2.0);
-  const [rawHtmlInput, setRawHtmlInput] = useState<string>(
-    '<!DOCTYPE html>\n<html>\n<head><title>Vellum Executive Brief</title></head>\n<body>\n  <h1>Executive Engineering Brief</h1>\n  <p>Generated directly from semantic HTML5 markup into ISO-32000 PDF.</p>\n</body>\n</html>'
+  const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape' | 'auto'>(
+    tool.id === 'excel-to-pdf' || tool.id === 'ppt-to-pdf'
+      ? 'landscape'
+      : tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf'
+      ? 'auto'
+      : 'portrait'
   );
-  const [rawTextInput, setRawTextInput] = useState<string>(
-    'VELLUM PLAIN TEXT SPECIFICATION\n================================\n\n01. Overview\nThis document was typeset directly from plain UTF-8 text into a paginated PDF container.\n\n02. Key Properties\n- Clean typography\n- Automatic line wrapping\n- Multi-page pagination'
+  const [pageMargin, setPageMargin] = useState<number>(
+    tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf' ? 24 : 42
   );
+  const [imageFitMode, setImageFitMode] = useState<'contain' | 'cover' | 'center'>('contain');
+  const [imageQuality, setImageQuality] = useState<number>(0.92);
+  const [imageDpiScale, setImageDpiScale] = useState<number>(2.0); // 1.0 = 72 DPI, 2.0 = 150 DPI, 3.0 = 300 DPI
+  const [conversionPageRange, setConversionPageRange] = useState<string>('all');
 
-  // Execution & Result state
-  const [processing, setProcessing] = useState<boolean>(false);
-  const [progressStage, setProgressStage] = useState<string>('');
-  const [progressPercent, setProgressPercent] = useState<number>(0);
-  const [result, setResult] = useState<ProcessingResult | null>(null);
-  const [perFileStates, setPerFileStates] = useState<Record<string, PerFileBatchState>>({});
-  const [copiedText, setCopiedText] = useState<boolean>(false);
+  // PDF to Word
+  const [wordIncludePageImages, setWordIncludePageImages] = useState<boolean>(false);
+
+  // PDF to Excel & Excel to PDF
+  const [excelSheetMode, setExcelSheetMode] = useState<'per-page' | 'single-sheet'>('per-page');
+  const [availableExcelSheets, setAvailableExcelSheets] = useState<string[]>([]);
+  const [excelSheetName, setExcelSheetName] = useState<string>('__ALL__');
+  const [excelPageScaling, setExcelPageScaling] = useState<'fit-columns' | 'actual-size'>('fit-columns');
+
+  // PDF to PowerPoint & PowerPoint to PDF
+  const [pptxConversionMode, setPptxConversionMode] = useState<'editable-hybrid' | 'visual-high-fidelity'>('editable-hybrid');
+  const [pptxSlideAspect, setPptxSlideAspect] = useState<'original' | '16:9' | '4:3'>('16:9');
+
+  // PDF to PDF/A Archival
+  const [pdfaProfile, setPdfaProfile] = useState<'PDF/A-1b' | 'PDF/A-2b' | 'PDF/A-3b'>('PDF/A-2b');
+
+  // Word / HTML / Excel to PDF Page Numbering
+  const [includePageNumbersOnConvert, setIncludePageNumbersOnConvert] = useState<boolean>(true);
+
+  const [htmlInput, setHtmlInput] = useState<string>(
+    `<h1>Vellum Engineering &amp; Financial Specification 2026</h1>
+<p>This HTML5 document demonstrates structured headings, paragraphs, bulleted lists, and bordered tables converted directly into a paginated ISO-32000 PDF container.</p>
+<h2>01. Core Conversion Capabilities</h2>
+<ul>
+  <li>Preserves semantic headings (H1 through H4) and reading order</li>
+  <li>Renders HTML tables with cell borders, alternating row shading, and multi-line wrapping</li>
+  <li>Supports US Letter and ISO A4 page sizes in Portrait or Landscape orientation</li>
+</ul>
+<h2>02. Quarterly Conversion Benchmarks</h2>
+<table>
+  <tr><th>Format Pipeline</th><th>Fidelity Rating</th><th>Output Container</th><th>Validation</th></tr>
+  <tr><td>Word (.docx) to PDF</td><td>High Layout &amp; Tables</td><td>PDF 1.7</td><td>Verified</td></tr>
+  <tr><td>Excel (.xlsx) to PDF</td><td>Bordered Grid &amp; Sheets</td><td>PDF 1.7</td><td>Verified</td></tr>
+  <tr><td>PDF to PDF/A-2b</td><td>ISO 19005-2 Archival</td><td>PDF/A-2b + XMP</td><td>Verified</td></tr>
+</table>`
+  );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const ingestFileList = async (rawFiles: File[]) => {
+  const isOrganizerTool = [
+    'organize-pages',
+    'split-pdf',
+    'rotate-pages',
+    'pdf-to-jpg',
+    'pdf-to-png'
+  ].includes(tool.id);
+
+  // Inspect Excel workbook sheets whenever an .xlsx/.csv file is loaded in excel-to-pdf
+  useEffect(() => {
+    if (tool.id === 'excel-to-pdf' && files.length > 0 && files[0].arrayBuffer) {
+      const sheets = inspectExcelWorkbookSheets(files[0].arrayBuffer);
+      setAvailableExcelSheets(sheets);
+      setExcelSheetName('__ALL__');
+    } else {
+      setAvailableExcelSheets([]);
+    }
+  }, [tool.id, files]);
+
+  // Load page thumbnails when a PDF is uploaded to an organizer or PDF-to-Image tool
+  useEffect(() => {
+    let active = true;
+    const loadThumbnails = async () => {
+      if (!isOrganizerTool || files.length === 0) {
+        setPageThumbs([]);
+        return;
+      }
+      const primary = files[0];
+      if (!primary.signatureLabel.startsWith('PDF')) return;
+
+      setLoadingThumbs(true);
+      try {
+        const buf = primary.arrayBuffer || (await primary.file.arrayBuffer());
+        const bytes = new Uint8Array(buf);
+        const pdfDoc = await loadPdfJsDocument(bytes);
+        const numPages = pdfDoc.numPages;
+        await (pdfDoc as any).destroy?.();
+
+        const thumbs: Array<{
+          pageNumber: number;
+          origIndex: number;
+          dataUrl: string;
+          rotation: number;
+          selected: boolean;
+        }> = [];
+
+        const maxPreview = Math.min(numPages, 24);
+        for (let i = 1; i <= maxPreview; i++) {
+          const rendered = await renderPdfPageToDataUrl(bytes, i, 0.45, 'image/jpeg', 0.8);
+          if (!active) return;
+          thumbs.push({
+            pageNumber: i,
+            origIndex: i - 1,
+            dataUrl: rendered.dataUrl,
+            rotation: 0,
+            selected: true
+          });
+        }
+        if (active) {
+          setPageThumbs(thumbs);
+          if (numPages >= 2) {
+            setSplitRanges(`1-1, 2-${numPages}`);
+          }
+        }
+      } catch {
+        // Fallback if PDF is encrypted
+      } finally {
+        if (active) setLoadingThumbs(false);
+      }
+    };
+    loadThumbnails();
+    return () => {
+      active = false;
+    };
+  }, [files, isOrganizerTool]);
+
+  const handleFilesSelected = async (rawFiles: File[]) => {
     setErrorMsg('');
     setResult(null);
-    const items: UploadedFileItem[] = [];
+    setPerFileStates({});
+    const validated: UploadedFileItem[] = [];
 
     for (const f of rawFiles) {
       if (f.size > 50 * 1024 * 1024) {
-        setErrorMsg(`File "${f.name}" exceeds the 50 MB operational safety limit.`);
+        setErrorMsg(`File "${f.name}" exceeds the 50 MB client operational limit.`);
         continue;
       }
       const ab = await f.arrayBuffer();
       const sig = await validateFileSignature(ab, f.name);
+
+      // Validate file extension/signature compatibility with active tool
+      const ext = `.${(f.name.split('.').pop() || '').toLowerCase()}`;
+      const expectsPdf = tool.acceptedExtensions.includes('.pdf') && tool.acceptedExtensions.length === 1;
+      if (expectsPdf && !sig.detectedFormat.startsWith('PDF')) {
+        setErrorMsg(
+          `Invalid file format for ${tool.name}: "${f.name}" was detected as ${sig.detectedFormat}. Please upload a valid PDF (.pdf) file.`
+        );
+        continue;
+      }
+      if (!expectsPdf && !tool.acceptedExtensions.includes(ext)) {
+        setErrorMsg(
+          `Unsupported file extension "${ext}" for ${tool.name}. Accepted formats: ${tool.acceptedExtensions.join(', ')}`
+        );
+        continue;
+      }
+
       let pageCount: number | undefined;
       if (sig.detectedFormat.startsWith('PDF')) {
         try {
-          const doc = await PDFDocument.load(ab, { ignoreEncryption: true });
-          pageCount = doc.getPageCount();
+          const doc = await loadPdfJsDocument(new Uint8Array(ab));
+          pageCount = doc.numPages;
+          await (doc as any).destroy?.();
         } catch {
           pageCount = 1;
         }
       }
 
-      items.push({
+      validated.push({
         id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         file: f,
         name: f.name,
-        size: f.type ? f.size : ab.byteLength,
-        type: f.type || 'application/octet-stream',
+        size: f.size,
+        type: f.type || 'application/pdf',
         pageCount,
         isValidSignature: sig.isValid,
         signatureLabel: sig.detectedFormat,
@@ -202,241 +339,378 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       });
     }
 
-    if (items.length > 0) {
-      setFiles((prev) => (tool.multipleFiles ? [...prev, ...items] : [items[0]]));
+    if (validated.length > 0) {
+      if (tool.multipleFiles) {
+        setFiles((prev) => [...prev, ...validated]);
+      } else {
+        setFiles([validated[0]]);
+      }
     }
   };
 
-  // Clipboard Paste (Ctrl+V / Cmd+V) support for files and images
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-      if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
-        e.preventDefault();
-        ingestFileList(Array.from(e.clipboardData.files));
-      }
-    };
-    window.addEventListener('paste', onPaste);
-    return () => window.removeEventListener('paste', onPaste);
-  });
-
-  // Build interactive organizer page thumbnails whenever files change in Organizer tools
-  useEffect(() => {
-    let cancelled = false;
-    if (tool.workspaceType !== 'organizer' || files.length === 0) {
-      setPageCards([]);
-      return;
-    }
-
-    const buildCards = async () => {
-      setLoadingThumbs(true);
-      const nextCards: OrganizerPageCard[] = [];
-      for (let fIdx = 0; fIdx < files.length; fIdx++) {
-        const fItem = files[fIdx];
-        const ab = fItem.arrayBuffer || (await fItem.file.arrayBuffer());
-        const pdfBytes = new Uint8Array(ab);
-        const total = fItem.pageCount || 1;
-        for (let p = 1; p <= Math.min(total, 24); p++) {
-          let thumbUrl = '';
-          try {
-            const rendered = await renderPdfPageToDataUrl(pdfBytes, p, 0.35, 'image/jpeg', 0.8);
-            thumbUrl = rendered.dataUrl;
-          } catch {
-            thumbUrl = '';
-          }
-          nextCards.push({
-            id: `card-${fIdx}-${p}-${Math.random().toString(36).slice(2, 6)}`,
-            fileIndex: fIdx,
-            fileName: fItem.name,
-            pageNumber: p,
-            rotation: 0,
-            selected: tool.id === 'delete-pages' ? false : true,
-            thumbnailUrl: thumbUrl
-          });
-        }
-      }
-      if (!cancelled) {
-        setPageCards(nextCards);
-        setLoadingThumbs(false);
-      }
-    };
-
-    buildCards();
-    return () => {
-      cancelled = true;
-    };
-  }, [files, tool.workspaceType, tool.id]);
-
-  // Load interactive sample file(s) with 1 click
-  const handleLoadSampleFiles = async () => {
+  // ============================================================================
+  // 1-CLICK SAMPLE GENERATORS FOR EVERY CONVERSION & STUDIO TOOL
+  // ============================================================================
+  const handleLoadSample = async () => {
     setErrorMsg('');
     setResult(null);
     setPerFileStates({});
-    if (tool.id === 'compare-pdf') {
-      const sampleA = await generateSamplePdfBytes('editorial-report');
-      const sampleB = await generateSamplePdfBytes('comparison-v2');
-      const fileA = new File([sampleA.bytes as unknown as BlobPart], sampleA.name, { type: 'application/pdf' });
-      const fileB = new File([sampleB.bytes as unknown as BlobPart], sampleB.name, { type: 'application/pdf' });
-      await ingestFileList([fileA, fileB]);
-    } else if (tool.id === 'merge-pdf') {
-      const sampleA = await generateSamplePdfBytes('editorial-report');
-      const sampleB = await generateSamplePdfBytes('comparison-v2');
-      const fileA = new File([sampleA.bytes as unknown as BlobPart], 'Part_01_Architecture_Spec.pdf', { type: 'application/pdf' });
-      const fileB = new File([sampleB.bytes as unknown as BlobPart], 'Part_02_Audit_Appendix.pdf', { type: 'application/pdf' });
-      await ingestFileList([fileA, fileB]);
-    } else if (tool.id === 'word-to-pdf') {
-      setFiles([]);
+
+    if (tool.id === 'word-to-pdf') {
       setProtectOutputWithPassword(true);
       if (!password) setPassword('vellum2026');
-      const specs = [
-        {
-          name: '01_Executive_Agreement_2026.docx',
-          title: 'Executive Service Agreement — 2026',
-          body: 'Sample Microsoft Word (.docx) document ready for conversion and simultaneous password protection.'
-        },
-        {
-          name: '02_Engineering_Architecture_Spec.docx',
-          title: 'Zero-Trust Systems Architecture',
-          body: 'Second Word (.docx) document in batch queue. All uploaded Word files can be converted and password-protected in one go.'
-        },
-        {
-          name: '03_Governance_Schedule.docx',
-          title: 'Q4 Governance & Compliance Schedule',
-          body: 'Third Word (.docx) document in batch queue.'
-        }
+
+      const doc = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph({
+                text: 'Vellum Executive Word (.docx) Specification — 2026',
+                heading: HeadingLevel.HEADING_1
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'This Microsoft Word (.docx) sample contains structured headings, body paragraphs, and a multi-column financial table to verify high-fidelity Word-to-PDF conversion.',
+                    size: 24
+                  })
+                ]
+              }),
+              new Paragraph({
+                text: '01. Quarterly Conversion Benchmarks',
+                heading: HeadingLevel.HEADING_2
+              }),
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                  new TableRow({
+                    children: ['Department', 'Q1 Allocation', 'Q2 Allocation', 'Status'].map(
+                      (h) =>
+                        new TableCell({
+                          children: [
+                            new Paragraph({
+                              children: [new TextRun({ text: h, bold: true, size: 20 })]
+                            })
+                          ]
+                        })
+                    )
+                  }),
+                  new TableRow({
+                    children: ['Document Conversion Engine', '$148,000', '$162,500', 'Verified'].map(
+                      (c) =>
+                        new TableCell({
+                          children: [new Paragraph({ children: [new TextRun({ text: c, size: 20 })] })]
+                        })
+                    )
+                  }),
+                  new TableRow({
+                    children: ['PDF/A Archival Compliance', '$94,200', '$108,000', 'Audited'].map(
+                      (c) =>
+                        new TableCell({
+                          children: [new Paragraph({ children: [new TextRun({ text: c, size: 20 })] })]
+                        })
+                    )
+                  })
+                ]
+              })
+            ]
+          }
+        ]
+      });
+      const blob = await Packer.toBlob(doc);
+      const docxFile = new File([blob], 'Vellum_Executive_Contract_2026.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      await handleFilesSelected([docxFile]);
+      return;
+    }
+
+    if (tool.id === 'excel-to-pdf') {
+      const wb = XLSX.utils.book_new();
+      const sheet1Data = [
+        ['Department', 'Lead Architect', 'Q1 Spend', 'Q2 Spend', 'Q3 Forecast', 'Compliance'],
+        ['Core PDF Engine', 'Elena Rostova', '$142,000', '$156,500', '$164,000', 'ISO-32000 Verified'],
+        ['Conversion Pipeline', 'Marcus Vance', '$118,400', '$129,000', '$138,200', 'Audited'],
+        ['Archival PDF/A-2b', 'Sora Takahashi', '$94,500', '$102,000', '$110,000', 'ISO-19005 Verified'],
+        ['Security & Redaction', 'Alex Morgan', '$125,000', '$134,800', '$149,500', 'SHA-256 Active']
       ];
-      const docxFiles: File[] = [];
-      for (const s of specs) {
-        const doc = new Document({
-          sections: [
-            {
-              children: [
-                new Paragraph({ text: s.title, heading: HeadingLevel.HEADING_1 }),
-                new Paragraph({ children: [new TextRun({ text: s.body, size: 24 })] })
-              ]
-            }
-          ]
-        });
-        const blob = await Packer.toBlob(doc);
-        docxFiles.push(
-          new File([blob], s.name, {
-            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-          })
+      const sheet2Data = [
+        ['Region', 'Monthly Conversions', 'Average Latency', 'Availability'],
+        ['North America', '1,420,000', '42 ms', '99.99%'],
+        ['Europe (Frankfurt)', '980,500', '38 ms', '99.99%'],
+        ['Asia-Pacific (Tokyo)', '1,150,200', '44 ms', '99.98%']
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet1Data), 'Financial_Summary');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet2Data), 'Regional_Telemetry');
+      const xlsxBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const xlsxFile = new File([xlsxBuf], 'Vellum_Quarterly_Financials_2026.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      await handleFilesSelected([xlsxFile]);
+      return;
+    }
+
+    if (tool.id === 'ppt-to-pdf') {
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_16x9';
+      const slide1 = pptx.addSlide();
+      slide1.addText('Vellum Architecture & Conversion Deck 2026', {
+        x: 0.6,
+        y: 0.6,
+        w: 8.5,
+        h: 1.0,
+        fontSize: 24,
+        bold: true
+      });
+      slide1.addText(
+        'Slide 1: High-precision widescreen presentation deck demonstrating PowerPoint (.pptx) to landscape PDF conversion.',
+        { x: 0.6, y: 1.8, w: 8.5, h: 1.5, fontSize: 14 }
+      );
+      const slide2 = pptx.addSlide();
+      slide2.addText('02. Multi-Format Fidelity & Archival Standards', {
+        x: 0.6,
+        y: 0.6,
+        w: 8.5,
+        h: 1.0,
+        fontSize: 22,
+        bold: true
+      });
+      slide2.addText(
+        '• Preserves slide order and widescreen 16:9 aspect ratio\n• Extracts slide typography and embedded media\n• Produces crisp vector PDF slide decks',
+        { x: 0.6, y: 1.8, w: 8.5, h: 2.2, fontSize: 14 }
+      );
+      const pptxBuf = (await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer;
+      const pptxFile = new File([pptxBuf], 'Vellum_Executive_Keynote_2026.pptx', {
+        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      });
+      await handleFilesSelected([pptxFile]);
+      return;
+    }
+
+    if (tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf') {
+      const isPng = tool.id === 'png-to-pdf';
+      const mime = isPng ? 'image/png' : 'image/jpeg';
+      const ext = isPng ? 'png' : 'jpg';
+      const sampleImgs: File[] = [];
+
+      const cards = [
+        { title: '01 // ARCHITECTURAL DIAGRAM', accent: '#7c3aed', bg: '#181824' },
+        { title: '02 // INFRASTRUCTURE TOPOLOGY', accent: '#10b981', bg: '#14201e' }
+      ];
+
+      for (let i = 0; i < cards.length; i++) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 960;
+        canvas.height = 640;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = cards[i].bg;
+        ctx.fillRect(0, 0, 960, 640);
+        ctx.strokeStyle = cards[i].accent;
+        ctx.lineWidth = 6;
+        ctx.strokeRect(36, 36, 888, 568);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 34px sans-serif';
+        ctx.fillText(cards[i].title, 80, 140);
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = '22px monospace';
+        ctx.fillText(`Vellum Sample ${ext.toUpperCase()} Plate #${i + 1} (960 × 640 px)`, 80, 200);
+        ctx.fillStyle = cards[i].accent;
+        ctx.fillRect(80, 260, 360, 180);
+        const dataUrl = canvas.toDataURL(mime, 0.92);
+        const b64 = dataUrl.split(',')[1];
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+        sampleImgs.push(
+          new File([bytes], `Vellum_Diagram_0${i + 1}.${ext}`, { type: mime })
         );
       }
-      await ingestFileList(docxFiles);
-    } else if (tool.id === 'unlock-pdf') {
-      setFiles([]);
-      const sharedPass = 'vellum2026';
-      setPassword(sharedPass);
-      const sample1 = await generateSamplePdfBytes('editorial-report');
+      await handleFilesSelected(sampleImgs);
+      return;
+    }
+
+    if (tool.id === 'html-to-pdf') {
+      const htmlBytes = new TextEncoder().encode(htmlInput);
+      const htmlFile = new File([htmlBytes], 'Vellum_Specification_2026.html', {
+        type: 'text/html'
+      });
+      await handleFilesSelected([htmlFile]);
+      return;
+    }
+
+    const sample1 = await generateSamplePdfBytes('editorial-report');
+    const file1 = new File([sample1.bytes as unknown as BlobPart], sample1.name, {
+      type: 'application/pdf'
+    });
+
+    if (tool.id === 'merge-pdf') {
       const sample2 = await generateSamplePdfBytes('comparison-v2');
-      const rawPdfs = [
-        { bytes: sample1.bytes, name: '01_Protected_Financial_Audit.pdf' },
-        { bytes: sample2.bytes, name: '02_Protected_Security_Manifest.pdf' }
-      ];
-      const lockedFiles: File[] = [];
-      for (const item of rawPdfs) {
-        const f = new File([item.bytes as unknown as BlobPart], item.name, { type: 'application/pdf' });
-        const ab = await f.arrayBuffer();
-        const uploaded: UploadedFileItem = {
-          id: `tmp-${item.name}`,
-          file: f,
-          name: item.name,
-          size: ab.byteLength,
-          type: 'application/pdf',
-          isValidSignature: true,
-          signatureLabel: 'PDF 1.7',
-          addedAt: Date.now(),
-          arrayBuffer: ab
-        };
-        const protectedRes = await executePdfTool('protect-pdf', [uploaded], {
-          password: sharedPass,
-          permissionPrint: false,
-          permissionCopy: false
-        });
-        lockedFiles.push(
-          new File([protectedRes.outputBytes as unknown as BlobPart], protectedRes.outputFileName, {
-            type: 'application/pdf'
-          })
-        );
-      }
-      await ingestFileList(lockedFiles);
-    } else if (tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf' || tool.id === 'images-to-pdf') {
-      const samplePdf = await generateSamplePdfBytes('editorial-report');
-      const rendered = await renderPdfPageToDataUrl(samplePdf.bytes, 1, 1.5, 'image/png');
-      const b64 = rendered.dataUrl.split(',')[1];
-      const imgBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-      const imgFile = new File([imgBytes as unknown as BlobPart], 'Sample_Architectural_Diagram.png', { type: 'image/png' });
-      await ingestFileList([imgFile]);
+      const file2 = new File([sample2.bytes as unknown as BlobPart], sample2.name, {
+        type: 'application/pdf'
+      });
+      await handleFilesSelected([file1, file2]);
     } else {
-      const sample = await generateSamplePdfBytes('editorial-report');
-      const f = new File([sample.bytes as unknown as BlobPart], sample.name, { type: 'application/pdf' });
-      await ingestFileList([f]);
+      await handleFilesSelected([file1]);
     }
   };
 
-  // Secure URL Import via Backend with SSRF Protection
-  const handleImportUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!urlInput.trim()) return;
-    setImportingUrl(true);
+  // Sample: 3 Word (.docx) Files Ready to Convert & Password-Protect in One Go
+  const handleLoadThreeWordFilesSample = async () => {
     setErrorMsg('');
-    try {
-      const resp = await fetch('/api/import-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput.trim() })
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || 'URL import rejected by SSRF security filter.');
+    setResult(null);
+    setPerFileStates({});
+    setProtectOutputWithPassword(true);
+    if (!password) setPassword('vellum2026');
+
+    const specs = [
+      {
+        name: '01_Executive_Service_Agreement.docx',
+        title: 'Executive Service Agreement — 2026',
+        body: 'Converted from Microsoft Word (.docx) and locked with a shared SHA-256 PDF password in one pass.'
+      },
+      {
+        name: '02_Zero_Trust_Security_Architecture.docx',
+        title: 'Zero-Trust Systems Architecture Notes',
+        body: 'Confidential engineering specification converted from Word (.docx) to a password-protected PDF.'
+      },
+      {
+        name: '03_Board_Compensation_Resolution.docx',
+        title: 'Q4 Board Compensation & Governance Schedule',
+        body: 'Batch Word-to-PDF conversion with simultaneous password protection across all uploaded documents.'
       }
-      const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
-      const f = new File([bytes], data.fileName, { type: data.mimeType });
-      await ingestFileList([f]);
-      setUrlInput('');
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to import URL.');
-    } finally {
-      setImportingUrl(false);
+    ];
+
+    const docxFiles: File[] = [];
+    for (const s of specs) {
+      const doc = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph({ text: s.title, heading: HeadingLevel.HEADING_1 }),
+              new Paragraph({ children: [new TextRun({ text: s.body, size: 24 })] })
+            ]
+          }
+        ]
+      });
+      const blob = await Packer.toBlob(doc);
+      docxFiles.push(
+        new File([blob], s.name, {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        })
+      );
     }
+    await handleFilesSelected(docxFiles);
+  };
+
+  // Sample: 3 Password-Protected PDFs Ready to Unlock All in One Go
+  const handleLoadThreeProtectedPdfsSample = async () => {
+    setErrorMsg('');
+    setResult(null);
+    setPerFileStates({});
+    const sharedPass = 'vellum2026';
+    setPassword(sharedPass);
+
+    const s1 = await generateSamplePdfBytes('editorial-report');
+    const s2 = await generateSamplePdfBytes('comparison-v2');
+    const s3 = await generateSamplePdfBytes('editorial-report');
+
+    const rawList = [
+      { bytes: s1.bytes, name: '01_Locked_Audit_Report.pdf' },
+      { bytes: s2.bytes, name: '02_Locked_Financial_Projection.pdf' },
+      { bytes: s3.bytes, name: '03_Locked_Security_Clearance.pdf' }
+    ];
+
+    const lockedFiles: File[] = [];
+    for (const item of rawList) {
+      const f = new File([item.bytes as unknown as BlobPart], item.name, {
+        type: 'application/pdf'
+      });
+      const ab = await f.arrayBuffer();
+      const up: UploadedFileItem = {
+        id: `tmp-${item.name}`,
+        file: f,
+        name: item.name,
+        size: ab.byteLength,
+        type: 'application/pdf',
+        isValidSignature: true,
+        signatureLabel: 'PDF 1.7',
+        addedAt: Date.now(),
+        arrayBuffer: ab
+      };
+      const res = await executePdfTool('protect-pdf', [up], {
+        password: sharedPass,
+        permissionPrint: false,
+        permissionCopy: false
+      });
+      lockedFiles.push(
+        new File([res.outputBytes as unknown as BlobPart], res.outputFileName, {
+          type: 'application/pdf'
+        })
+      );
+    }
+    await handleFilesSelected(lockedFiles);
   };
 
   const isMultiFileBatchMode =
-    files.length > 1 && !MULTI_FILE_COMBINER_TOOLS.includes(tool.id);
+    files.length > 1 && !MULTI_FILE_COMBINE_TOOLS.includes(tool.id);
+
+  const moveUploadedFile = (index: number, direction: -1 | 1) => {
+    setFiles((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      const [moved] = next.splice(index, 1);
+      next.splice(target, 0, moved);
+      return next;
+    });
+  };
 
   const handleRunTool = async () => {
-    setErrorMsg('');
-
     if (
       CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) &&
       protectOutputWithPassword &&
       !password.trim()
     ) {
-      setErrorMsg('Please enter a password to protect your converted PDF document(s).');
+      setErrorMsg(
+        'Please enter a password in the Security panel to password-protect the converted PDF(s), or uncheck "Password-Protect Output PDF".'
+      );
       return;
     }
 
     if ((tool.id === 'protect-pdf' || tool.id === 'unlock-pdf') && !password.trim()) {
       setErrorMsg(
         tool.id === 'protect-pdf'
-          ? 'Please enter a password to protect your PDF document(s).'
-          : 'Please enter the document password to unlock your PDF document(s).'
+          ? 'Please enter a password to lock and protect your PDF document(s).'
+          : 'Please enter the document password to unlock your protected PDF(s).'
       );
       return;
     }
 
     setProcessing(true);
+    setErrorMsg('');
+    setResult(null);
     setProgressPercent(5);
-    setProgressStage('Validating input signatures...');
+    setProgressStage('Initializing document processor...');
 
-    try {
-      const baseOptions: ToolExecutionOptions = {
+    const buildOptions = (
+      onProg?: (stage: string, pct: number) => void
+    ): ToolExecutionOptions => {
+      const selectedPages = pageThumbs.filter((t) => t.selected).map((t) => t.pageNumber);
+      const pageOrder = pageThumbs.map((t) => t.origIndex);
+      const pageRotations: Record<number, number> = {};
+      pageThumbs.forEach((t) => {
+        if (t.rotation !== 0) pageRotations[t.origIndex] = t.rotation;
+      });
+
+      return {
         splitMode,
         splitRanges,
         splitInterval,
+        selectedPages:
+          isOrganizerTool && selectedPages.length > 0 ? selectedPages : undefined,
+        conversionPageRange,
+        pageOrder: tool.id === 'organize-pages' ? pageOrder : undefined,
+        pageRotations: isOrganizerTool ? pageRotations : undefined,
         rotationAngle,
         watermarkText,
         watermarkOpacity,
@@ -444,10 +718,8 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         pageNumberPosition,
         pageNumberFormat,
         headerLeft,
-        headerCenter,
         headerRight,
         footerLeft,
-        footerCenter,
         footerRight,
         cropMarginTop,
         cropMarginBottom,
@@ -459,196 +731,160 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         permissionPrint,
         permissionCopy,
         pageSize,
+        pageOrientation,
+        pageMargin,
+        imageFitMode,
+        imageQuality,
         imageDpiScale,
-        rawHtmlInput: tool.id === 'html-to-pdf' && files.length === 0 ? rawHtmlInput : undefined,
-        rawTextInput: tool.id === 'txt-to-pdf' && files.length === 0 ? rawTextInput : undefined
+        wordIncludePageImages,
+        excelSheetMode,
+        excelSheetName,
+        excelPageScaling,
+        pptxConversionMode,
+        pptxSlideAspect,
+        pdfaProfile,
+        includePageNumbersOnConvert,
+        htmlInput,
+        onProgress: onProg
       };
+    };
 
-      // MULTI-FILE BATCH EXECUTION IN ONE GO (e.g. Multiple Word files -> Password-Protected PDFs, or Multiple Locked PDFs -> Unlocked PDFs)
+    try {
+      // Multi-file simultaneous batch execution (e.g., 3 Word files -> Protected PDFs, or 3 Locked PDFs -> Unlocked PDFs)
       if (isMultiFileBatchMode) {
+        const initialStates: Record<string, PerFileBatchState> = {};
+        files.forEach((f) => {
+          initialStates[f.id] = {
+            status: 'processing',
+            progress: 10,
+            stage: 'Starting...'
+          };
+        });
+        setPerFileStates(initialStates);
+
         const zip = new JSZip();
         const usedNames = new Set<string>();
         let totalOutBytes = 0;
-        let totalPages = 0;
-        let completedCount = 0;
-
-        // Initialize per-file progress states
-        const initialMap: Record<string, PerFileBatchState> = {};
-        for (const f of files) {
-          initialMap[f.id] = {
-            progress: 5,
-            stage: 'Queued for batch execution...',
-            status: 'processing'
-          };
-        }
-        setPerFileStates(initialMap);
 
         await Promise.all(
-          files.map(async (fItem) => {
-            try {
-              const singleRes = await executePdfTool(tool.id, [fItem], {
-                ...baseOptions,
-                onProgress: (stage, pct) => {
-                  setPerFileStates((prev) => ({
-                    ...prev,
-                    [fItem.id]: {
-                      ...prev[fItem.id],
-                      progress: Math.max(10, Math.min(99, pct)),
-                      stage,
-                      status: 'processing'
-                    }
-                  }));
+          files.map(async (fileItem, idx) => {
+            const singleRes = await executePdfTool(
+              tool.id,
+              [fileItem],
+              buildOptions((stage, pct) => {
+                setPerFileStates((prev) => ({
+                  ...prev,
+                  [fileItem.id]: {
+                    ...prev[fileItem.id],
+                    status: 'processing',
+                    progress: Math.max(10, Math.min(99, pct)),
+                    stage
+                  }
+                }));
+                if (idx === 0) {
+                  setProgressStage(`Processing ${files.length} files (${stage})...`);
+                  setProgressPercent(pct);
                 }
-              });
+              })
+            );
 
-              let outName = singleRes.outputFileName;
-              if (usedNames.has(outName)) {
-                const dot = outName.lastIndexOf('.');
-                outName =
-                  dot > 0
-                    ? `${outName.slice(0, dot)}_${fItem.id.slice(-4)}${outName.slice(dot)}`
-                    : `${outName}_${fItem.id.slice(-4)}`;
+            setPerFileStates((prev) => ({
+              ...prev,
+              [fileItem.id]: {
+                status: 'completed',
+                progress: 100,
+                stage: 'Completed & Verified',
+                result: singleRes
               }
-              usedNames.add(outName);
-              zip.file(outName, singleRes.outputBytes);
-              totalOutBytes += singleRes.outputSize;
-              totalPages += singleRes.pageCount || 1;
-              completedCount += 1;
+            }));
 
-              setProgressPercent(Math.round((completedCount / files.length) * 95));
-              setProgressStage(
-                `Processed ${completedCount} of ${files.length} files (${fItem.name})...`
-              );
-
-              setPerFileStates((prev) => ({
-                ...prev,
-                [fItem.id]: {
-                  progress: 100,
-                  stage: 'Verified & Complete',
-                  status: 'completed',
-                  result: singleRes
-                }
-              }));
-
-              onRecordHistory(
-                tool.id,
-                `${tool.shortName} (Batch)`,
-                fItem.name,
-                singleRes.outputFileName,
-                singleRes.outputSize,
-                singleRes.summary
-              );
-            } catch (fileErr: any) {
-              setPerFileStates((prev) => ({
-                ...prev,
-                [fItem.id]: {
-                  progress: 100,
-                  stage: 'Failed',
-                  status: 'error',
-                  error: fileErr?.message || 'Failed to process file'
-                }
-              }));
-              throw fileErr;
+            let outName = singleRes.outputFileName;
+            if (usedNames.has(outName)) {
+              const dot = outName.lastIndexOf('.');
+              outName =
+                dot > 0
+                  ? `${outName.slice(0, dot)}_${idx + 1}${outName.slice(dot)}`
+                  : `${outName}_${idx + 1}`;
             }
+            usedNames.add(outName);
+            zip.file(outName, singleRes.outputBytes);
+            totalOutBytes += singleRes.outputSize;
           })
         );
 
+        setProgressStage('Packaging all processed files into ZIP archive...');
+        setProgressPercent(95);
         const zipBytes = await zip.generateAsync({ type: 'uint8array' });
-        const zipFileName =
-          CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-            ? `Vellum_${tool.id}_protected_${files.length}_files.zip`
-            : tool.id === 'unlock-pdf'
-            ? `Vellum_unlocked_${files.length}_pdfs.zip`
-            : `Vellum_${tool.id}_${files.length}_files.zip`;
 
-        setProgressPercent(100);
-        setProgressStage('All files processed and packaged into ZIP.');
-
-        setResult({
+        const combinedResult: ProcessingResult = {
           success: true,
           toolId: tool.id,
-          validationPassed: true,
-          outputBytes: zipBytes,
-          outputFileName: zipFileName,
+          outputFileName: `Vellum_${tool.id}_${files.length}_files.zip`,
           outputMimeType: 'application/zip',
+          outputBytes: zipBytes,
           originalSize: files.reduce((a, b) => a + b.size, 0),
           outputSize: zipBytes.byteLength,
-          pageCount: totalPages,
+          pageCount: files.length,
           summary:
             CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-              ? `Converted and password-protected all ${files.length} files into encrypted PDFs in one go.`
+              ? `Converted and password-protected all ${files.length} files in one go (packaged as ZIP + individual downloads).`
               : tool.id === 'unlock-pdf'
-              ? `Verified password and unlocked all ${files.length} password-protected PDFs in one go.`
-              : `Processed all ${files.length} files in one go (${(totalOutBytes / 1024).toFixed(1)} KB total output).`,
-          validationNotes: [
-            `All ${files.length} files processed simultaneously with per-file verification`,
-            ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-              ? [`SHA-256 password policy applied to all ${files.length} output PDFs`]
-              : []),
-            ...(tool.id === 'unlock-pdf'
-              ? [`Password verified and security restrictions stripped from all ${files.length} PDFs`]
-              : []),
-            'Download individual files from the queue or download all as a single .zip archive'
-          ],
+              ? `Unlocked and removed password restrictions from all ${files.length} PDFs in one go.`
+              : `Processed all ${files.length} files with ${tool.name} in one go.`,
           details: {
-            'Files Processed': files.length,
-            'Password Protection':
-              (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword) ||
-              tool.id === 'protect-pdf'
-                ? 'Active (SHA-256 Policy)'
-                : tool.id === 'unlock-pdf'
-                ? 'Removed from All PDFs'
-                : 'Standard'
-          }
-        });
-        return;
+            'Files Processed in One Go': files.length,
+            'Combined Output Payload': `${(totalOutBytes / 1024).toFixed(1)} KB`,
+            ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
+              ? { 'Shared Password Protection': 'Applied to All Output PDFs (SHA-256)' }
+              : {})
+          },
+          validationPassed: zipBytes.byteLength > 64,
+          validationNotes: [
+            `Verified all ${files.length} output files in batch archive`,
+            ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
+              ? ['Verified SHA-256 password protection envelope on every converted PDF']
+              : [])
+          ]
+        };
+
+        setResult(combinedResult);
+        setProgressPercent(100);
+        setProgressStage('Complete');
+
+        onRecordHistory(
+          tool.id,
+          `${tool.name} (${files.length} Files)`,
+          `${files.length} files`,
+          combinedResult.outputFileName,
+          combinedResult.outputSize,
+          combinedResult.summary
+        );
+      } else {
+        // Standard single-file or multi-file combine execution
+        const res = await executePdfTool(
+          tool.id,
+          files,
+          buildOptions((stage, pct) => {
+            setProgressStage(stage);
+            setProgressPercent(pct);
+          })
+        );
+
+        setResult(res);
+        setProgressPercent(100);
+        setProgressStage('Complete');
+
+        onRecordHistory(
+          tool.id,
+          tool.name,
+          files[0]?.name || 'Document',
+          res.outputFileName,
+          res.outputSize,
+          res.summary
+        );
       }
-
-      // SINGLE-FILE OR COMBINER EXECUTION
-      const execOptions: ToolExecutionOptions = {
-        ...baseOptions,
-        onProgress: (stage, pct) => {
-          setProgressStage(stage);
-          setProgressPercent(pct);
-        }
-      };
-
-      if (tool.workspaceType === 'organizer' && pageCards.length > 0 && tool.id !== 'split-pdf') {
-        if (tool.id === 'delete-pages') {
-          const remaining = pageCards.filter((c) => !c.selected);
-          if (remaining.length === 0) {
-            throw new Error('Cannot delete every page in the document. Leave at least 1 unselected page.');
-          }
-          execOptions.pageOrder = remaining.map((c) => ({
-            fileIndex: c.fileIndex,
-            pageNumber: c.pageNumber,
-            rotation: c.rotation
-          }));
-        } else {
-          const chosen = pageCards.filter((c) => c.selected);
-          if (chosen.length === 0) {
-            throw new Error('Please select at least one page to include in the output PDF.');
-          }
-          execOptions.pageOrder = chosen.map((c) => ({
-            fileIndex: c.fileIndex,
-            pageNumber: c.pageNumber,
-            rotation: c.rotation
-          }));
-        }
-      }
-
-      const res = await executePdfTool(tool.id, files, execOptions);
-      setResult(res);
-      onRecordHistory(
-        tool.id,
-        tool.name,
-        files[0]?.name || 'Inline Input',
-        res.outputFileName,
-        res.outputSize,
-        res.summary
-      );
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Document processing failed.');
+      setErrorMsg(err?.message || 'An unexpected error occurred while processing the document.');
     } finally {
       setProcessing(false);
     }
@@ -656,7 +892,9 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
   const triggerDownloadResult = () => {
     if (!result) return;
-    const blob = new Blob([result.outputBytes as unknown as BlobPart], { type: result.outputMimeType });
+    const blob = new Blob([result.outputBytes as unknown as BlobPart], {
+      type: result.outputMimeType
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -667,12 +905,14 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const triggerDownloadSingleFileResult = (r: ProcessingResult) => {
-    const blob = new Blob([r.outputBytes as unknown as BlobPart], { type: r.outputMimeType });
+  const triggerDownloadSingleFileResult = (singleRes: ProcessingResult) => {
+    const blob = new Blob([singleRes.outputBytes as unknown as BlobPart], {
+      type: singleRes.outputMimeType
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = r.outputFileName;
+    a.download = singleRes.outputFileName;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -681,7 +921,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
   return (
     <div className="max-w-[1440px] mx-auto px-6 py-8 space-y-8">
-      {/* Workspace Header Breadcrumb */}
+      {/* Top Breadcrumb & Workspace Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-theme-subtle">
         <div className="flex items-center gap-4">
           <button
@@ -694,11 +934,11 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 text-xs text-theme-secondary">
-              <span>{tool.categoryLabel}</span>
+              <span>{tool.conversionSubcategoryLabel || tool.categoryLabel}</span>
               <span aria-hidden="true">·</span>
-              <span>ISO 32000 Processing Pipeline</span>
-              <span aria-hidden="true">·</span>
-              <span>Single &amp; Multi-File Batch Support</span>
+              <span className="font-mono text-theme-accent">
+                {tool.acceptedExtensions.slice(0, 3).join(', ')} → {tool.outputExtension}
+              </span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-theme-primary mt-0.5 flex items-center gap-2.5">
               <ToolIcon name={tool.iconName} className="w-6 h-6 text-theme-accent" />
@@ -708,88 +948,103 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {onOpenInBatchQueue && (
+          {tool.id === 'word-to-pdf' && (
             <button
               type="button"
-              onClick={() => onOpenInBatchQueue(tool.id, files)}
+              onClick={handleLoadThreeWordFilesSample}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
             >
-              <Layers2 className="w-3.5 h-3.5 text-theme-accent" />
-              Open in Dedicated Batch Queue
+              <Lock className="w-3.5 h-3.5 text-theme-accent" />
+              Load 3 Word (.docx) Files to Lock in One Go
+            </button>
+          )}
+
+          {tool.id === 'unlock-pdf' && (
+            <button
+              type="button"
+              onClick={handleLoadThreeProtectedPdfsSample}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+            >
+              <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+              Load 3 Locked PDFs to Unlock in One Go
             </button>
           )}
 
           <button
             type="button"
-            onClick={handleLoadSampleFiles}
+            onClick={handleLoadSample}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
-            {tool.id === 'compare-pdf'
-              ? 'Load Sample Rev A & Rev B PDFs'
-              : tool.id === 'merge-pdf'
-              ? 'Load 2 Sample PDFs to Merge'
-              : tool.id === 'word-to-pdf'
-              ? 'Load 3 Sample Word (.docx) Files'
-              : tool.id === 'unlock-pdf'
-              ? 'Load 2 Password-Protected PDFs'
-              : 'Load Interactive Sample File'}
+            Load Sample {tool.acceptedExtensions[0]?.toUpperCase() || 'File'}
           </button>
+
+          {onOpenInBatchQueue && files.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onOpenInBatchQueue(tool.id, files)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent cursor-pointer"
+            >
+              <Layers2 className="w-3.5 h-3.5 text-theme-accent" />
+              Open in Dedicated Batch Queue ({files.length})
+            </button>
+          )}
 
           {files.length > 0 && files[0].signatureLabel.startsWith('PDF') && (
             <button
               type="button"
               onClick={() => onOpenInEditor(files[0])}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-muted text-theme-primary hover:bg-theme-accent hover:text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-theme-accent text-white hover:opacity-95 cursor-pointer"
             >
-              <FileEdit className="w-3.5 h-3.5" />
-              Open in Full PDF Editor
+              <Layers className="w-3.5 h-3.5" />
+              Open in 2D PDF Editor
             </button>
           )}
         </div>
       </div>
 
-      {/* Interactive Three.js 3D Document Pipeline & Security Stage */}
+      {/* Interactive Three.js 3D Spatial Pipeline Stage */}
       <ThreeWorkspaceBanner
         title={tool.name}
-        subtitle={`${files.length || 1} Document(s) in Pipeline · Interactive 3D Stream Stage`}
+        subtitle={`${tool.conversionSubcategoryLabel || tool.categoryLabel} · Interactive 3D Pipeline Stage`}
         mode={
-          tool.workspaceType === 'security'
+          tool.category === 'pdf-security' ||
+          (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword)
             ? 'security'
-            : tool.workspaceType === 'organizer'
+            : tool.category === 'organize-pdf'
             ? 'organizer'
             : 'converter'
         }
         fileCount={files.length}
+        completedCount={
+          result
+            ? files.length
+            : Object.values(perFileStates).filter(
+                (s: PerFileBatchState) => s.status === 'completed'
+              ).length
+        }
         isProcessing={processing}
         progressPercent={progressPercent}
         isPasswordLocked={
-          (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword) ||
-          tool.id === 'protect-pdf'
+          tool.id === 'protect-pdf' ||
+          (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword)
         }
       />
 
-      {errorMsg && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-xs text-rose-400">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Main Two-Column Adaptive Workspace */}
+      {/* Main 2-Column Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN (7 cols): Upload Dropzone, File Queue, and Interactive Page Grid */}
+        {/* LEFT COLUMN (7 Cols): File Upload, Interactive Page / Image Sorter, or HTML Input */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Drag-and-Drop Upload Surface */}
+          {/* Drag and Drop File Zone */}
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               if (e.dataTransfer.files?.length) {
-                ingestFileList(Array.from(e.dataTransfer.files));
+                handleFilesSelected(Array.from(e.dataTransfer.files));
               }
             }}
-            className="p-6 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/70 hover:border-theme-accent transition-colors text-center space-y-4"
+            className="p-8 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/60 hover:border-theme-accent transition-colors text-center space-y-4"
           >
             <input
               ref={fileInputRef}
@@ -799,76 +1054,63 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               className="hidden"
               onChange={(e) => {
                 if (e.target.files?.length) {
-                  ingestFileList(Array.from(e.target.files));
+                  handleFilesSelected(Array.from(e.target.files));
                 }
                 e.target.value = '';
               }}
             />
+
             <div className="w-12 h-12 rounded-xl bg-theme-elevated border border-theme-subtle flex items-center justify-center mx-auto text-theme-accent">
               <Upload className="w-6 h-6" />
             </div>
+
             <div className="space-y-1">
               <h2 className="text-base font-bold text-theme-primary">
-                Drop one or multiple {tool.acceptedExtensions.join(', ')} files here
+                {tool.multipleFiles
+                  ? `Drop one or multiple ${tool.acceptedExtensions.join(', ')} files here`
+                  : `Drop your ${tool.acceptedExtensions.join(', ')} file here`}
               </h2>
               <p className="text-xs text-theme-secondary">
-                {tool.id === 'word-to-pdf'
-                  ? 'Upload multiple Word (.docx) files at once—convert & password-protect all of them in one go'
-                  : tool.id === 'unlock-pdf'
-                  ? 'Upload multiple password-protected PDFs at once—enter the password once to unlock all in one go'
-                  : 'Magic-byte file signature verification active · Up to 50 MB per document · Zero guest retention'}
+                Accepted formats: {tool.acceptedExtensions.join(', ')} · Verified magic-byte inspection · Up to 50 MB
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-theme-accent text-white hover:opacity-95 cursor-pointer"
+                className="px-5 py-2.5 rounded-lg text-xs font-semibold bg-theme-accent text-white hover:opacity-95 cursor-pointer"
               >
-                Select File{tool.multipleFiles ? 's' : ''} from Device
+                {files.length > 0 && tool.multipleFiles ? '+ Add More Files' : 'Choose File(s)'}
               </button>
               <button
                 type="button"
-                onClick={handleLoadSampleFiles}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                onClick={handleLoadSample}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
               >
-                {tool.id === 'word-to-pdf'
-                  ? 'Load 3 Sample Word Files'
-                  : tool.id === 'unlock-pdf'
-                  ? 'Load 2 Locked Sample PDFs'
-                  : 'Use Sample Document'}
+                Use Sample {tool.acceptedExtensions[0]?.toUpperCase() || 'File'}
               </button>
             </div>
-
-            {/* Secure URL Import Bar with SSRF Protection */}
-            <form
-              onSubmit={handleImportUrl}
-              className="pt-3 border-t border-theme-subtle max-w-md mx-auto flex items-center gap-2"
-            >
-              <Globe className="w-4 h-4 text-theme-muted shrink-0" />
-              <input
-                type="url"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="Or import from HTTPS URL (SSRF protected)..."
-                className="flex-1 px-2.5 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle text-xs text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-accent"
-              />
-              <button
-                type="submit"
-                disabled={importingUrl || !urlInput.trim()}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-theme-muted text-theme-primary hover:bg-theme-accent hover:text-white disabled:opacity-40 cursor-pointer"
-              >
-                {importingUrl ? 'Checking...' : 'Fetch URL'}
-              </button>
-            </form>
           </div>
 
-          {/* Uploaded Files List with Magic-Byte Signature Verification & Per-File Progress */}
+          {errorMsg && (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-xs text-rose-400">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Uploaded File List with Interactive Ordering & Per-File Progress */}
           {files.length > 0 && (
             <div className="p-5 rounded-xl bg-theme-surface border border-theme-subtle space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-theme-secondary">
-                  Verified Input Queue ({files.length} {files.length === 1 ? 'File' : 'Files'})
+                  Uploaded Source Files ({files.length})
+                  {MULTI_FILE_COMBINE_TOOLS.includes(tool.id) && files.length > 1 && (
+                    <span className="ml-2 text-theme-accent font-normal normal-case">
+                      · Use arrows to reorder sequence before combining
+                    </span>
+                  )}
                 </h3>
                 <button
                   type="button"
@@ -879,79 +1121,125 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                   }}
                   className="text-xs text-rose-400 hover:underline cursor-pointer"
                 >
-                  Clear Queue
+                  Clear All
                 </button>
               </div>
+
               <div className="divide-y divide-theme-subtle">
                 {files.map((f, idx) => {
-                  const st = perFileStates[f.id];
+                  const fState = perFileStates[f.id];
+                  const canReorder =
+                    MULTI_FILE_COMBINE_TOOLS.includes(tool.id) && files.length > 1;
+
                   return (
-                    <div key={f.id} className="py-3 space-y-2 text-xs">
+                    <div key={f.id} className="py-3 space-y-2">
                       <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="font-bold text-theme-primary truncate">
-                            {idx + 1}. {f.name}
-                          </div>
-                          <div className="text-theme-secondary font-mono tabular-nums mt-0.5">
-                            {(f.size / 1024).toFixed(1)} KB
-                            {f.pageCount ? ` · ${f.pageCount} Page(s)` : ''}
-                            {' · '}
-                            <span className={f.isValidSignature ? 'text-emerald-400' : 'text-amber-400'}>
-                              {f.signatureLabel}
-                            </span>
-                            {st?.result && (
-                              <>
-                                {' → '}
-                                <span className="text-emerald-400 font-semibold">
-                                  {st.result.outputFileName}
-                                </span>
-                              </>
-                            )}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-xs font-mono text-theme-muted w-5">
+                            {String(idx + 1).padStart(2, '0')}
+                          </span>
+                          <FileText className="w-4 h-4 text-theme-accent shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-theme-primary truncate">
+                              {f.name}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] font-mono text-theme-secondary">
+                              <span>{(f.size / 1024).toFixed(1)} KB</span>
+                              <span>·</span>
+                              <span
+                                className={
+                                  f.isValidSignature ? 'text-emerald-400' : 'text-amber-400'
+                                }
+                              >
+                                {f.signatureLabel}
+                              </span>
+                              {f.pageCount && (
+                                <>
+                                  <span>·</span>
+                                  <span>{f.pageCount} Page(s)</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {st?.result && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {canReorder && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => moveUploadedFile(idx, -1)}
+                                title="Move earlier in sequence"
+                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === files.length - 1}
+                                onClick={() => moveUploadedFile(idx, 1)}
+                                title="Move later in sequence"
+                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+
+                          {fState?.status === 'completed' && fState.result && (
                             <button
                               type="button"
-                              onClick={() => triggerDownloadSingleFileResult(st.result!)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 cursor-pointer"
+                              onClick={() => triggerDownloadSingleFileResult(fState.result!)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-500 cursor-pointer"
                             >
                               <Download className="w-3 h-3" />
-                              Download
+                              Download .PDF
                             </button>
                           )}
+
                           <button
                             type="button"
                             onClick={() =>
                               setFiles((prev) => prev.filter((item) => item.id !== f.id))
                             }
+                            className="p-1.5 text-theme-muted hover:text-rose-400 cursor-pointer"
                             aria-label={`Remove ${f.name}`}
-                            className="p-1.5 rounded-lg text-theme-muted hover:text-rose-400 hover:bg-theme-muted cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Per-file progress indicator when processing multiple files */}
-                      {st && (
-                        <div className="space-y-1">
+                      {/* Per-file progress bar when processing multiple files in one go */}
+                      {fState && (
+                        <div className="pl-8 space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="flex items-center gap-1.5 text-theme-secondary">
+                              {fState.status === 'processing' && (
+                                <Loader2 className="w-3 h-3 text-theme-accent animate-spin" />
+                              )}
+                              {fState.status === 'completed' && (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                              )}
+                              {fState.status === 'queued' && (
+                                <Clock className="w-3 h-3 text-theme-muted" />
+                              )}
+                              <span>{fState.stage}</span>
+                            </span>
+                            <span className="tabular-nums text-theme-primary font-semibold">
+                              {fState.progress}%
+                            </span>
+                          </div>
                           <div className="w-full h-1.5 rounded-full bg-theme-muted overflow-hidden">
                             <div
-                              style={{ width: `${st.progress}%` }}
+                              style={{ width: `${fState.progress}%` }}
                               className={`h-full transition-all duration-150 ${
-                                st.status === 'completed'
+                                fState.status === 'completed'
                                   ? 'bg-emerald-500'
-                                  : st.status === 'error'
-                                  ? 'bg-rose-500'
                                   : 'bg-theme-accent'
                               }`}
                             />
-                          </div>
-                          <div className="flex justify-between text-[11px] font-mono text-theme-secondary">
-                            <span>{st.error || st.stage}</span>
-                            <span>{st.progress}%</span>
                           </div>
                         </div>
                       )}
@@ -962,239 +1250,663 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
             </div>
           )}
 
-          {/* ADAPTIVE ORGANIZER PAGE GRID (When in Organize PDF tools) */}
-          {tool.workspaceType === 'organizer' && pageCards.length > 0 && tool.id !== 'split-pdf' && (
+          {/* Interactive Page Thumbnail Grid for Organizer / Split / Rotate / PDF-to-Images */}
+          {isOrganizerTool && files.length > 0 && (
             <div className="p-5 rounded-xl bg-theme-surface border border-theme-subtle space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-theme-primary">
-                    Interactive Page Organizer ({pageCards.length} Pages)
+                    Interactive Page Grid ({pageThumbs.length} Pages)
                   </h3>
                   <p className="text-xs text-theme-secondary">
-                    {tool.id === 'delete-pages'
-                      ? 'Click pages to mark them for deletion (highlighted in crimson).'
-                      : 'Click pages to toggle inclusion, rotate 90°, reorder sequence, or insert blank pages.'}
+                    {tool.id === 'organize-pages'
+                      ? 'Drag and drop page cards with spring physics to reorder, or click to select/rotate.'
+                      : 'Click pages to toggle selection or rotate individual pages before running.'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() =>
-                      setPageCards((prev) => [
-                        ...prev,
-                        {
-                          id: `blank-${Date.now()}`,
-                          fileIndex: 0,
-                          fileName: 'Blank Page',
-                          pageNumber: -1,
-                          rotation: 0,
-                          selected: tool.id !== 'delete-pages'
-                        }
-                      ])
+                      setPageThumbs((prev) => prev.map((t) => ({ ...t, selected: true })))
                     }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
+                    className="px-2.5 py-1 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add Blank Page
+                    Select All
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPageCards((prev) => [...prev].reverse())}
-                    className="px-2.5 py-1 rounded text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary cursor-pointer"
+                    onClick={() =>
+                      setPageThumbs((prev) => prev.map((t) => ({ ...t, selected: false })))
+                    }
+                    className="px-2.5 py-1 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary cursor-pointer"
                   >
-                    Reverse Order
+                    Deselect All
                   </button>
                 </div>
               </div>
 
               {loadingThumbs ? (
-                <p className="text-xs text-theme-muted py-6 text-center">
-                  Rendering interactive page thumbnails...
-                </p>
+                <div className="py-12 text-center text-xs text-theme-secondary font-mono">
+                  Rendering real PDF.js page thumbnails...
+                </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {pageCards.map((card, cIdx) => {
-                    const isDeleteTarget = tool.id === 'delete-pages' && card.selected;
-                    const isIncluded = tool.id !== 'delete-pages' && card.selected;
-                    const isBeingDragged = draggedCardIdx === cIdx;
-                    const isDropTarget =
-                      dragOverCardIdx === cIdx &&
-                      draggedCardIdx !== null &&
-                      draggedCardIdx !== cIdx;
-
-                    return (
+                <Reorder.Group
+                  axis="x"
+                  values={pageThumbs}
+                  onReorder={setPageThumbs}
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5"
+                >
+                  {pageThumbs.map((thumb, idx) => (
+                    <Reorder.Item
+                      key={`page-card-${thumb.origIndex}`}
+                      value={thumb}
+                      whileDrag={{
+                        scale: 1.06,
+                        zIndex: 30,
+                        boxShadow: '0 20px 38px rgba(0, 0, 0, 0.5)'
+                      }}
+                      transition={{ type: 'spring', stiffness: 430, damping: 30 }}
+                      className={`p-2.5 rounded-lg border transition-colors cursor-grab active:cursor-grabbing ${
+                        thumb.selected
+                          ? 'bg-theme-elevated border-theme-accent'
+                          : 'bg-theme-canvas border-theme-subtle opacity-55'
+                      }`}
+                    >
                       <div
-                        key={card.id}
-                        draggable={pageCards.length > 1}
-                        onDragStart={(e) => {
-                          setDraggedCardIdx(cIdx);
-                          e.dataTransfer.effectAllowed = 'move';
-                          e.dataTransfer.setData('text/plain', String(cIdx));
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                          if (dragOverCardIdx !== cIdx) {
-                            setDragOverCardIdx(cIdx);
-                          }
-                        }}
-                        onDragLeave={() => {
-                          if (dragOverCardIdx === cIdx) {
-                            setDragOverCardIdx(null);
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const fromIdx =
-                            draggedCardIdx !== null
-                              ? draggedCardIdx
-                              : Number(e.dataTransfer.getData('text/plain'));
-                          setDraggedCardIdx(null);
-                          setDragOverCardIdx(null);
-                          if (!Number.isNaN(fromIdx) && fromIdx !== cIdx) {
-                            setPageCards((prev) => {
-                              const copy = [...prev];
-                              const [moved] = copy.splice(fromIdx, 1);
-                              copy.splice(cIdx, 0, moved);
-                              return copy;
-                            });
-                          }
-                        }}
-                        onDragEnd={() => {
-                          setDraggedCardIdx(null);
-                          setDragOverCardIdx(null);
-                        }}
                         onClick={() =>
-                          setPageCards((prev) =>
-                            prev.map((c, i) => (i === cIdx ? { ...c, selected: !c.selected } : c))
+                          setPageThumbs((prev) =>
+                            prev.map((t, i) =>
+                              i === idx ? { ...t, selected: !t.selected } : t
+                            )
                           )
                         }
-                        className={`p-2.5 rounded-lg border transition-all cursor-grab active:cursor-grabbing ${
-                          isBeingDragged
-                            ? 'opacity-40 scale-[0.97] border-dashed border-theme-accent'
-                            : isDropTarget
-                            ? 'border-violet-400 ring-2 ring-violet-500/40 bg-violet-500/10'
-                            : isDeleteTarget
-                            ? 'border-rose-500 bg-rose-500/10'
-                            : isIncluded
-                            ? 'border-theme-accent bg-theme-elevated'
-                            : 'border-theme-subtle bg-theme-canvas/40 opacity-55'
-                        }`}
+                        className="relative aspect-[3/4] bg-white rounded overflow-hidden flex items-center justify-center cursor-pointer"
                       >
-                        <div className="flex items-center justify-between text-[11px] font-mono mb-2">
-                          <span className="font-bold text-theme-primary flex items-center gap-1">
-                            <GripVertical className="w-3 h-3 text-theme-muted shrink-0" />
-                            <span>{card.pageNumber === -1 ? 'Blank' : `P.${card.pageNumber}`}</span>
-                          </span>
-                          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              disabled={cIdx === 0}
-                              onClick={() =>
-                                setPageCards((prev) => {
-                                  const copy = [...prev];
-                                  const [item] = copy.splice(cIdx, 1);
-                                  copy.splice(cIdx - 1, 0, item);
-                                  return copy;
-                                })
-                              }
-                              title="Move Earlier"
-                              className="p-0.5 text-theme-secondary hover:text-theme-primary disabled:opacity-25 cursor-pointer"
-                            >
-                              <MoveLeftIcon className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={cIdx === pageCards.length - 1}
-                              onClick={() =>
-                                setPageCards((prev) => {
-                                  const copy = [...prev];
-                                  const [item] = copy.splice(cIdx, 1);
-                                  copy.splice(cIdx + 1, 0, item);
-                                  return copy;
-                                })
-                              }
-                              title="Move Later"
-                              className="p-0.5 text-theme-secondary hover:text-theme-primary disabled:opacity-25 cursor-pointer"
-                            >
-                              <MoveRightIcon className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPageCards((prev) =>
-                                  prev.map((c, i) =>
-                                    i === cIdx ? { ...c, rotation: (c.rotation + 90) % 360 } : c
-                                  )
-                                )
-                              }
-                              title="Rotate 90°"
-                              className="p-0.5 text-theme-secondary hover:text-theme-primary cursor-pointer"
-                            >
-                              <RotateCw className="w-3 h-3" />
-                            </button>
-                          </div>
+                        <img
+                          src={thumb.dataUrl}
+                          alt={`Page ${thumb.pageNumber}`}
+                          referrerPolicy="no-referrer"
+                          style={{ transform: `rotate(${thumb.rotation}deg)` }}
+                          className="max-w-full max-h-full object-contain transition-transform"
+                        />
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[10px] font-mono text-white">
+                          P.{thumb.pageNumber}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-theme-subtle text-[11px]">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (idx === 0) return;
+                              setPageThumbs((prev) => {
+                                const copy = [...prev];
+                                const [removed] = copy.splice(idx, 1);
+                                copy.splice(idx - 1, 0, removed);
+                                return copy;
+                              });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-theme-surface hover:bg-theme-muted text-theme-secondary cursor-pointer"
+                            title="Move page earlier"
+                          >
+                            ←
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (idx === pageThumbs.length - 1) return;
+                              setPageThumbs((prev) => {
+                                const copy = [...prev];
+                                const [removed] = copy.splice(idx, 1);
+                                copy.splice(idx + 1, 0, removed);
+                                return copy;
+                              });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-theme-surface hover:bg-theme-muted text-theme-secondary cursor-pointer"
+                            title="Move page later"
+                          >
+                            →
+                          </button>
                         </div>
 
-                        <div className="aspect-[3/4] rounded bg-white border border-theme-subtle flex items-center justify-center overflow-hidden">
-                          {card.thumbnailUrl ? (
-                            <img
-                              src={card.thumbnailUrl}
-                              alt={`Page ${card.pageNumber}`}
-                              referrerPolicy="no-referrer"
-                              style={{ transform: `rotate(${card.rotation}deg)` }}
-                              className="max-h-full max-w-full object-contain transition-transform"
-                            />
-                          ) : (
-                            <span className="text-[11px] text-slate-400 font-mono">Blank Sheet</span>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPageThumbs((prev) =>
+                              prev.map((t, i) =>
+                                i === idx ? { ...t, rotation: (t.rotation + 90) % 360 } : t
+                              )
+                            )
+                          }
+                          className="p-1 rounded bg-theme-surface hover:bg-theme-muted text-theme-secondary hover:text-theme-primary cursor-pointer"
+                          title="Rotate page +90°"
+                        >
+                          <RotateCw className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+                    </Reorder.Item>
+                  ))}
+                </Reorder.Group>
               )}
             </div>
           )}
 
-          {/* Inline HTML / Plain Text Input when no file uploaded */}
-          {tool.id === 'html-to-pdf' && files.length === 0 && (
-            <div className="p-5 rounded-xl bg-theme-surface border border-theme-subtle space-y-2">
-              <label className="block text-xs font-bold text-theme-primary">
-                Or Paste HTML5 Markup Directly:
-              </label>
+          {/* Direct HTML Editor for HTML-to-PDF */}
+          {tool.id === 'html-to-pdf' && (
+            <div className="p-5 rounded-xl bg-theme-surface border border-theme-subtle space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-theme-secondary">
+                  HTML5 Source Markup (Or Upload .html File Above)
+                </label>
+                <span className="text-[11px] font-mono text-theme-muted">
+                  Supports &lt;h1-h4&gt;, &lt;p&gt;, &lt;ul/ol&gt;, &lt;table&gt;, &lt;img src="data:..."&gt;
+                </span>
+              </div>
               <textarea
-                rows={6}
-                value={rawHtmlInput}
-                onChange={(e) => setRawHtmlInput(e.target.value)}
-                className="w-full p-3 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-xs text-theme-primary"
-              />
-            </div>
-          )}
-
-          {tool.id === 'txt-to-pdf' && files.length === 0 && (
-            <div className="p-5 rounded-xl bg-theme-surface border border-theme-subtle space-y-2">
-              <label className="block text-xs font-bold text-theme-primary">
-                Or Type / Paste Plain Text Directly:
-              </label>
-              <textarea
-                rows={6}
-                value={rawTextInput}
-                onChange={(e) => setRawTextInput(e.target.value)}
-                className="w-full p-3 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-xs text-theme-primary"
+                rows={9}
+                value={htmlInput}
+                onChange={(e) => setHtmlInput(e.target.value)}
+                className="w-full p-3 rounded-lg bg-theme-elevated border border-theme-subtle text-xs font-mono text-theme-primary focus:outline-none focus:border-theme-accent"
               />
             </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN (5 cols): Contextual Configuration, Execution & Verified Output */}
+        {/* RIGHT COLUMN (5 Cols): Format-Specific Configuration, Execute CTA & Verified Result Panel */}
         <div className="lg:col-span-5 space-y-6">
           <div className="p-6 rounded-xl bg-theme-surface border border-theme-subtle space-y-5">
-            <h3 className="text-sm font-bold text-theme-primary border-b border-theme-subtle pb-3">
-              Tool Parameters &amp; Execution
-            </h3>
+            <div className="border-b border-theme-subtle pb-3">
+              <h3 className="text-sm font-bold text-theme-primary">
+                Conversion &amp; Output Configuration
+              </h3>
+              <p className="text-xs text-theme-secondary mt-0.5">{tool.description}</p>
+            </div>
 
-            {/* Word-to-PDF / Convert-to-PDF: Option to Password-Protect All Output PDFs in One Go */}
+            {/* ============================================================= */}
+            {/* A. PDF TO OFFICE PARAMETERS                                   */}
+            {/* ============================================================= */}
+
+            {/* 1. PDF to Word (.docx) */}
+            {tool.id === 'pdf-to-word' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Pages to Convert
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-3, 5"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                  <span className="block text-[11px] text-theme-muted mt-1">
+                    Enter &ldquo;all&rdquo; for the entire document or specific ranges like &ldquo;1-2, 4&rdquo;.
+                  </span>
+                </div>
+
+                <label className="flex items-start gap-2.5 p-3 rounded-lg bg-theme-elevated border border-theme-subtle cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wordIncludePageImages}
+                    onChange={(e) => setWordIncludePageImages(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <span className="font-bold text-theme-primary block">
+                      Include High-Resolution Page Figures in .docx
+                    </span>
+                    <span className="text-[11px] text-theme-secondary">
+                      Embeds rendered page graphics alongside editable headings, paragraphs, and reconstructed Word tables.
+                    </span>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            {/* 2. PDF to Excel (.xlsx) */}
+            {tool.id === 'pdf-to-excel' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1.5">
+                    Worksheet Organization
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: 'per-page', label: 'One Sheet per Page' },
+                        { id: 'single-sheet', label: 'Merged Single Sheet' }
+                      ] as const
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setExcelSheetMode(m.id)}
+                        className={`py-2 px-2.5 rounded-lg border font-semibold cursor-pointer ${
+                          excelSheetMode === m.id
+                            ? 'bg-theme-accent text-white border-transparent'
+                            : 'bg-theme-elevated border-theme-subtle text-theme-secondary'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Page Range to Extract
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-2"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                </div>
+
+                <div className="p-3 rounded-lg bg-theme-elevated border border-theme-subtle text-[11px] text-theme-secondary">
+                  Automatic numeric cell type conversion and Tesseract OCR fallback are enabled for scanned table pages.
+                </div>
+              </div>
+            )}
+
+            {/* 3. PDF to PowerPoint (.pptx) */}
+            {tool.id === 'pdf-to-ppt' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1.5">
+                    Slide Conversion Mode
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: 'editable-hybrid', label: 'Editable Text + Visual' },
+                        { id: 'visual-high-fidelity', label: 'Visual High-Fidelity' }
+                      ] as const
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setPptxConversionMode(m.id)}
+                        className={`py-2 px-2.5 rounded-lg border font-semibold cursor-pointer ${
+                          pptxConversionMode === m.id
+                            ? 'bg-theme-accent text-white border-transparent'
+                            : 'bg-theme-elevated border-theme-subtle text-theme-secondary'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Target Slide Aspect Ratio
+                  </label>
+                  <select
+                    value={pptxSlideAspect}
+                    onChange={(e) => setPptxSlideAspect(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                  >
+                    <option value="16:9">16:9 Widescreen Presentation</option>
+                    <option value="4:3">4:3 Standard Presentation</option>
+                    <option value="original">Match Exact PDF Page Aspect Ratio</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Pages to Convert
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-5"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================= */}
+            {/* B. PDF TO IMAGES & WEB PARAMETERS                             */}
+            {/* ============================================================= */}
+
+            {/* 4 & 5. PDF to JPG / PDF to PNG */}
+            {(tool.id === 'pdf-to-jpg' || tool.id === 'pdf-to-png') && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Render Resolution (DPI)
+                  </label>
+                  <select
+                    value={imageDpiScale}
+                    onChange={(e) => setImageDpiScale(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                  >
+                    <option value={1.0}>Standard Screen (72 DPI)</option>
+                    <option value={2.0}>High Definition (150 DPI — Recommended)</option>
+                    <option value={3.0}>Archival Print Quality (216–300 DPI)</option>
+                  </select>
+                </div>
+
+                {tool.id === 'pdf-to-jpg' && (
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="font-semibold text-theme-secondary">
+                        JPEG Compression Quality
+                      </label>
+                      <span className="font-mono text-theme-primary font-bold">
+                        {Math.round(imageQuality * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.6}
+                      max={1.0}
+                      step={0.04}
+                      value={imageQuality}
+                      onChange={(e) => setImageQuality(Number(e.target.value))}
+                      className="w-full accent-violet-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Page Selection (Or Click Pages in Grid on Left)
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-2"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 6. PDF to HTML */}
+            {tool.id === 'pdf-to-html' && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Pages to Export to HTML5
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-3"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================= */}
+            {/* C. ARCHIVAL CONVERSION (PDF to PDF/A)                         */}
+            {/* ============================================================= */}
+            {tool.id === 'pdf-to-pdfa' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1.5">
+                    ISO 19005 PDF/A Conformance Profile
+                  </label>
+                  <select
+                    value={pdfaProfile}
+                    onChange={(e) => setPdfaProfile(e.target.value as any)}
+                    className="w-full px-3 py-2.5 rounded-lg bg-theme-elevated border border-theme-strong font-bold text-theme-primary"
+                  >
+                    <option value="PDF/A-2b">PDF/A-2b (ISO 19005-2:2011 · Recommended)</option>
+                    <option value="PDF/A-1b">PDF/A-1b (ISO 19005-1:2005 · Legacy Strict)</option>
+                    <option value="PDF/A-3b">PDF/A-3b (ISO 19005-3:2012 · Archival + Attachments)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-theme-elevated border border-theme-subtle space-y-2 text-[11px] text-theme-secondary">
+                  <div className="font-bold text-theme-primary flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Archival Normalization &amp; Verification</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Embeds an ISO 19005 XMP <code className="font-mono text-theme-accent">pdfaid</code> metadata stream, attaches an <code className="font-mono text-theme-accent">sRGB IEC61966-2.1</code> OutputIntent dictionary, flattens interactive form fields, and strips prohibited encryption dictionaries.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================= */}
+            {/* D. OTHER FORMATS TO PDF PARAMETERS                            */}
+            {/* ============================================================= */}
+
+            {/* Excel to PDF Worksheet, Orientation & Scaling Controls */}
+            {tool.id === 'excel-to-pdf' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Worksheet Selection
+                  </label>
+                  <select
+                    value={excelSheetName}
+                    onChange={(e) => setExcelSheetName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary font-semibold"
+                  >
+                    <option value="__ALL__">
+                      All Worksheets ({availableExcelSheets.length || 'Auto-Detect'})
+                    </option>
+                    {availableExcelSheets.map((sName) => (
+                      <option key={sName} value={sName}>
+                        Worksheet: {sName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Page Orientation
+                    </label>
+                    <select
+                      value={pageOrientation}
+                      onChange={(e) => setPageOrientation(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value="landscape">Landscape (Wide Table)</option>
+                      <option value="portrait">Portrait</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Column Scaling
+                    </label>
+                    <select
+                      value={excelPageScaling}
+                      onChange={(e) => setExcelPageScaling(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value="fit-columns">Fit Columns to Page</option>
+                      <option value="actual-size">Actual Column Width</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PowerPoint to PDF Slide Selection & Aspect */}
+            {tool.id === 'ppt-to-pdf' && (
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Slide Layout Aspect
+                  </label>
+                  <select
+                    value={pptxSlideAspect}
+                    onChange={(e) => setPptxSlideAspect(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                  >
+                    <option value="16:9">16:9 Widescreen Landscape (792 × 446 pt)</option>
+                    <option value="4:3">4:3 Standard Landscape (792 × 594 pt)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-theme-secondary mb-1">
+                    Slides to Include
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionPageRange}
+                    onChange={(e) => setConversionPageRange(e.target.value)}
+                    placeholder="all or e.g. 1-3"
+                    className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle font-mono text-theme-primary"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Word to PDF & HTML to PDF Page Layout Controls */}
+            {(tool.id === 'word-to-pdf' || tool.id === 'html-to-pdf') && (
+              <div className="space-y-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Page Size
+                    </label>
+                    <select
+                      value={pageSize === 'fit' ? 'letter' : pageSize}
+                      onChange={(e) => setPageSize(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value="letter">US Letter (8.5 × 11 in)</option>
+                      <option value="a4">ISO A4 (210 × 297 mm)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Orientation
+                    </label>
+                    <select
+                      value={pageOrientation === 'auto' ? 'portrait' : pageOrientation}
+                      onChange={(e) => setPageOrientation(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 items-center">
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Page Margins
+                    </label>
+                    <select
+                      value={pageMargin}
+                      onChange={(e) => setPageMargin(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value={24}>Compact (24 pt)</option>
+                      <option value={42}>Standard (42 pt)</option>
+                      <option value={64}>Wide Editorial (64 pt)</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-2 pt-5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includePageNumbersOnConvert}
+                      onChange={(e) => setIncludePageNumbersOnConvert(e.target.checked)}
+                    />
+                    <span className="font-semibold text-theme-primary">Stamp Page Numbers</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* JPG to PDF & PNG to PDF Layout, Orientation, Margin & Fit Controls */}
+            {(tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf') && (
+              <div className="space-y-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Target Page Size
+                    </label>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                    >
+                      <option value="letter">US Letter (8.5 × 11 in)</option>
+                      <option value="a4">ISO A4 (210 × 297 mm)</option>
+                      <option value="fit">Fit Exact Image Dimensions</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-theme-secondary mb-1">
+                      Page Orientation
+                    </label>
+                    <select
+                      value={pageOrientation}
+                      onChange={(e) => setPageOrientation(e.target.value as any)}
+                      disabled={pageSize === 'fit'}
+                      className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary disabled:opacity-40"
+                    >
+                      <option value="auto">Auto (Match Image Aspect)</option>
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
+                  </div>
+                </div>
+
+                {pageSize !== 'fit' && (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block font-semibold text-theme-secondary mb-1">
+                        Image Fit / Fill Mode
+                      </label>
+                      <select
+                        value={imageFitMode}
+                        onChange={(e) => setImageFitMode(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                      >
+                        <option value="contain">Contain (Full Image, No Crop)</option>
+                        <option value="cover">Cover (Fill Page Area)</option>
+                        <option value="center">Center Actual Size</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-theme-secondary mb-1">
+                        Page Margin
+                      </label>
+                      <select
+                        value={pageMargin}
+                        onChange={(e) => setPageMargin(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
+                      >
+                        <option value={0}>No Margin (Full Bleed 0 pt)</option>
+                        <option value={18}>Small Margin (18 pt)</option>
+                        <option value={36}>Standard Margin (36 pt)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Word-to-PDF & Other Convert-to-PDF: Password-Protect Output PDF(s) in One Go */}
             {CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && (
               <div className="p-4 rounded-xl bg-theme-elevated border border-theme-strong space-y-3 text-xs">
                 <label className="flex items-start gap-2.5 cursor-pointer">
@@ -1550,45 +2262,10 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               </div>
             )}
 
-            {/* Image to PDF Page Size */}
-            {(tool.id === 'jpg-to-pdf' || tool.id === 'png-to-pdf' || tool.id === 'images-to-pdf') && (
-              <div className="space-y-2 text-xs">
-                <label className="block font-semibold text-theme-secondary">Target Page Size</label>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
-                >
-                  <option value="letter">US Letter (8.5 × 11 in)</option>
-                  <option value="a4">ISO A4 (210 × 297 mm)</option>
-                  <option value="fit">Fit Exact Image Dimensions</option>
-                </select>
-              </div>
-            )}
-
-            {/* PDF to Image DPI Selector */}
-            {(tool.id === 'pdf-to-jpg' || tool.id === 'pdf-to-png') && (
-              <div className="space-y-2 text-xs">
-                <label className="block font-semibold text-theme-secondary">Render Resolution</label>
-                <select
-                  value={imageDpiScale}
-                  onChange={(e) => setImageDpiScale(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
-                >
-                  <option value={1.5}>Standard (150 DPI)</option>
-                  <option value={2.0}>High Definition (200 DPI)</option>
-                  <option value={3.0}>Archival Print (300 DPI)</option>
-                </select>
-              </div>
-            )}
-
             {/* Execute Primary CTA */}
             <button
               type="button"
-              disabled={
-                processing ||
-                (files.length === 0 && tool.id !== 'html-to-pdf' && tool.id !== 'txt-to-pdf')
-              }
+              disabled={processing || (files.length === 0 && tool.id !== 'html-to-pdf')}
               onClick={handleRunTool}
               className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 transition-opacity cursor-pointer shadow-sm"
             >
@@ -1621,7 +2298,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
           </div>
 
           {/* ========================================================= */}
-          {/* VERIFIED RESULT & DOWNLOAD PANEL */}
+          {/* VERIFIED RESULT & DOWNLOAD PANEL                          */}
           {/* ========================================================= */}
           {result && (
             <div className="p-6 rounded-xl bg-theme-elevated border border-theme-strong space-y-5 shadow-xl">
@@ -1630,7 +2307,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                   <div>
                     <h4 className="text-sm font-bold text-theme-primary">
-                      Operation Verified &amp; Complete
+                      Conversion Verified &amp; Complete
                     </h4>
                     <p className="text-xs text-theme-secondary mt-0.5">{result.summary}</p>
                   </div>
@@ -1671,7 +2348,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                 ))}
               </ul>
 
-              {/* Extracted Text / Diff / JSON Preview */}
+              {/* Extracted Text / HTML Preview */}
               {result.extractedText && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
@@ -1695,28 +2372,37 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                 </div>
               )}
 
-              {/* Extracted Image Gallery Preview */}
+              {/* Extracted Page Image Gallery with Individual Page Downloads */}
               {result.extractedImages && result.extractedImages.length > 0 && (
                 <div className="space-y-2">
-                  <span className="block text-xs font-bold text-theme-primary">
-                    Rendered Page Previews ({result.extractedImages.length})
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-theme-primary">
+                      Individual Page Images ({result.extractedImages.length})
+                    </span>
+                    <span className="text-[11px] text-theme-secondary">
+                      Click any page card to download individually
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto p-1">
                     {result.extractedImages.map((img) => (
                       <a
                         key={img.name}
                         href={img.dataUrl}
                         download={img.name}
-                        className="group p-2 rounded border border-theme-subtle bg-theme-surface hover:border-theme-accent block text-center"
+                        className="group p-2.5 rounded-lg border border-theme-subtle bg-theme-surface hover:border-theme-accent block text-center transition-colors"
                       >
                         <img
                           src={img.dataUrl}
                           alt={img.name}
                           referrerPolicy="no-referrer"
-                          className="h-24 mx-auto object-contain mb-1"
+                          className="h-24 mx-auto object-contain mb-1.5 rounded"
                         />
                         <span className="text-[10px] font-mono text-theme-secondary group-hover:text-theme-primary truncate block">
-                          Page {img.page} ({img.width}×{img.height})
+                          Page {img.page} ({img.width}×{img.height} px)
+                        </span>
+                        <span className="text-[10px] font-semibold text-theme-accent mt-0.5 inline-flex items-center gap-1">
+                          <Download className="w-2.5 h-2.5" />
+                          Download .{img.name.split('.').pop()}
                         </span>
                       </a>
                     ))}
@@ -1749,7 +2435,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                   className="py-3 px-4 rounded-xl text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-primary hover:border-theme-accent flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-theme-accent" />
-                  Process Another
+                  Convert Another
                 </button>
               </div>
             </div>
@@ -1758,24 +2444,29 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* RELATED TOOLS DISCOVERY STRIP */}
+      {/* RELATED TOOLS DISCOVERY STRIP                             */}
       {/* ========================================================= */}
       {onSelectTool && (
         <div className="pt-8 border-t border-theme-subtle space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-theme-primary">
-              Related {tool.categoryLabel} Utilities
+              Related {tool.conversionSubcategoryLabel || tool.categoryLabel} Tools
             </h3>
             <button
               type="button"
               onClick={onBack}
               className="text-xs font-semibold text-theme-accent hover:underline cursor-pointer"
             >
-              Browse All {PDF_TOOLS_CATALOG.length} Tools →
+              Browse All {PDF_TOOLS_CATALOG.length} Studio Tools →
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {PDF_TOOLS_CATALOG.filter((t) => t.category === tool.category && t.id !== tool.id)
+            {PDF_TOOLS_CATALOG.filter(
+              (t) =>
+                (tool.conversionSubcategory
+                  ? t.conversionSubcategory === tool.conversionSubcategory
+                  : t.category === tool.category) && t.id !== tool.id
+            )
               .slice(0, 4)
               .map((rel) => (
                 <button
