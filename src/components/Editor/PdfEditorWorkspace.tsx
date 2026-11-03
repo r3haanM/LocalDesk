@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import gsap from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { LocalDeskLogo } from '../Brand/LocalDeskLogo';
+import { StudioLaunchTransition } from '../StudioLaunchTransition';
 import {
   PdfEditableObject,
   PdfFontFamily,
@@ -4947,10 +4948,11 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
           )}
 
           {loading ? (
-            <div className="my-auto text-center space-y-3 p-8">
-              <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm font-semibold text-theme-primary">{loadingMsg}</p>
-            </div>
+            <StudioLaunchTransition
+              mode="inline"
+              toolName={docName || '2D PDF Editor & Object Studio'}
+              stageMessage={loadingMsg}
+            />
           ) : currentPage ? (
             <div
               ref={pageCanvasRef}

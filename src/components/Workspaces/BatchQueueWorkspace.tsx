@@ -50,8 +50,7 @@ const BATCH_COMPATIBLE_TOOL_IDS = [
   'pdf-to-word',
   'pdf-to-excel',
   'pdf-to-ppt',
-  'pdf-to-html',
-  'pdf-to-pdfa'
+  'pdf-to-html'
 ];
 
 const CONVERT_TO_PDF_IDS = [

@@ -358,8 +358,8 @@ export const LocalDeskLogo: React.FC<LocalDeskLogoProps> = ({
       ? 'text-[#059669]'
       : 'text-[#059669] dark:text-[#34D399]';
 
-  const renderWordmark = () => (
-    <div className="flex flex-col justify-center">
+  const renderWordmark = (centered = false) => (
+    <div className={`flex flex-col justify-center ${centered ? 'items-center text-center' : ''}`}>
       <div
         className={`flex items-baseline leading-none select-none ${preset.textClass}`}
         style={{
@@ -395,12 +395,12 @@ export const LocalDeskLogo: React.FC<LocalDeskLogoProps> = ({
       </div>
       {subtitle && (
         <span
-          className={`font-mono uppercase tracking-[0.14em] mt-1 leading-none ${preset.subClass} ${
+          className={`font-mono uppercase tracking-[0.14em] mt-1.5 leading-none ${preset.subClass} ${
             surface === 'dark'
               ? 'text-[#86A89B]'
               : surface === 'light'
-              ? 'text-[#4D6A5F]'
-              : 'text-[#4D6A5F] dark:text-[#86A89B]'
+              ? 'text-[#3B544A]'
+              : 'text-[#3B544A] dark:text-[#86A89B]'
           }`}
         >
           {subtitle}
@@ -410,14 +410,14 @@ export const LocalDeskLogo: React.FC<LocalDeskLogoProps> = ({
   );
 
   if (variant === 'wordmark') {
-    return <div className={`inline-flex items-center ${className}`}>{renderWordmark()}</div>;
+    return <div className={`inline-flex items-center ${className}`}>{renderWordmark(false)}</div>;
   }
 
   if (variant === 'stacked') {
     return (
-      <div className={`inline-flex flex-col items-center text-center gap-2.5 ${className}`}>
+      <div className={`inline-flex flex-col items-center text-center gap-3 ${className}`}>
         {renderSymbolSvg(true)}
-        {renderWordmark()}
+        {renderWordmark(true)}
       </div>
     );
   }

@@ -38,8 +38,7 @@ export interface BatchQueueItem {
 export type ConversionSubcategory =
   | 'pdf-to-office'
   | 'pdf-to-images-web'
-  | 'formats-to-pdf'
-  | 'archival';
+  | 'formats-to-pdf';
 
 export interface PdfToolDefinition {
   id: string;

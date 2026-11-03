@@ -7,15 +7,15 @@
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
     /* Local Desk Permanent Brand Identity — Light Mode (Forest & Emerald) */
-    --bg-canvas: #F6F8F7;
+    --bg-canvas: #F3F7F5;
     --bg-surface: #FFFFFF;
-    --bg-elevated: #FFFFFF;
-    --bg-muted: #E9F0EC;
-    --text-primary: #0D1F18;
-    --text-secondary: #3B544A;
-    --text-muted: #658075;
-    --border-subtle: rgba(13, 31, 24, 0.09);
-    --border-strong: rgba(13, 31, 24, 0.18);
+    --bg-elevated: #EAF1ED;
+    --bg-muted: #DCE7E1;
+    --text-primary: #091812;
+    --text-secondary: #284238;
+    --text-muted: #4A685C;
+    --border-subtle: rgba(13, 31, 24, 0.14);
+    --border-strong: rgba(5, 150, 105, 0.34);
     --accent-primary: #059669;
     --accent-secondary: #10B981;
     --accent-contrast: #FFFFFF;
@@ -30,11 +30,11 @@
     --text-primary: #F2F7F4;
     --text-secondary: #A3BEB3;
     --text-muted: #6A8C7E;
-    --border-subtle: rgba(242, 247, 244, 0.09);
-    --border-strong: rgba(52, 211, 153, 0.22);
+    --border-subtle: rgba(242, 247, 244, 0.10);
+    --border-strong: rgba(52, 211, 153, 0.26);
     --accent-primary: #10B981;
     --accent-secondary: #34D399;
-    --accent-contrast: #062218;
+    --accent-contrast: #FFFFFF;
   }
 
   body {
@@ -44,6 +44,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    transition: background-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   code, pre, .font-mono, .tabular-nums {
@@ -52,19 +54,96 @@
   }
 }
 
-/* Custom utility classes mapped to semantic design tokens */
-.bg-theme-canvas { background-color: var(--bg-canvas); }
-.bg-theme-surface { background-color: var(--bg-surface); }
-.bg-theme-elevated { background-color: var(--bg-elevated); }
-.bg-theme-muted { background-color: var(--bg-muted); }
-.text-theme-primary { color: var(--text-primary); }
-.text-theme-secondary { color: var(--text-secondary); }
-.text-theme-muted { color: var(--text-muted); }
-.border-theme-subtle { border-color: var(--border-subtle); }
-.border-theme-strong { border-color: var(--border-strong); }
-.bg-theme-accent { background-color: var(--accent-primary); color: var(--accent-contrast); }
-.text-theme-accent { color: var(--accent-primary); }
-.border-theme-accent { border-color: var(--accent-primary); }
+/* Circular Radial Iris View Transition for Instant Theme Switching */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Tailwind v4 @utility definitions so hover:, focus:, group-hover: variants work automatically */
+@utility bg-theme-canvas {
+  background-color: var(--bg-canvas);
+}
+@utility bg-theme-surface {
+  background-color: var(--bg-surface);
+}
+@utility bg-theme-elevated {
+  background-color: var(--bg-elevated);
+}
+@utility bg-theme-muted {
+  background-color: var(--bg-muted);
+}
+@utility text-theme-primary {
+  color: var(--text-primary);
+}
+@utility text-theme-secondary {
+  color: var(--text-secondary);
+}
+@utility text-theme-muted {
+  color: var(--text-muted);
+}
+@utility border-theme-subtle {
+  border-color: var(--border-subtle);
+}
+@utility border-theme-strong {
+  border-color: var(--border-strong);
+}
+@utility bg-theme-accent {
+  background-color: var(--accent-primary);
+  color: var(--accent-contrast);
+}
+@utility text-theme-accent {
+  color: var(--accent-primary);
+}
+@utility border-theme-accent {
+  border-color: var(--accent-primary);
+}
+
+/* Explicit opacity-qualified surface & border utilities for crisp Light/Dark mode cards over 3D canvas */
+.bg-theme-surface\/95 {
+  background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+}
+.bg-theme-surface\/90 {
+  background-color: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+.bg-theme-surface\/60 {
+  background-color: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+}
+.bg-theme-elevated\/80 {
+  background-color: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+}
+.bg-theme-muted\/60 {
+  background-color: color-mix(in srgb, var(--bg-muted) 68%, transparent);
+}
+.border-theme-accent\/50 {
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+}
+
+/* Light Mode WCAG AA contrast enforcement for semantic status utilities */
+:root:not(.dark) .text-emerald-400 {
+  color: #047857;
+}
+:root:not(.dark) .text-emerald-300 {
+  color: #065F46;
+}
+:root:not(.dark) .text-amber-400,
+:root:not(.dark) .text-amber-300,
+:root:not(.dark) .text-amber-200 {
+  color: #B45309;
+}
+:root:not(.dark) .text-rose-400,
+:root:not(.dark) .text-rose-300 {
+  color: #BE123C;
+}
 
 /* Reduced motion compliance */
 @media (prefers-reduced-motion: reduce) {

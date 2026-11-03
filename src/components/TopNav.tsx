@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ToolCategory, PdfToolDefinition } from '../types/pdf';
+import { ToolCategory, PdfToolDefinition, AppearanceMode } from '../types/pdf';
 import { PDF_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolIcon } from './IconMapper';
 import { LocalDeskLogo } from './Brand/LocalDeskLogo';
+import { AnimatedThemeToggle } from './AnimatedThemeToggle';
 import { Menu, X } from 'lucide-react';
 
 interface TopNavProps {
@@ -11,16 +12,18 @@ interface TopNavProps {
   onNavigateDirectory: (category?: ToolCategory | 'all') => void;
   onSelectTool: (tool: PdfToolDefinition) => void;
   onOpenEditorDirect: () => void;
+  appearance: AppearanceMode;
+  onUpdateAppearance: (mode: AppearanceMode) => void;
   onOpenCommandPalette?: () => void;
-  onOpenSettingsModal?: () => void;
-  onOpenBrandModal?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
   onNavigateHome,
   onNavigateDirectory,
   onSelectTool,
-  onOpenEditorDirect
+  onOpenEditorDirect,
+  appearance,
+  onUpdateAppearance
 }) => {
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -55,7 +58,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             }}
             className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
           >
-            All Tools ({PDF_TOOLS_CATALOG.length})
+            All Tools
           </a>
           <a
             href="#conversions"
@@ -66,7 +69,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             }}
             className="hover:text-theme-primary hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
           >
-            Conversions (13)
+            Conversions
           </a>
           <a
             href="#pdf-editor"
@@ -92,8 +95,13 @@ export const TopNav: React.FC<TopNavProps> = ({
           </a>
         </nav>
 
-        {/* Zone 3: 1 primary action */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Direct Theme Icon + 1 Primary Action */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <AnimatedThemeToggle
+            appearance={appearance}
+            onToggle={onUpdateAppearance}
+          />
+
           <button
             type="button"
             onClick={() => {
@@ -126,10 +134,10 @@ export const TopNav: React.FC<TopNavProps> = ({
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-theme-subtle">
               <div>
                 <h2 className="text-sm font-bold text-theme-primary">
-                  Local Desk PDF Studio &amp; 13-Tool Conversion Suite
+                  Local Desk PDF Studio &amp; Conversion Suite
                 </h2>
                 <p className="text-xs text-theme-secondary mt-0.5">
-                  Direct 2D canvas editing, PDF to Office/Images/Web/PDF-A, and Formats to PDF—100% local &amp; private.
+                  Direct 2D canvas editing, PDF to Office, Images &amp; Web, and Formats to PDF—100% local &amp; private.
                 </p>
               </div>
               <button
@@ -205,7 +213,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               }}
               className="text-left py-2 text-theme-primary border-b border-theme-subtle"
             >
-              13-Tool Conversion Suite
+              Conversion Suite
             </button>
             <button
               type="button"

@@ -12,11 +12,10 @@ import {
 import { findToolById } from './data/toolsCatalog';
 import { TopNav } from './components/TopNav';
 import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
-import { BrandIdentityModal } from './components/Brand/BrandIdentityModal';
 import { CommandPalette } from './components/CommandPalette';
-import { ThemeAndAccountModal } from './components/ThemeAndAccountModal';
 import { LegalModal } from './components/LegalModal';
 import { HomeAndDirectory } from './components/HomeAndDirectory';
+import { StudioLaunchTransition } from './components/StudioLaunchTransition';
 import type { EditorToolMode } from './components/Editor/PdfEditorWorkspace';
 
 const PdfEditorWorkspace = React.lazy(() =>
@@ -170,11 +169,10 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState<PdfToolDefinition | null>(null);
   const [preloadedFiles, setPreloadedFiles] = useState<UploadedFileItem[]>([]);
   const [batchInitialToolId, setBatchInitialToolId] = useState<string>('compress-pdf');
+  const [studioLaunching, setStudioLaunching] = useState<boolean>(false);
 
   // 4. Modals & Command Palette
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState<boolean>(false);
-  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
-  const [brandModalOpen, setBrandModalOpen] = useState<boolean>(false);
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
 
   // Global Ctrl+K / Cmd+K Listener
@@ -192,6 +190,7 @@ export default function App() {
   const handleSelectTool = (tool: PdfToolDefinition, files: UploadedFileItem[] = []) => {
     setSelectedTool(tool);
     setPreloadedFiles(files);
+    setStudioLaunching(true);
     setActiveView('workspace');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -229,9 +228,9 @@ export default function App() {
         onNavigateDirectory={handleNavigateDirectory}
         onSelectTool={(tool) => handleSelectTool(tool, [])}
         onOpenEditorDirect={handleOpenEditorDirect}
+        appearance={theme.appearance}
+        onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-        onOpenSettingsModal={() => setSettingsOpen(true)}
-        onOpenBrandModal={() => setBrandModalOpen(true)}
       />
 
       {/* Main Content Viewport */}
@@ -251,10 +250,22 @@ export default function App() {
                 onSelectTool={handleSelectTool}
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-                onOpenSettingsModal={() => setSettingsOpen(true)}
-                onOpenBrandModal={() => setBrandModalOpen(true)}
+                onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
                 theme={theme}
                 account={account}
+              />
+            </motion.div>
+          ) : studioLaunching ? (
+            <motion.div
+              key={`studio-launch-${selectedTool.id}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.99 }}
+              transition={{ duration: 0.16 }}
+            >
+              <StudioLaunchTransition
+                toolName={selectedTool.name}
+                onComplete={() => setStudioLaunching(false)}
               />
             </motion.div>
           ) : (
@@ -267,17 +278,9 @@ export default function App() {
             >
               <Suspense
                 fallback={
-                  <div className="min-h-[60vh] flex flex-col items-center justify-center p-12 text-center space-y-4">
-                    <LocalDeskLogo
-                      variant="stacked"
-                      size="md"
-                      pixelSize={52}
-                      subtitle="INITIALIZING LOCAL ENGINE"
-                    />
-                    <p className="text-xs font-mono text-theme-secondary">
-                      Loading {selectedTool.name} Workspace...
-                    </p>
-                  </div>
+                  <StudioLaunchTransition
+                    toolName={selectedTool.name}
+                  />
                 }
               >
                 {selectedTool.workspaceType === 'editor' ? (
@@ -363,20 +366,6 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setBrandModalOpen(true)}
-                className="hover:text-theme-primary transition-colors cursor-pointer font-semibold text-theme-accent"
-              >
-                Brand Identity &amp; Assets
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                className="hover:text-theme-primary transition-colors cursor-pointer"
-              >
-                Appearance &amp; Preferences
-              </button>
-              <button
-                type="button"
                 onClick={() => setLegalDoc('privacy')}
                 className="hover:text-theme-primary transition-colors cursor-pointer"
               >
@@ -409,30 +398,10 @@ export default function App() {
         isOpen={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
         onSelectTool={(tool) => handleSelectTool(tool, [])}
-        appearance={theme.appearance}
-        onSelectAppearance={(appearance: AppearanceMode) =>
-          setTheme({ appearance })
-        }
-        onLoadSampleIntoEditor={handleOpenEditorDirect}
-      />
-
-      {/* Appearance & Local Preferences Modal */}
-      <ThemeAndAccountModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        theme={theme}
-        onUpdateTheme={setTheme}
-        account={account}
-        onSaveAccount={handleSaveAccount}
-        history={history}
-        onClearHistory={handleClearHistory}
       />
 
       {/* Privacy Policy & Terms Modal */}
       <LegalModal docType={legalDoc} onClose={() => setLegalDoc(null)} />
-
-      {/* Local Desk Brand Identity & Asset Studio Modal */}
-      <BrandIdentityModal isOpen={brandModalOpen} onClose={() => setBrandModalOpen(false)} />
     </div>
   );
 }

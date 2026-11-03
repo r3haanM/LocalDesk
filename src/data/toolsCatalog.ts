@@ -13,8 +13,7 @@ export const CATEGORY_LABELS: Record<ToolCategory, string> = {
 export const CONVERSION_SUBCATEGORY_LABELS: Record<ConversionSubcategory, string> = {
   'pdf-to-office': 'PDF to Office',
   'pdf-to-images-web': 'PDF to Images & Web',
-  'formats-to-pdf': 'Other Formats to PDF',
-  'archival': 'Archival Conversion'
+  'formats-to-pdf': 'Other Formats to PDF'
 };
 
 /**
@@ -421,32 +420,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
   },
 
   // ============================================================================
-  // 6. CONVERSION SUITE — D. ARCHIVAL CONVERSION (1 Tool)
-  // ============================================================================
-  {
-    id: 'pdf-to-pdfa',
-    name: 'PDF to PDF/A Archival',
-    shortName: 'PDF to PDF/A',
-    category: 'convert-from-pdf',
-    categoryLabel: 'Archival Conversion',
-    conversionSubcategory: 'archival',
-    conversionSubcategoryLabel: 'Archival Conversion',
-    description:
-      'Convert standard PDFs into ISO 19005 archival PDF/A documents (PDF/A-1b, PDF/A-2b, PDF/A-3b) with embedded XMP pdfaid metadata, sRGB OutputIntent, and compliance verification.',
-    acceptedTypes: ['application/pdf'],
-    acceptedExtensions: ['.pdf'],
-    multipleFiles: true,
-    outputExtension: '.pdf',
-    outputMimeType: 'application/pdf',
-    workspaceType: 'converter',
-    keywords: ['pdf to pdfa', 'pdf/a', 'archival pdf', 'iso 19005', 'pdfa-1b', 'pdfa-2b', 'long term preservation'],
-    popular: true,
-    featuredInBento: false,
-    iconName: 'ShieldCheck'
-  },
-
-  // ============================================================================
-  // 7. COMPRESS, SECURITY & BATCH QUEUE (5 Tools)
+  // 6. COMPRESS, SECURITY & BATCH QUEUE (5 Tools)
   // ============================================================================
   {
     id: 'compress-pdf',

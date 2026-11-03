@@ -8,6 +8,7 @@ import {
   ConversionSubcategory,
   UploadedFileItem,
   ThemeSettings,
+  AppearanceMode,
   UserAccountProfile
 } from '../types/pdf';
 import {
@@ -17,6 +18,7 @@ import {
 } from '../data/toolsCatalog';
 import { validateFileSignature } from '../services/pdfRenderer';
 import { ToolIcon } from './IconMapper';
+import { ThreeHeroStage } from './Three/ThreeHeroStage';
 import { PDFDocument } from 'pdf-lib';
 import {
   Search,
@@ -42,8 +44,7 @@ interface HomeAndDirectoryProps {
   onSelectTool: (tool: PdfToolDefinition, preloadFiles?: UploadedFileItem[]) => void;
   onOpenEditorWithSample: () => void;
   onOpenCommandPalette: () => void;
-  onOpenSettingsModal: () => void;
-  onOpenBrandModal?: () => void;
+  onUpdateAppearance: (mode: AppearanceMode) => void;
   theme: ThemeSettings;
   account: UserAccountProfile | null;
 }
@@ -54,55 +55,19 @@ type StudioFilterGroup =
   | 'pdf-to-office'
   | 'pdf-to-images-web'
   | 'formats-to-pdf'
-  | 'archival'
   | 'edit'
   | 'organize'
   | 'security-batch';
 
-const STUDIO_FILTERS: Array<{ id: StudioFilterGroup; label: string; count: number }> = [
-  { id: 'all', label: 'All Studio Tools', count: PDF_TOOLS_CATALOG.length },
-  {
-    id: 'convert-all',
-    label: 'All 13 Conversions',
-    count: PDF_TOOLS_CATALOG.filter((t) => Boolean(t.conversionSubcategory)).length
-  },
-  {
-    id: 'pdf-to-office',
-    label: 'PDF to Office',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'pdf-to-office').length
-  },
-  {
-    id: 'pdf-to-images-web',
-    label: 'PDF to Images & Web',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'pdf-to-images-web').length
-  },
-  {
-    id: 'formats-to-pdf',
-    label: 'Other Formats to PDF',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'formats-to-pdf').length
-  },
-  {
-    id: 'archival',
-    label: 'Archival (PDF/A)',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.conversionSubcategory === 'archival').length
-  },
-  {
-    id: 'edit',
-    label: 'Edit & Objects',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.category === 'edit-pdf').length
-  },
-  {
-    id: 'organize',
-    label: 'Organize Pages',
-    count: PDF_TOOLS_CATALOG.filter((t) => t.category === 'organize-pdf').length
-  },
-  {
-    id: 'security-batch',
-    label: 'Security & Batch',
-    count: PDF_TOOLS_CATALOG.filter(
-      (t) => t.category === 'pdf-security' || t.category === 'optimize-pdf'
-    ).length
-  }
+const STUDIO_FILTERS: Array<{ id: StudioFilterGroup; label: string }> = [
+  { id: 'all', label: 'All Studio Tools' },
+  { id: 'convert-all', label: 'All Conversions' },
+  { id: 'pdf-to-office', label: 'PDF to Office' },
+  { id: 'pdf-to-images-web', label: 'PDF to Images & Web' },
+  { id: 'formats-to-pdf', label: 'Other Formats to PDF' },
+  { id: 'edit', label: 'Edit & Objects' },
+  { id: 'organize', label: 'Organize Pages' },
+  { id: 'security-batch', label: 'Security & Batch' }
 ];
 
 function matchesStudioGroup(tool: PdfToolDefinition, group: StudioFilterGroup): boolean {
@@ -111,8 +76,7 @@ function matchesStudioGroup(tool: PdfToolDefinition, group: StudioFilterGroup): 
   if (
     group === 'pdf-to-office' ||
     group === 'pdf-to-images-web' ||
-    group === 'formats-to-pdf' ||
-    group === 'archival'
+    group === 'formats-to-pdf'
   ) {
     return tool.conversionSubcategory === group;
   }
@@ -188,10 +152,8 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   onSelectTool,
   onOpenEditorWithSample,
   onOpenCommandPalette,
-  onOpenSettingsModal,
-  onOpenBrandModal,
-  theme,
-  account
+  onUpdateAppearance,
+  theme
 }) => {
   const mapCategoryToStudioGroup = (cat: ToolCategory | 'all'): StudioFilterGroup => {
     if (cat === 'edit-pdf') return 'edit';
@@ -294,73 +256,53 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   const conversionSubcategoryOrder: ConversionSubcategory[] = [
     'pdf-to-office',
     'pdf-to-images-web',
-    'formats-to-pdf',
-    'archival'
+    'formats-to-pdf'
   ];
 
   return (
     <div className="relative space-y-20 pb-20">
 
       {/* ========================================================= */}
-      {/* 1. CENTERED EDITORIAL HERO + MAGNETIC DROPZONE            */}
+      {/* 1. CENTERED EDITORIAL HERO + MAGNETIC DROPZONE + 3D STAGE */}
       {/* ========================================================= */}
-      <section className="relative z-10 border-b border-theme-subtle pt-10 pb-16">
-        <div className="max-w-[1440px] mx-auto px-6 space-y-12">
-          {/* Top Utility Strip */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-theme-subtle text-xs">
-            <div className="flex items-center gap-2 text-theme-secondary">
-              <span>ISO 32000 &amp; ISO 19005 PDF/A Architecture</span>
+      <section className="relative z-10 overflow-hidden border-b border-theme-subtle pt-10 pb-16">
+        <ThreeHeroStage
+          isDropzoneActive={isDropzoneDragging}
+          activeFilterGroup={selectedGroup}
+        />
+
+        <div className="relative z-10 max-w-[1440px] mx-auto px-6 space-y-12">
+          {/* Minimal Top Utility Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-theme-subtle text-xs">
+            <div className="flex items-center gap-2 text-theme-secondary font-medium">
+              <span>Local-First PDF Studio</span>
               <span aria-hidden="true">·</span>
-              <span>13 Bidirectional Conversion Engines</span>
+              <span>2D Canvas Editor</span>
               <span aria-hidden="true">·</span>
-              <span>Direct 2D Canvas Object Manipulation</span>
+              <span>Document Conversions</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <button
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={onOpenCommandPalette}
-                className="inline-flex items-center gap-3 px-3.5 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5 text-theme-accent" />
-                <span>Quick Switch Tool...</span>
-                <kbd className="font-mono text-[11px] text-theme-muted pl-2 border-l border-theme-subtle">
+                <span>Search Tools...</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-theme-elevated font-mono text-[10px] text-theme-muted">
                   Ctrl K
                 </kbd>
-              </button>
-
-              {onOpenBrandModal && (
-                <button
-                  type="button"
-                  onClick={onOpenBrandModal}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent transition-colors cursor-pointer"
-                >
-                  <Layers className="w-3.5 h-3.5 text-theme-accent" />
-                  <span>Brand System</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={onOpenSettingsModal}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-theme-accent" />
-                <span className="capitalize">Appearance: {theme.appearance}</span>
-                {account && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span className="text-theme-primary font-semibold">{account.name}</span>
-                  </>
-                )}
-              </button>
+              </motion.button>
             </div>
           </div>
 
           {/* Wide Editorial Hero & Dropzone */}
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <div className="text-xs font-mono text-theme-accent tracking-wider uppercase">
-              Local Desk · Privacy-First Desktop Document Studio · 2D Canvas Editor · 13-Tool Conversion Suite
+              Local Desk · Privacy-First Desktop Document Workspace
             </div>
 
             <h1
@@ -371,7 +313,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
             </h1>
 
             <p className="text-base sm:text-lg text-theme-secondary max-w-2xl mx-auto leading-relaxed">
-              Manipulate PDF objects directly on a Figma-grade 2D canvas, or convert seamlessly between PDF, Word, Excel, PowerPoint, JPG, PNG, HTML5, and ISO 19005 PDF/A.
+              Manipulate PDF objects directly on a Figma-grade 2D canvas, or convert seamlessly between PDF, Word, Excel, PowerPoint, JPG, PNG, and HTML5.
             </p>
           </div>
 
@@ -430,7 +372,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                           Drop PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), HTML, or Images Here
                         </h2>
                         <p className="text-xs text-theme-secondary mt-1">
-                          Automatically routes your file to the 2D PDF Editor, Office/Image/PDF-A Converter, or Batch Security Queue.
+                          Automatically routes your file to the 2D PDF Editor, Office &amp; Image Converter, or Batch Security Queue.
                         </p>
                       </div>
                     </div>
@@ -481,14 +423,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                       >
                         <Sheet className="w-3.5 h-3.5 text-emerald-400" />
                         <span>PDF to Excel (.xlsx)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onSelectTool(findToolById('pdf-to-pdfa')!, [])}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent hover:text-theme-primary cursor-pointer"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                        <span>PDF to PDF/A Archival</span>
                       </button>
                     </div>
                   </div>
@@ -568,14 +502,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
                         >
                           PDF to PNG
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSelectTool(findToolById('pdf-to-pdfa')!, heroFiles)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                          PDF to PDF/A
                         </button>
                       </>
                     )}
@@ -673,24 +599,24 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
       </section>
 
       {/* ========================================================= */}
-      {/* 2. DEDICATED 4-SUBCATEGORY CONVERSION SUITE ARCHITECTURE  */}
+      {/* 2. DEDICATED 3-SUBCATEGORY CONVERSION SUITE ARCHITECTURE  */}
       {/* ========================================================= */}
       <section id="conversion-suite" className="relative z-10 max-w-[1440px] mx-auto px-6 space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-theme-subtle pb-5">
           <div className="space-y-1.5">
             <div className="text-xs font-mono text-theme-accent uppercase tracking-wider">
-              01 · BIDIRECTIONAL CONVERSION ARCHITECTURE (13 TOOLS)
+              01 · BIDIRECTIONAL CONVERSION ARCHITECTURE
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-theme-primary">
-              Format-Accurate Document &amp; Archival Conversion Suite.
+              Format-Accurate Document Conversion Suite.
             </h2>
             <p className="text-sm text-theme-secondary max-w-2xl">
-              Organized into four dedicated subcategories: PDF to Office, PDF to Images &amp; Web, Other Formats to PDF, and ISO 19005 PDF/A Archival Conversion.
+              Organized into three dedicated subcategories: PDF to Office, PDF to Images &amp; Web, and Other Formats to PDF.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {conversionSubcategoryOrder.map((subKey, sIdx) => {
             const subTools = PDF_TOOLS_CATALOG.filter(
               (t) => t.conversionSubcategory === subKey
@@ -704,9 +630,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                   <div className="flex items-center justify-between border-b border-theme-subtle pb-2.5">
                     <span className="text-xs font-mono text-theme-accent font-bold">
                       0{sIdx + 1} · {CONVERSION_SUBCATEGORY_LABELS[subKey]}
-                    </span>
-                    <span className="text-[11px] font-mono text-theme-muted">
-                      {subTools.length} {subTools.length === 1 ? 'Tool' : 'Tools'}
                     </span>
                   </div>
 
@@ -749,7 +672,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-theme-subtle pb-6">
           <div className="space-y-2">
             <div className="text-xs font-mono text-theme-accent">
-              02 · COMPLETE STUDIO DIRECTORY ({PDF_TOOLS_CATALOG.length} VERIFIED TOOLS)
+              02 · COMPLETE STUDIO DIRECTORY
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-theme-primary">
               Direct Canvas Editing, Page Physics, Conversions &amp; Security.
@@ -766,7 +689,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
               type="text"
               value={dirSearch}
               onChange={(e) => setDirSearch(e.target.value)}
-              placeholder="Filter tools (e.g. excel, pdf/a, word)..."
+              placeholder="Filter tools (e.g. excel, word, merge)..."
               aria-label="Filter studio tools"
               className="w-full pl-9 pr-3 py-2 rounded-lg bg-theme-surface/90 border border-theme-subtle text-xs text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-accent"
             />
@@ -795,13 +718,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 )}
                 <span className="relative z-10 flex items-center gap-1.5">
                   <span>{tab.label}</span>
-                  <span
-                    className={`font-mono text-[11px] tabular-nums ${
-                      active ? 'opacity-85' : 'text-theme-muted'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
                 </span>
               </button>
             );
@@ -866,10 +782,10 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
               </p>
             </div>
             <div className="p-4 rounded-xl bg-theme-elevated border border-theme-subtle space-y-1.5">
-              <div className="font-mono text-amber-400 font-bold tabular-nums">02 · 13 Conversions</div>
-              <div className="font-bold text-theme-primary">Office, Web &amp; PDF/A</div>
+              <div className="font-mono text-amber-400 font-bold tabular-nums">02 · Format Conversions</div>
+              <div className="font-bold text-theme-primary">Office, Images &amp; Web</div>
               <p className="text-theme-secondary leading-relaxed">
-                Convert between PDF, Word, Excel, PowerPoint, JPG, PNG, HTML5, and ISO 19005 PDF/A.
+                Convert between PDF, Word, Excel, PowerPoint, JPG, PNG, and HTML5.
               </p>
             </div>
             <div className="p-4 rounded-xl bg-theme-elevated border border-theme-subtle space-y-1.5">
