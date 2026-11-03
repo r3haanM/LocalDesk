@@ -1,0 +1,3 @@
+03ea0561609bca6e54f6f9f8fe7cfa816803bfd7f0a0ca3e25912d9d084175b1  Local-Desk-Setup-1.0.0-x64.exe
+b3c3ef041a64a18efa2b2ba542ecbe61884ed09d0c83f8a3defc625075b13b5e  Local-Desk-Portable-1.0.0-win-x64.zip
+17f82de7de2d04c94a55da091148f63be484a3e2f0bf45712ed889facc1c58dc  icon.ico

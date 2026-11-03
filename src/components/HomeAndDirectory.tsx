@@ -17,6 +17,14 @@ import {
   findToolById
 } from '../data/toolsCatalog';
 import { validateFileSignature } from '../services/pdfRenderer';
+import {
+  openNativeFileDialogIfAvailable,
+  getRecentDocumentsList,
+  recordRecentDocument,
+  reopenRecentDocument,
+  clearAllRecentDocuments,
+  RecentDocumentRecord
+} from '../services/desktopBridge';
 import { ToolIcon } from './IconMapper';
 import { ThreeHeroStage } from './Three/ThreeHeroStage';
 import { PDFDocument } from 'pdf-lib';
@@ -34,7 +42,9 @@ import {
   LayoutGrid,
   ShieldCheck,
   Sheet,
-  Image
+  Image,
+  Clock,
+  Download
 } from 'lucide-react';
 
 gsap.registerPlugin(Flip);
@@ -44,6 +54,7 @@ interface HomeAndDirectoryProps {
   onSelectTool: (tool: PdfToolDefinition, preloadFiles?: UploadedFileItem[]) => void;
   onOpenEditorWithSample: () => void;
   onOpenCommandPalette: () => void;
+  onOpenDesktopRelease?: () => void;
   onUpdateAppearance: (mode: AppearanceMode) => void;
   theme: ThemeSettings;
   account: UserAccountProfile | null;
@@ -152,6 +163,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   onSelectTool,
   onOpenEditorWithSample,
   onOpenCommandPalette,
+  onOpenDesktopRelease,
   onUpdateAppearance,
   theme
 }) => {
@@ -169,6 +181,9 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   const [dirSearch, setDirSearch] = useState<string>('');
   const [heroFiles, setHeroFiles] = useState<UploadedFileItem[]>([]);
   const [isDropzoneDragging, setIsDropzoneDragging] = useState<boolean>(false);
+  const [recentDocs, setRecentDocs] = useState<RecentDocumentRecord[]>(() =>
+    getRecentDocumentsList()
+  );
 
   const heroFileInputRef = useRef<HTMLInputElement | null>(null);
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
@@ -209,6 +224,15 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
           pageCount = 1;
         }
       }
+      const updatedRecent = await recordRecentDocument({
+        name: f.name,
+        bytes: new Uint8Array(ab),
+        pageCount,
+        signatureLabel: sig.detectedFormat,
+        action: 'opened'
+      });
+      setRecentDocs(updatedRecent);
+
       processed.push({
         id: `hero-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         file: f,
@@ -224,6 +248,30 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
     }
     if (processed.length > 0) {
       setHeroFiles(processed);
+    }
+  };
+
+  const handleSelectFilesClick = async () => {
+    const nativeItems = await openNativeFileDialogIfAvailable({ multiple: true });
+    if (nativeItems !== null) {
+      if (nativeItems.length > 0) {
+        setHeroFiles(nativeItems);
+        setRecentDocs(getRecentDocumentsList());
+      }
+      return;
+    }
+    heroFileInputRef.current?.click();
+  };
+
+  const handleReopenRecent = async (rec: RecentDocumentRecord) => {
+    const item = await reopenRecentDocument(rec);
+    if (item) {
+      setRecentDocs(getRecentDocumentsList());
+      if (item.name.toLowerCase().endsWith('.pdf')) {
+        onSelectTool(findToolById('edit-pdf')!, [item]);
+      } else {
+        setHeroFiles([item]);
+      }
     }
   };
 
@@ -380,7 +428,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                     <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
                       <button
                         type="button"
-                        onClick={() => heroFileInputRef.current?.click()}
+                        onClick={handleSelectFilesClick}
                         className="px-4 py-2.5 rounded-lg text-xs font-bold bg-theme-accent text-white hover:opacity-95 transition-opacity whitespace-nowrap cursor-pointer"
                       >
                         Select Files
@@ -393,8 +441,52 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                         <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
                         Open Sample in 2D PDF Editor
                       </button>
+                      {onOpenDesktopRelease && (
+                        <button
+                          type="button"
+                          onClick={onOpenDesktopRelease}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent transition-colors whitespace-nowrap cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-theme-accent" />
+                          <span>Windows Setup (.exe)</span>
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* Recent Local Documents Strip (Desktop-Native UX) */}
+                  {recentDocs.length > 0 && (
+                    <div className="pt-3.5 border-t border-theme-subtle flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-theme-secondary">
+                        <Clock className="w-3.5 h-3.5 text-theme-accent" />
+                        <span className="font-semibold">Recent Documents:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {recentDocs.slice(0, 4).map((rec) => (
+                          <button
+                            key={rec.id}
+                            type="button"
+                            onClick={() => handleReopenRecent(rec)}
+                            title={`Reopen ${rec.name} (${(rec.size / 1024).toFixed(1)} KB)`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-theme-elevated border border-theme-subtle hover:border-theme-accent text-theme-primary transition-colors cursor-pointer max-w-[200px]"
+                          >
+                            <FileText className="w-3 h-3 text-theme-accent shrink-0" />
+                            <span className="truncate">{rec.name}</span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await clearAllRecentDocuments();
+                            setRecentDocs([]);
+                          }}
+                          className="text-[11px] text-theme-muted hover:text-rose-400 px-1.5 py-0.5 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Quick Direct Workflow Launch Bar */}
                   <div className="pt-4 border-t border-theme-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-theme-secondary">

@@ -125,7 +125,57 @@ async function startServer() {
   });
 
   /**
-   * Export Complete Application Source Code as a clean .zip bundle
+   * Windows Desktop Release Manifest & Artifact Download Endpoints
+   */
+  app.get('/api/releases/info', async (_req, res) => {
+    try {
+      const manifestPath = path.join(__dirname, 'release', 'release-manifest.json');
+      const raw = await fs.readFile(manifestPath, 'utf-8');
+      res.json(JSON.parse(raw));
+    } catch {
+      res.status(404).json({ error: 'Release manifest not yet generated.' });
+    }
+  });
+
+  app.get('/api/releases/download/:artifact', async (req, res) => {
+    try {
+      const safeName = path.basename(req.params.artifact || '');
+      const allowedFiles = new Set([
+        'Local-Desk-Setup-1.0.0-x64.exe',
+        'Local-Desk-Portable-1.0.0-win-x64.zip',
+        'SHA256SUMS.txt',
+        'RELEASE_NOTES.md',
+        'WINDOWS_ARCHITECTURE_AND_OFFLINE_AUDIT.md',
+        'THIRD_PARTY_LICENSES.md',
+        'WINDOWS_TEST_REPORT.md'
+      ]);
+
+      if (!allowedFiles.has(safeName)) {
+        res.status(404).json({ error: 'Requested release artifact not found.' });
+        return;
+      }
+
+      const filePath = path.join(__dirname, 'release', safeName);
+      const data = await fs.readFile(filePath);
+      const ext = path.extname(safeName).toLowerCase();
+      const contentType =
+        ext === '.exe'
+          ? 'application/vnd.microsoft.portable-executable'
+          : ext === '.zip'
+          ? 'application/zip'
+          : 'text/plain; charset=utf-8';
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', String(data.byteLength));
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.send(data);
+    } catch {
+      res.status(404).json({ error: 'Release artifact file could not be read.' });
+    }
+  });
+
+  /**
+   * Export Complete Application & Desktop Source Code as a clean .zip bundle
    */
   app.get('/api/export-source', async (_req, res) => {
     try {
@@ -134,6 +184,7 @@ async function startServer() {
         'package.json',
         'tsconfig.json',
         'vite.config.ts',
+        'electron-builder.yml',
         'index.html',
         'metadata.json',
         'server.ts',
@@ -151,20 +202,27 @@ async function startServer() {
       }
 
       async function addDirToZip(dirPath: string, zipFolder: string) {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry.name);
-          const relZipPath = `${zipFolder}/${entry.name}`;
-          if (entry.isDirectory()) {
-            await addDirToZip(fullPath, relZipPath);
-          } else {
-            const data = await fs.readFile(fullPath);
-            zip.file(relZipPath, data);
+        try {
+          const entries = await fs.readdir(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            const relZipPath = `${zipFolder}/${entry.name}`;
+            if (entry.isDirectory()) {
+              await addDirToZip(fullPath, relZipPath);
+            } else {
+              const data = await fs.readFile(fullPath);
+              zip.file(relZipPath, data);
+            }
           }
+        } catch {
+          // Optional dir
         }
       }
 
       await addDirToZip(path.join(__dirname, 'src'), 'src');
+      await addDirToZip(path.join(__dirname, 'electron'), 'electron');
+      await addDirToZip(path.join(__dirname, 'build'), 'build');
+      await addDirToZip(path.join(__dirname, 'scripts'), 'scripts');
 
       const zipBuffer = await zip.generateAsync({
         type: 'nodebuffer',
@@ -173,7 +231,7 @@ async function startServer() {
       });
 
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename="vellum-pdf-toolkit-source.zip"');
+      res.setHeader('Content-Disposition', 'attachment; filename="local-desk-desktop-source.zip"');
       res.send(zipBuffer);
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Failed to package source archive.' });

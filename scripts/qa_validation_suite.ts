@@ -1278,6 +1278,66 @@ async function main() {
     }
   );
 
+  // 22. DSK-001: Windows Release Artifacts, Multi-Resolution .ICO & SHA-256 Checksum Verification
+  await runTest(
+    'DSK-001',
+    'Desktop Release',
+    'Windows Setup (.exe), Portable (.zip), Multi-Size .ICO & SHA-256 Verification',
+    'Verify build/icon.ico contains 7 ICONDIR entries (16..256px) and verify SHA-256 hashes of Local-Desk-Setup-1.0.0-x64.exe and Local-Desk-Portable-1.0.0-win-x64.zip against SHA256SUMS.txt',
+    'All Windows release artifacts exist, non-empty, and match recorded SHA-256 checksums',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const cryptoMod = await import('crypto');
+
+      const icoBytes = await fsMod.readFile(pathMod.resolve('build/icon.ico'));
+      assert(icoBytes.readUInt16LE(0) === 0 && icoBytes.readUInt16LE(2) === 1, 'Invalid ICO header magic');
+      const iconCount = icoBytes.readUInt16LE(4);
+      assert(iconCount === 7, `Expected 7 icon resolutions in icon.ico, got ${iconCount}`);
+
+      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.0-x64.exe'));
+      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.0-win-x64.zip'));
+      const sumsText = await fsMod.readFile(pathMod.resolve('release/SHA256SUMS.txt'), 'utf-8');
+
+      const setupSha = cryptoMod.createHash('sha256').update(setupBytes).digest('hex');
+      const portableSha = cryptoMod.createHash('sha256').update(portableBytes).digest('hex');
+
+      assert(sumsText.includes(setupSha), 'Setup EXE SHA-256 mismatch in SHA256SUMS.txt');
+      assert(sumsText.includes(portableSha), 'Portable ZIP SHA-256 mismatch in SHA256SUMS.txt');
+
+      return `Verified icon.ico (7 layers, ${icoBytes.byteLength}B), Setup EXE (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
+    }
+  );
+
+  // 23. DSK-002: Offline Bundle, Hardened Electron IPC & Zero External CDN Verification
+  await runTest(
+    'DSK-002',
+    'Desktop Security & Offline Audit',
+    'Air-Gapped Bundle & Electron Security Controls Verification',
+    'Inspect compiled dist/index.html, bundled /public/ocr/ WASM files, and electron/main.cjs security controls',
+    'Zero external CDN links in dist/index.html; local OCR WASM bundled; contextIsolation, sandbox, and network firewall enforced',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+
+      const distHtml = await fsMod.readFile(pathMod.resolve('dist/index.html'), 'utf-8');
+      assert(!distHtml.includes('fonts.googleapis.com'), 'External Google Fonts link found in dist/index.html');
+      assert(!distHtml.includes('cdn.jsdelivr.net'), 'External jsDelivr CDN link found in dist/index.html');
+
+      const mainCjs = await fsMod.readFile(pathMod.resolve('electron/main.cjs'), 'utf-8');
+      assert(mainCjs.includes('contextIsolation: true'), 'contextIsolation: true missing');
+      assert(mainCjs.includes('nodeIntegration: false'), 'nodeIntegration: false missing');
+      assert(mainCjs.includes('sandbox: true'), 'sandbox: true missing');
+      assert(mainCjs.includes('onBeforeRequest'), 'Session outbound network firewall missing');
+
+      const ocrWorkerStat = await fsMod.stat(pathMod.resolve('public/ocr/worker.min.js'));
+      const ocrWasmStat = await fsMod.stat(pathMod.resolve('public/ocr/tesseract-core.wasm'));
+      assert(ocrWorkerStat.size > 1000 && ocrWasmStat.size > 100000, 'Bundled local OCR WASM assets missing');
+
+      return `Verified 0 external CDN URLs in dist/index.html, local OCR WASM (${(ocrWasmStat.size / 1024 / 1024).toFixed(2)}MB) bundled, and Electron security hardening active`;
+    }
+  );
+
   // Summary Output
   const passed = results.filter((r) => r.status === 'PASSED').length;
   const failed = results.filter((r) => r.status === 'FAILED').length;

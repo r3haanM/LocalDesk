@@ -4,7 +4,7 @@ import { PDF_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolIcon } from './IconMapper';
 import { LocalDeskLogo } from './Brand/LocalDeskLogo';
 import { AnimatedThemeToggle } from './AnimatedThemeToggle';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Download } from 'lucide-react';
 
 interface TopNavProps {
   activeView: 'home' | 'directory' | 'workspace';
@@ -15,6 +15,7 @@ interface TopNavProps {
   appearance: AppearanceMode;
   onUpdateAppearance: (mode: AppearanceMode) => void;
   onOpenCommandPalette?: () => void;
+  onOpenDesktopRelease?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -23,7 +24,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   onSelectTool,
   onOpenEditorDirect,
   appearance,
-  onUpdateAppearance
+  onUpdateAppearance,
+  onOpenDesktopRelease
 }) => {
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,12 +97,27 @@ export const TopNav: React.FC<TopNavProps> = ({
           </a>
         </nav>
 
-        {/* Zone 3: Direct Theme Icon + 1 Primary Action */}
+        {/* Zone 3: Direct Theme Icon + Windows App + 1 Primary Action */}
         <div className="flex items-center gap-2.5 shrink-0">
           <AnimatedThemeToggle
             appearance={appearance}
             onToggle={onUpdateAppearance}
           />
+
+          {onOpenDesktopRelease && (
+            <button
+              type="button"
+              onClick={() => {
+                setMegaMenuOpen(false);
+                onOpenDesktopRelease();
+              }}
+              title="Download Local Desk for Windows (64-bit) & Offline Privacy Audit"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-theme-primary bg-theme-elevated border border-theme-subtle hover:border-theme-accent rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-theme-accent" />
+              <span>Windows App</span>
+            </button>
+          )}
 
           <button
             type="button"

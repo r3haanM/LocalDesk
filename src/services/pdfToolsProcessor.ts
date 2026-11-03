@@ -2030,20 +2030,33 @@ export async function executePdfTool(
 
         // OCR Fallback if page is a scanned table with 0 native text runs
         if (aoa.length === 0) {
-          try {
-            report(`Page ${pageNum} has no native text stream — running OCR table recognition...`, 65);
-            const rendered = await renderPdfPageToDataUrl(primaryBytes, pageNum, 1.8, 'image/png');
-            const worker = await createWorker('eng');
-            const ret = await worker.recognize(rendered.dataUrl);
-            await worker.terminate();
-            const ocrLines = (ret.data.text || '')
-              .split(/\r?\n/)
-              .map((l) => l.trim())
-              .filter(Boolean);
-            aoa = ocrLines.map((line) => line.split(/\s{2,}|\t/));
-            ocrFallbackPages++;
-          } catch {
-            aoa = [['(Scanned page — no extractable text runs)']];
+          const isOfflineOrDesktop =
+            (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+            (typeof window !== 'undefined' && Boolean((window as any).localDeskNative));
+          if (!isOfflineOrDesktop) {
+            try {
+              report(`Page ${pageNum} has no native text stream — running local OCR table recognition...`, 65);
+              const rendered = await renderPdfPageToDataUrl(primaryBytes, pageNum, 1.8, 'image/png');
+              const worker = await Promise.race([
+                createWorker('eng', 1, {
+                  workerPath: './ocr/worker.min.js',
+                  corePath: './ocr'
+                }),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error('OCR timeout')), 3000))
+              ]);
+              const ret = await worker.recognize(rendered.dataUrl);
+              await worker.terminate();
+              const ocrLines = (ret.data.text || '')
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter(Boolean);
+              aoa = ocrLines.map((line) => line.split(/\s{2,}|\t/));
+              ocrFallbackPages++;
+            } catch {
+              aoa = [[`Page ${pageNum}`, 'Scanned Image Layer', 'Use Scanned PDF Editor for interactive OCR table editing']];
+            }
+          } else {
+            aoa = [[`Page ${pageNum}`, 'Scanned Image Layer (Offline)', 'Open in 2D PDF Editor to run Local 2D Connected-Component OCR']];
           }
         }
 

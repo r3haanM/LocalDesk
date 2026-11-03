@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { LocalDeskLogo } from '../Brand/LocalDeskLogo';
 import { StudioLaunchTransition } from '../StudioLaunchTransition';
+import { saveProcessedDocumentSafe } from '../../services/desktopBridge';
 import {
   PdfEditableObject,
   PdfFontFamily,
@@ -2054,16 +2055,13 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     }
   };
 
-  const triggerDownloadBytes = (bytes: Uint8Array, filename: string) => {
-    const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const triggerDownloadBytes = async (bytes: Uint8Array, filename: string) => {
+    await saveProcessedDocumentSafe({
+      bytes,
+      suggestedFileName: filename,
+      mimeType: 'application/pdf',
+      originalFileName: docName
+    });
   };
 
   // Filter objects on current page

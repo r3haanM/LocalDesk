@@ -3111,29 +3111,42 @@ export async function runScannedPageOcr(options: {
 
   let recognizedObjects: PdfEditableObject[] = [];
 
-  try {
-    onProgress?.('Initializing English (eng) OCR worker...', 32);
+  const isOfflineOrAirGapped =
+    (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+    (typeof window !== 'undefined' && Boolean((window as any).localDeskNative));
 
-    const worker = await Tesseract.createWorker('eng', 1, {
-      logger: (m: any) => {
-        if (m && typeof m.progress === 'number') {
-          const pct = Math.min(88, Math.round(35 + m.progress * 50));
-          onProgress?.(`Recognizing English text (${Math.round(m.progress * 100)}%)...`, pct);
-        }
-      }
-    });
-
+  if (!isOfflineOrAirGapped) {
     try {
-      const result = await worker.recognize(
-        processedCanvas,
-        {},
-        {
-          text: true,
-          blocks: true,
-          tsv: true,
-          hocr: true
+      onProgress?.('Initializing local English (eng) OCR worker...', 32);
+
+      const workerPromise = Tesseract.createWorker('eng', 1, {
+        workerPath: './ocr/worker.min.js',
+        corePath: './ocr',
+        logger: (m: any) => {
+          if (m && typeof m.progress === 'number') {
+            const pct = Math.min(88, Math.round(35 + m.progress * 50));
+            onProgress?.(`Recognizing English text (${Math.round(m.progress * 100)}%)...`, pct);
+          }
         }
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('OCR worker initialization timeout — using local 2D engine')), 3500)
       );
+
+      const worker = await Promise.race([workerPromise, timeoutPromise]);
+
+      try {
+        const result = await worker.recognize(
+          processedCanvas,
+          {},
+          {
+            text: true,
+            blocks: true,
+            tsv: true,
+            hocr: true
+          }
+        );
 
       if (!shouldCancel?.() && result?.data) {
         onProgress?.('Analyzing pixel typography & matching fonts...', 92);
@@ -3279,11 +3292,12 @@ export async function runScannedPageOcr(options: {
           pageHeightPt
         );
       }
-    } finally {
-      await worker.terminate();
+      } finally {
+        await worker.terminate();
+      }
+    } catch {
+      // Fallback to 2D connected-component segmentation if worker fails
     }
-  } catch {
-    // Fallback to 2D connected-component segmentation if worker fails
   }
 
   if (recognizedObjects.length === 0 && !shouldCancel?.()) {

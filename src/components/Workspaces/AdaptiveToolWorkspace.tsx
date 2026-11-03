@@ -32,6 +32,7 @@ import {
 } from '../../services/pdfToolsProcessor';
 import { PDF_TOOLS_CATALOG } from '../../data/toolsCatalog';
 import { ToolIcon } from '../IconMapper';
+import { saveProcessedDocumentSafe } from '../../services/desktopBridge';
 import {
   ArrowLeft,
   Upload,
@@ -889,33 +890,23 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
     }
   };
 
-  const triggerDownloadResult = () => {
+  const triggerDownloadResult = async () => {
     if (!result) return;
-    const blob = new Blob([result.outputBytes as unknown as BlobPart], {
-      type: result.outputMimeType
+    await saveProcessedDocumentSafe({
+      bytes: result.outputBytes,
+      suggestedFileName: result.outputFileName,
+      mimeType: result.outputMimeType,
+      originalFileName: files[0]?.name
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = result.outputFileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
-  const triggerDownloadSingleFileResult = (singleRes: ProcessingResult) => {
-    const blob = new Blob([singleRes.outputBytes as unknown as BlobPart], {
-      type: singleRes.outputMimeType
+  const triggerDownloadSingleFileResult = async (singleRes: ProcessingResult) => {
+    await saveProcessedDocumentSafe({
+      bytes: singleRes.outputBytes,
+      suggestedFileName: singleRes.outputFileName,
+      mimeType: singleRes.outputMimeType,
+      originalFileName: files[0]?.name
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = singleRes.outputFileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
   return (

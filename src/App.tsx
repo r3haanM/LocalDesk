@@ -14,8 +14,14 @@ import { TopNav } from './components/TopNav';
 import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
 import { CommandPalette } from './components/CommandPalette';
 import { LegalModal } from './components/LegalModal';
+import { DesktopReleaseModal } from './components/DesktopReleaseModal';
 import { HomeAndDirectory } from './components/HomeAndDirectory';
 import { StudioLaunchTransition } from './components/StudioLaunchTransition';
+import {
+  openNativeFileDialogIfAvailable,
+  createUploadedFileItemFromBytes,
+  purgeTemporaryWorkspaceBuffers
+} from './services/desktopBridge';
 import type { EditorToolMode } from './components/Editor/PdfEditorWorkspace';
 
 const PdfEditorWorkspace = React.lazy(() =>
@@ -174,26 +180,68 @@ export default function App() {
   // 4. Modals & Command Palette
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState<boolean>(false);
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
+  const [desktopReleaseOpen, setDesktopReleaseOpen] = useState<boolean>(false);
 
-  // Global Ctrl+K / Cmd+K Listener
+  const handleSelectTool = useCallback(
+    (tool: PdfToolDefinition, files: UploadedFileItem[] = []) => {
+      setSelectedTool(tool);
+      setPreloadedFiles(files);
+      setStudioLaunching(true);
+      setActiveView('workspace');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    []
+  );
+
+  // Global Ctrl+K / Cmd+K and Ctrl+O / Cmd+O Listeners + Native File Association Listener
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = async (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdPaletteOpen((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        const nativeFiles = await openNativeFileDialogIfAvailable({ multiple: true });
+        if (nativeFiles && nativeFiles.length > 0) {
+          e.preventDefault();
+          const edTool = findToolById('edit-pdf')!;
+          handleSelectTool(edTool, nativeFiles);
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
 
-  const handleSelectTool = (tool: PdfToolDefinition, files: UploadedFileItem[] = []) => {
-    setSelectedTool(tool);
-    setPreloadedFiles(files);
-    setStudioLaunching(true);
-    setActiveView('workspace');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    // Subscribe to Windows native file-association or drag-onto-exe launches
+    let unsubscribeNativeOpen: (() => void) | undefined;
+    if (typeof window !== 'undefined' && window.localDeskNative?.onOsOpenFile) {
+      unsubscribeNativeOpen = window.localDeskNative.onOsOpenFile(async (filePath: string) => {
+        try {
+          const readRes = await window.localDeskNative?.openRecentPath(filePath);
+          if (readRes?.bytes && readRes.name) {
+            const item = await createUploadedFileItemFromBytes(
+              readRes.bytes,
+              readRes.name,
+              readRes.path
+            );
+            const edTool = findToolById('edit-pdf')!;
+            handleSelectTool(edTool, [item]);
+          }
+        } catch {
+          // Ignore malformed external payload
+        }
+      });
+    }
+
+    const onBeforeUnload = () => {
+      purgeTemporaryWorkspaceBuffers();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      if (unsubscribeNativeOpen) unsubscribeNativeOpen();
+    };
+  }, [handleSelectTool]);
 
   const handleNavigateDirectory = (cat: ToolCategory | 'all' = 'all') => {
     setActiveCategory(cat);
@@ -231,6 +279,7 @@ export default function App() {
         appearance={theme.appearance}
         onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
+        onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
       />
 
       {/* Main Content Viewport */}
@@ -250,6 +299,7 @@ export default function App() {
                 onSelectTool={handleSelectTool}
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
+                onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
                 onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
                 theme={theme}
                 account={account}
@@ -378,10 +428,17 @@ export default function App() {
               >
                 Terms of Service
               </button>
+              <button
+                type="button"
+                onClick={() => setDesktopReleaseOpen(true)}
+                className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
+              >
+                Windows Desktop (.exe)
+              </button>
               <a
                 href="/api/export-source"
                 download="local-desk-pdf-toolkit-source.zip"
-                className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
+                className="text-theme-secondary hover:text-theme-primary transition-colors cursor-pointer"
               >
                 Export Source (.zip)
               </a>
@@ -398,6 +455,12 @@ export default function App() {
         isOpen={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
         onSelectTool={(tool) => handleSelectTool(tool, [])}
+      />
+
+      {/* Windows Desktop Installer & Offline Audit Modal */}
+      <DesktopReleaseModal
+        isOpen={desktopReleaseOpen}
+        onClose={() => setDesktopReleaseOpen(false)}
       />
 
       {/* Privacy Policy & Terms Modal */}

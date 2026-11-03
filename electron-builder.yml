@@ -1,0 +1,50 @@
+appId: com.localdesk.pdfstudio
+productName: Local Desk
+copyright: Copyright © 2026 Local Desk Document Systems
+asar: true
+compression: normal
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron/main.cjs
+  - electron/preload.cjs
+  - package.json
+
+asarUnpack:
+  - dist/ocr/**/*
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+  fileAssociations:
+    - ext: pdf
+      name: PDF Document
+      description: Portable Document Format (Local Desk)
+      role: Editor
+      icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Local Desk
+  uninstallDisplayName: Local Desk — PDF & Document Studio
+  deleteAppDataOnUninstall: false
+  artifactName: "Local-Desk-Setup-${version}-${arch}.${ext}"
+
+portable:
+  artifactName: "Local-Desk-Portable-${version}-${arch}.${ext}"

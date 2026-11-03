@@ -1,7 +1,12 @@
 {
-  "name": "react-example",
+  "name": "local-desk",
+  "productName": "Local Desk",
+  "description": "Local Desk — Privacy-First Windows Desktop PDF & Document Workspace",
+  "author": "Local Desk Document Systems",
+  "license": "MIT",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -10,7 +15,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:qa": "tsx scripts/qa_validation_suite.ts"
+    "test:qa": "tsx scripts/qa_validation_suite.ts",
+    "desktop:release": "tsx scripts/build_windows_release.ts",
+    "desktop:electron": "electron electron/main.cjs",
+    "desktop:dist:win": "vite build && electron-builder --win --x64 --config electron-builder.yml"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

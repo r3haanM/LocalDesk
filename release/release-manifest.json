@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "productName": "Local Desk",
+  "targetPlatform": "Windows 10 / Windows 11 (64-bit x64)",
+  "buildTimestamp": "2026-11-03T20:55:22.760Z",
+  "artifacts": [
+    {
+      "fileName": "Local-Desk-Setup-1.0.0-x64.exe",
+      "label": "Windows 10 / 11 Setup Installer (x64)",
+      "format": "EXE Installer",
+      "sizeBytes": 7639365,
+      "sizeFormatted": "7.29 MB",
+      "sha256": "03ea0561609bca6e54f6f9f8fe7cfa816803bfd7f0a0ca3e25912d9d084175b1",
+      "downloadUrl": "/api/releases/download/Local-Desk-Setup-1.0.0-x64.exe",
+      "description": "Self-extracting Windows 64-bit setup installer with Desktop & Start Menu shortcuts, .pdf file association, and clean uninstaller."
+    },
+    {
+      "fileName": "Local-Desk-Portable-1.0.0-win-x64.zip",
+      "label": "Windows Portable Edition (No-Install ZIP)",
+      "format": "Portable ZIP",
+      "sizeBytes": 7638166,
+      "sizeFormatted": "7.28 MB",
+      "sha256": "b3c3ef041a64a18efa2b2ba542ecbe61884ed09d0c83f8a3defc625075b13b5e",
+      "downloadUrl": "/api/releases/download/Local-Desk-Portable-1.0.0-win-x64.zip",
+      "description": "Standalone Windows portable archive with pre-compiled offline assets, Electron main/preload runtime, multi-resolution .ico, and one-click launcher."
+    }
+  ]
+}
