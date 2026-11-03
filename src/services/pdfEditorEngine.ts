@@ -8,6 +8,7 @@ import {
 } from 'pdf-lib';
 import {
   PdfEditableObject,
+  PdfFontFamily,
   PdfPageDescriptor,
   ScannedExportMode
 } from '../types/pdf';
@@ -19,6 +20,8 @@ import {
 import {
   classifyPdfPageContent,
   hasNonWinAnsiChars,
+  pdfPageGeometryToExportCoords,
+  renderScanMatchedReplacementToPngDataUrl,
   renderUnicodeTextToPngDataUrl
 } from './scannedOcrEngine';
 
@@ -70,51 +73,80 @@ function extractNativeVectorRectanglesFromPage(
     if (!Contents) return detected;
     const context = pdfPage.doc.context;
 
+    const recordCandidateRect = (rx: number, ry: number, rw: number, rh: number) => {
+      if (isNaN(rx) || isNaN(ry) || isNaN(rw) || isNaN(rh)) return;
+      const absW = Math.abs(rw);
+      const absH = Math.abs(rh);
+
+      // Ignore full-page background rectangles or tiny hairlines (< 18pt)
+      if (absW >= pageWidth * 0.94 && absH >= pageHeight * 0.94) return;
+      if (absW < 28 || absH < 18) return;
+
+      const normX = Math.max(0, Math.round(rw < 0 ? rx + rw : rx));
+      const normBottomY = rh < 0 ? ry + rh : ry;
+      const topY = Math.max(0, Math.round(pageHeight - normBottomY - absH));
+
+      const isDup = detected.some(
+        (d) =>
+          Math.abs(d.x - normX) < 4 &&
+          Math.abs(d.y - topY) < 4 &&
+          Math.abs(d.width - Math.round(absW)) < 4 &&
+          Math.abs(d.height - Math.round(absH)) < 4
+      );
+      if (!isDup && detected.length < 18) {
+        detected.push({
+          x: normX,
+          y: topY,
+          width: Math.round(absW),
+          height: Math.round(absH),
+          fillHex: '#F4F3FF',
+          strokeHex: '#DDD6FE'
+        });
+      }
+    };
+
     const inspectStreamRef = (ref: any) => {
       const stream = context.lookup(ref);
       if (!(stream instanceof PDFRawStream)) return;
       const decodedBytes = decodePDFRawStream(stream).decode();
       const contentStr = new TextDecoder('latin1').decode(decodedBytes);
 
-      // Match `x y w h re` operators
-      const reRegex = /(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+re/g;
+      // 1. Match standard `x y w h re` operators
+      const reRegex = /(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+re\b/g;
       let match: RegExpExecArray | null;
       while ((match = reRegex.exec(contentStr)) !== null) {
-        const rx = parseFloat(match[1]);
-        const ry = parseFloat(match[2]);
-        const rw = parseFloat(match[3]);
-        const rh = parseFloat(match[4]);
-
-        if (isNaN(rx) || isNaN(ry) || isNaN(rw) || isNaN(rh)) continue;
-        const absW = Math.abs(rw);
-        const absH = Math.abs(rh);
-
-        // Ignore full-page background rectangles or tiny hairlines (< 18pt)
-        if (absW >= pageWidth * 0.94 && absH >= pageHeight * 0.94) continue;
-        if (absW < 28 || absH < 18) continue;
-
-        const normX = Math.max(0, Math.round(rw < 0 ? rx + rw : rx));
-        const normBottomY = rh < 0 ? ry + rh : ry;
-        const topY = Math.max(0, Math.round(pageHeight - normBottomY - absH));
-
-        // Avoid duplicate rectangles at the exact same coordinates
-        const isDup = detected.some(
-          (d) =>
-            Math.abs(d.x - normX) < 4 &&
-            Math.abs(d.y - topY) < 4 &&
-            Math.abs(d.width - Math.round(absW)) < 4 &&
-            Math.abs(d.height - Math.round(absH)) < 4
+        recordCandidateRect(
+          parseFloat(match[1]),
+          parseFloat(match[2]),
+          parseFloat(match[3]),
+          parseFloat(match[4])
         );
-        if (!isDup && detected.length < 18) {
-          detected.push({
-            x: normX,
-            y: topY,
-            width: Math.round(absW),
-            height: Math.round(absH),
-            fillHex: '#F4F3FF',
-            strokeHex: '#DDD6FE'
-          });
-        }
+      }
+
+      // 2. Match pdf-lib style `1 0 0 1 tx ty cm ... 0 0 m 0 h l w h l w 0 l` rectangular path blocks
+      const cmPathRegexA =
+        /1\s+0\s+0\s+1\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+cm(?:[\s\S]{0,160}?1\s+0\s+0\s+1\s+0\s+0\s+cm)*[\s\S]{0,80}?0\s+0\s+m\s+0\s+(-?\d+(?:\.\d+)?)\s+l\s+(-?\d+(?:\.\d+)?)\s+\3\s+l\s+\4\s+0\s+l/g;
+      let cmMatchA: RegExpExecArray | null;
+      while ((cmMatchA = cmPathRegexA.exec(contentStr)) !== null) {
+        recordCandidateRect(
+          parseFloat(cmMatchA[1]),
+          parseFloat(cmMatchA[2]),
+          parseFloat(cmMatchA[4]),
+          parseFloat(cmMatchA[3])
+        );
+      }
+
+      // 3. Match counter-clockwise `1 0 0 1 tx ty cm ... 0 0 m w 0 l w h l 0 h l` rectangular path blocks
+      const cmPathRegexB =
+        /1\s+0\s+0\s+1\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+cm[\s\S]{0,160}?0\s+0\s+m\s+(-?\d+(?:\.\d+)?)\s+0\s+l\s+\3\s+(-?\d+(?:\.\d+)?)\s+l/g;
+      let cmMatchB: RegExpExecArray | null;
+      while ((cmMatchB = cmPathRegexB.exec(contentStr)) !== null) {
+        recordCandidateRect(
+          parseFloat(cmMatchB[1]),
+          parseFloat(cmMatchB[2]),
+          parseFloat(cmMatchB[3]),
+          parseFloat(cmMatchB[4])
+        );
       }
     };
 
@@ -234,19 +266,25 @@ export async function parseDocumentIntoEditorModel(
 
     // 2. Populate Native Text Objects from extracted runs
     pageStruct.textRuns.forEach((run, rIdx) => {
-      const isMono =
-        run.fontName.toLowerCase().includes('courier') ||
-        run.fontName.toLowerCase().includes('mono');
+      const fnLower = run.fontName.toLowerCase();
+      const isMono = fnLower.includes('courier') || fnLower.includes('mono');
       const isSerif =
-        run.fontName.toLowerCase().includes('times') ||
-        run.fontName.toLowerCase().includes('serif');
-      const isBold = run.fontName.toLowerCase().includes('bold');
-      const isItalic =
-        run.fontName.toLowerCase().includes('italic') ||
-        run.fontName.toLowerCase().includes('oblique');
+        !fnLower.includes('sans-serif') &&
+        !fnLower.includes('sans') &&
+        (fnLower.includes('times') || fnLower.includes('serif') || fnLower.includes('georgia'));
+      const isBold = fnLower.includes('bold');
+      const isItalic = fnLower.includes('italic') || fnLower.includes('oblique');
 
       const normW = Math.max(24, run.width);
       const normH = Math.max(14, run.height);
+
+      const detectedFamily: PdfFontFamily = isMono
+        ? 'Courier'
+        : isSerif
+        ? 'Times-Roman'
+        : 'Helvetica';
+      const detectedWeight: 'normal' | 'bold' = isBold ? 'bold' : 'normal';
+      const detectedStyle: 'normal' | 'italic' = isItalic ? 'italic' : 'normal';
 
       objects.push({
         id: `obj-p${i + 1}-text-${rIdx}`,
@@ -270,10 +308,14 @@ export async function parseDocumentIntoEditorModel(
         opacity: 1,
         text: run.str,
         originalText: run.str,
-        fontFamily: isMono ? 'Courier' : isSerif ? 'Times-Roman' : 'Helvetica',
+        fontFamily: detectedFamily,
+        originalFontFamily: detectedFamily,
         fontSize: run.fontSize,
-        fontWeight: isBold ? 'bold' : 'normal',
-        fontStyle: isItalic ? 'italic' : 'normal',
+        originalFontSize: run.fontSize,
+        fontWeight: detectedWeight,
+        originalFontWeight: detectedWeight,
+        fontStyle: detectedStyle,
+        originalFontStyle: detectedStyle,
         underline: false,
         color: '#18181B',
         textAlign: 'left',
@@ -392,9 +434,45 @@ function stringToHexPattern(str: string): string {
 }
 
 /**
+ * Converts a top-left bounding box `(x, y, width, height)` with a clockwise CSS center-anchored
+ * rotation (`rotationDegClockwise`) into exact `pdf-lib` bottom-left coordinates `(drawX, drawY)`
+ * and `pdfRotationDeg` (`-rotationDegClockwise`) so the rotated object's center in the exported PDF
+ * matches the editor canvas with 0.00pt drift.
+ */
+export function computePdfCenterRotatedOrigin(
+  xTopLeft: number,
+  yTopLeft: number,
+  width: number,
+  height: number,
+  pageHeight: number,
+  rotationDegClockwise: number = 0
+): { x: number; y: number; pdfRotationDeg: number } {
+  const pdfY = Math.max(0, pageHeight - yTopLeft - height);
+  const normRot = ((rotationDegClockwise % 360) + 360) % 360;
+  if (normRot === 0) {
+    return { x: xTopLeft, y: pdfY, pdfRotationDeg: 0 };
+  }
+  const cx = xTopLeft + width / 2;
+  const cyPdf = pdfY + height / 2;
+  const pdfRotDeg = -normRot;
+  const rad = (pdfRotDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = -width / 2;
+  const dy = -height / 2;
+  const rx = cx + (dx * cos - dy * sin);
+  const ry = cyPdf + (dx * sin + dy * cos);
+  return {
+    x: Math.round(rx * 100) / 100,
+    y: Math.round(ry * 100) / 100,
+    pdfRotationDeg: pdfRotDeg
+  };
+}
+
+/**
  * Strips specific strings from a PDF page's raw content stream (handling both
- * parenthesized literal strings and hex-encoded <...> PDF strings) so removed,
- * modified, or redacted text is genuinely purged from underlying PDF operators.
+ * parenthesized literal strings and hex-encoded <...> PDF strings across `Tj`, `'`, `"`, and `TJ` arrays)
+ * so removed, modified, or redacted text is genuinely purged from underlying PDF operators.
  */
 function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[]) {
   if (!stringsToPurge.length) return;
@@ -411,25 +489,26 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
         let modified = false;
 
         for (const target of stringsToPurge) {
-          if (!target || target.trim().length < 2) continue;
+          if (!target || target.trim().length < 1) continue;
 
-          const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const literalRegex = new RegExp(`\\([^()]*${escaped}[^()]*\\)\\s*(Tj|')`, 'g');
+          const trimmed = target.trim();
+          const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const literalRegex = new RegExp(`\\([^()]*${escaped}[^()]*\\)`, 'g');
           if (literalRegex.test(contentStr)) {
-            contentStr = contentStr.replace(literalRegex, '() Tj');
+            contentStr = contentStr.replace(literalRegex, '()');
             modified = true;
           }
 
-          const fullHex = stringToHexPattern(target);
-          if (fullHex.length >= 4) {
-            const hexRegex = new RegExp(`<[0-9a-fA-F]*${fullHex}[0-9a-fA-F]*>\\s*(Tj|')`, 'gi');
+          const fullHex = stringToHexPattern(trimmed);
+          if (fullHex.length >= 2) {
+            const hexRegex = new RegExp(`<[0-9a-fA-F]*${fullHex}[0-9a-fA-F]*>`, 'gi');
             if (hexRegex.test(contentStr)) {
-              contentStr = contentStr.replace(hexRegex, '<> Tj');
+              contentStr = contentStr.replace(hexRegex, '<>');
               modified = true;
             }
           }
 
-          const tokens = target.split(/\s+/).filter((t) => t.length >= 3);
+          const tokens = trimmed.split(/\s+/).filter((t) => t.length >= 2);
           for (const tok of tokens) {
             const tokEsc = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const tokLitRegex = new RegExp(`\\([^()]*${tokEsc}[^()]*\\)`, 'g');
@@ -438,10 +517,12 @@ function purgeStringsFromPageContentStream(pdfPage: any, stringsToPurge: string[
               modified = true;
             }
             const tokHex = stringToHexPattern(tok);
-            const tokHexRegex = new RegExp(`<[0-9a-fA-F]*${tokHex}[0-9a-fA-F]*>`, 'gi');
-            if (tokHexRegex.test(contentStr)) {
-              contentStr = contentStr.replace(tokHexRegex, '<>');
-              modified = true;
+            if (tokHex.length >= 4) {
+              const tokHexRegex = new RegExp(`<[0-9a-fA-F]*${tokHex}[0-9a-fA-F]*>`, 'gi');
+              if (tokHexRegex.test(contentStr)) {
+                contentStr = contentStr.replace(tokHexRegex, '<>');
+                modified = true;
+              }
             }
           }
         }
@@ -680,11 +761,22 @@ export async function exportEditedPdfDocument(
   };
 
   const getFont = (
-    family: 'Helvetica' | 'Times-Roman' | 'Courier' = 'Helvetica',
+    family: PdfFontFamily = 'Helvetica',
     weight: 'normal' | 'bold' = 'normal',
     style: 'normal' | 'italic' = 'normal'
   ) => {
-    const key = `${family}-${weight}-${style}` as keyof typeof fonts;
+    const baseStdFamily: 'Helvetica' | 'Times-Roman' | 'Courier' =
+      family === 'Courier' ||
+      family === 'Courier-Prime' ||
+      family === 'Consolas-Mono' ||
+      family === 'Space-Mono'
+        ? 'Courier'
+        : family === 'Times-Roman' ||
+          family === 'Libre-Baskerville' ||
+          family === 'Merriweather-Slab'
+        ? 'Times-Roman'
+        : 'Helvetica';
+    const key = `${baseStdFamily}-${weight}-${style}` as keyof typeof fonts;
     return fonts[key] || fonts['Helvetica-normal-normal'];
   };
 
@@ -808,14 +900,27 @@ export async function exportEditedPdfDocument(
         const origY = obj.originalY ?? obj.y;
         const origW = obj.originalWidth ?? obj.width;
         const origH = obj.originalHeight ?? obj.height;
-        const hasMoved = Math.abs(obj.x - origX) > 1 || Math.abs(obj.y - origY) > 1;
+        const hasMovedOrResized =
+          Math.abs(obj.x - origX) > 1 ||
+          Math.abs(obj.y - origY) > 1 ||
+          Math.abs(obj.width - origW) > 1 ||
+          Math.abs(obj.height - origH) > 1;
+        const origFam = obj.originalFontFamily ?? 'Helvetica';
+        const origSize = obj.originalFontSize ?? obj.fontSize ?? 12;
+        const origWeight = obj.originalFontWeight ?? 'normal';
+        const origStyle = obj.originalFontStyle ?? 'normal';
         const isModified =
-          hasMoved ||
+          hasMovedOrResized ||
           obj.text !== obj.originalText ||
+          (obj.fontFamily && obj.fontFamily !== origFam) ||
+          (obj.fontSize !== undefined && Math.abs(obj.fontSize - origSize) > 0.25) ||
+          (obj.fontWeight && obj.fontWeight !== origWeight) ||
+          (obj.fontStyle && obj.fontStyle !== origStyle) ||
+          (obj.textAlign && obj.textAlign !== 'left') ||
+          Boolean(obj.letterSpacing && Math.abs(obj.letterSpacing) > 0.05) ||
+          Boolean(obj.lineHeight && Math.abs(obj.lineHeight - 1.2) > 0.05) ||
           obj.color !== '#18181B' ||
-          obj.fontWeight === 'bold' ||
-          obj.fontStyle === 'italic' ||
-          obj.underline ||
+          Boolean(obj.underline) ||
           (obj.rotation || 0) !== 0 ||
           (obj.opacity ?? 1) < 1;
 
@@ -851,26 +956,36 @@ export async function exportEditedPdfDocument(
           const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
           const fontSize = obj.fontSize || 12;
           const { r, g, b } = hexToRgbNormalized(obj.color || '#18181B');
-          const pdfY = Math.max(0, pageDesc.height - obj.y - fontSize * 0.88);
-
-          outPage.drawText(obj.text, {
-            x: obj.x,
-            y: pdfY,
-            size: fontSize,
-            font,
-            color: rgb(r, g, b),
-            opacity: obj.opacity ?? 1,
-            rotate: degrees(obj.rotation || 0)
-          });
-
-          if (obj.underline) {
-            outPage.drawLine({
-              start: { x: obj.x, y: pdfY - 2 },
-              end: { x: obj.x + obj.width, y: pdfY - 2 },
-              thickness: 1,
-              color: rgb(r, g, b)
+          const lines = obj.text.split('\n');
+          lines.forEach((rawLine, lineIndex) => {
+            const safeLine = rawLine.replace(/[^\x20-\xFF]/g, '');
+            if (!safeLine) return;
+            const measuredLineWidthPt = font.widthOfTextAtSize(safeLine, fontSize);
+            const { drawX, drawY } = pdfPageGeometryToExportCoords({
+              obj,
+              pageHeightPt: pageDesc.height,
+              lineIndex,
+              measuredLineWidthPt
             });
-          }
+            outPage.drawText(safeLine, {
+              x: drawX,
+              y: Math.max(0, drawY),
+              size: fontSize,
+              font,
+              color: rgb(r, g, b),
+              opacity: obj.opacity ?? 1,
+              rotate: degrees(obj.rotation || 0)
+            });
+
+            if (obj.underline) {
+              outPage.drawLine({
+                start: { x: drawX, y: Math.max(0, drawY - 1.5) },
+                end: { x: drawX + measuredLineWidthPt, y: Math.max(0, drawY - 1.5) },
+                thickness: Math.max(0.75, fontSize * 0.06),
+                color: rgb(r, g, b)
+              });
+            }
+          });
         }
       }
     }
@@ -901,12 +1016,13 @@ export async function exportEditedPdfDocument(
       if (isRemoved) removedCount++;
       if (isHiddenOnExport) hiddenAppliedCount++;
 
-      // Reconstruct background over original scanned text region if modified, moved, deleted, hidden, or redacted
+      // Reconstruct background strictly over ORIGINAL scanned text region (`origX, origY, origW, origH`)
+      // so expanding replacement text never erases neighboring table borders or adjacent text (Section 9)
       if (
         (isRemoved || isHiddenOnExport || isTextModified || isIntersectedByRedaction) &&
         scannedExportMode !== 'searchable-ocr'
       ) {
-        const pad = obj.bgMaskPadding ?? 2;
+        const pad = obj.bgMaskPadding ?? 1.5;
         const patchX = Math.max(0, origX - pad);
         const patchY = Math.max(0, origY - pad);
         const patchW = Math.max(6, origW + pad * 2);
@@ -954,12 +1070,18 @@ export async function exportEditedPdfDocument(
         continue;
       }
 
-      // Render replacement text (if modified/moved) OR searchable invisible OCR layer
+      // Render replacement text (if modified/moved) OR searchable invisible OCR layer (Section 14)
       if (isTextModified && scannedExportMode !== 'searchable-ocr' && obj.text && obj.text.trim()) {
-        if (hasNonWinAnsiChars(obj.text) && typeof document !== 'undefined') {
-          // High-DPI Unicode / Urdu RTL rasterized glyph layer
+        // Section 14 Strategy:
+        // 1. Render a 300-DPI scan-matched transparent PNG over the reconstructed background patch at exact PDF coordinates
+        //    so matched custom fonts (Courier Prime, IBM Plex Mono, Space Mono, Libre Baskerville, Roboto Condensed, etc.),
+        //    granular font weights (300-700), character spacing, horizontal scale, and scan print realism are preserved 100%.
+        // 2. Simultaneously write a synchronized invisible (opacity: 0.01) vector text run at the exact baseline
+        //    so the exported PDF remains text-searchable and selectable in PDF viewers.
+        let renderedViaScanMatchedLayer = false;
+        if (typeof document !== 'undefined') {
           try {
-            const rendered = renderUnicodeTextToPngDataUrl(obj);
+            const rendered = renderScanMatchedReplacementToPngDataUrl(obj);
             const b64 = rendered.dataUrl.split(',')[1];
             const pngBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
             const embeddedGlyphs = await outDoc.embedPng(pngBytes);
@@ -972,39 +1094,63 @@ export async function exportEditedPdfDocument(
               opacity: obj.opacity ?? 1,
               rotate: degrees(obj.rotation || 0)
             });
+            renderedViaScanMatchedLayer = true;
           } catch {
-            // Safe fallback
-          }
-        } else {
-          const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
-          const fontSize = obj.fontSize || 11;
-          const { r, g, b } = hexToRgbNormalized(
-            obj.color || obj.sampledTextColor || '#18181B'
-          );
-          const pdfY = Math.max(0, pageDesc.height - obj.y - fontSize * 0.88);
-          const safeAscii = (obj.text || '').replace(/[^\x20-\xFF]/g, '');
-          if (safeAscii) {
-            outPage.drawText(safeAscii, {
-              x: obj.x,
-              y: pdfY,
-              size: fontSize,
-              font,
-              color: rgb(r, g, b),
-              opacity: obj.opacity ?? 1,
-              rotate: degrees(obj.rotation || 0)
-            });
+            renderedViaScanMatchedLayer = false;
           }
         }
+
+        const font = getFont(obj.fontFamily, obj.fontWeight, obj.fontStyle);
+        const fontSize = obj.fontSize || 11;
+        const { r, g, b } = hexToRgbNormalized(
+          obj.color || obj.sampledTextColor || '#18181B'
+        );
+        const lines = (obj.text || '').split('\n');
+        lines.forEach((rawLine, lineIndex) => {
+          const safeAscii = rawLine.replace(/[^\x20-\xFF]/g, '');
+          if (!safeAscii) return;
+          const measuredLineWidthPt = font.widthOfTextAtSize(safeAscii, fontSize);
+          const { drawX, drawY } = pdfPageGeometryToExportCoords({
+            obj,
+            pageHeightPt: pageDesc.height,
+            lineIndex,
+            measuredLineWidthPt
+          });
+          outPage.drawText(safeAscii, {
+            x: drawX,
+            y: Math.max(0, drawY),
+            size: fontSize,
+            font,
+            color: rgb(r, g, b),
+            opacity: renderedViaScanMatchedLayer ? 0.01 : obj.opacity ?? 1,
+            rotate: degrees(obj.rotation || 0)
+          });
+
+          if (obj.underline && !renderedViaScanMatchedLayer) {
+            outPage.drawLine({
+              start: { x: drawX, y: Math.max(0, drawY - 1.5) },
+              end: { x: drawX + measuredLineWidthPt, y: Math.max(0, drawY - 1.5) },
+              thickness: Math.max(0.75, fontSize * 0.06),
+              color: rgb(r, g, b)
+            });
+          }
+        });
       } else if (scannedExportMode === 'searchable-ocr' && obj.text && obj.text.trim()) {
         // Mode A: Searchable Scanned PDF — embed invisible selectable text layer at exact OCR coordinates
         const safeWinAnsi = (obj.text || '').replace(/[^\x20-\xFF]/g, '');
         if (safeWinAnsi.trim()) {
           const font = getFont('Helvetica', 'normal', 'normal');
           const fontSize = Math.max(6, obj.fontSize || 10);
-          const pdfY = Math.max(0, pageDesc.height - obj.y - fontSize * 0.88);
+          const measuredLineWidthPt = font.widthOfTextAtSize(safeWinAnsi, fontSize);
+          const { drawX, drawY } = pdfPageGeometryToExportCoords({
+            obj,
+            pageHeightPt: pageDesc.height,
+            lineIndex: 0,
+            measuredLineWidthPt
+          });
           outPage.drawText(safeWinAnsi, {
-            x: obj.x,
-            y: pdfY,
+            x: drawX,
+            y: Math.max(0, drawY),
             size: fontSize,
             font,
             color: rgb(0, 0, 0),
@@ -1059,30 +1205,39 @@ export async function exportEditedPdfDocument(
           const { r, g, b } = hexToRgbNormalized(obj.color || '#18181B');
           const textLines = (obj.text || '').split('\n');
           const lineHeight = (obj.lineHeight || 1.25) * fontSize;
+          const align = obj.textAlign || 'left';
 
           textLines.forEach((line, lIdx) => {
             const safeLine = line.replace(/[^\x20-\xFF]/g, '');
+            if (!safeLine) return;
+            const measuredLineWidthPt = font.widthOfTextAtSize(safeLine, fontSize);
+            let drawX = obj.x;
+            if (align === 'right') {
+              drawX = obj.x + obj.width - measuredLineWidthPt;
+            } else if (align === 'center') {
+              drawX = obj.x + (obj.width - measuredLineWidthPt) / 2;
+            }
             const lineY = pageDesc.height - obj.y - fontSize * 0.88 - lIdx * lineHeight;
             outPage.drawText(safeLine, {
-              x: obj.x,
+              x: drawX,
               y: Math.max(0, lineY),
               size: fontSize,
               font,
               color: rgb(r, g, b),
               opacity: obj.opacity ?? (obj.type === 'watermark' ? 0.22 : 1),
-              rotate: degrees(obj.rotation || 0)
+              rotate: degrees(-(obj.rotation || 0))
             });
-          });
 
-          if (obj.underline) {
-            outPage.drawLine({
-              start: { x: obj.x, y: pageDesc.height - obj.y - fontSize - 2 },
-              end: { x: obj.x + obj.width, y: pageDesc.height - obj.y - fontSize - 2 },
-              thickness: 1,
-              color: rgb(r, g, b),
-              opacity: obj.opacity ?? 1
-            });
-          }
+            if (obj.underline) {
+              outPage.drawLine({
+                start: { x: drawX, y: Math.max(0, lineY - 2) },
+                end: { x: drawX + measuredLineWidthPt, y: Math.max(0, lineY - 2) },
+                thickness: Math.max(0.75, fontSize * 0.06),
+                color: rgb(r, g, b),
+                opacity: obj.opacity ?? 1
+              });
+            }
+          });
         }
       } else if (obj.type === 'added-image' || obj.type === 'signature') {
         if (obj.imageDataUrl) {
@@ -1120,13 +1275,21 @@ export async function exportEditedPdfDocument(
                 ? await outDoc.embedJpg(imgBytes)
                 : await outDoc.embedPng(imgBytes);
 
+            const rotImgOrigin = computePdfCenterRotatedOrigin(
+              obj.x,
+              obj.y,
+              obj.width,
+              obj.height,
+              pageDesc.height,
+              obj.rotation || 0
+            );
             outPage.drawImage(embeddedImg, {
-              x: obj.x,
-              y: pdfY,
+              x: rotImgOrigin.x,
+              y: rotImgOrigin.y,
               width: obj.width,
               height: obj.height,
               opacity: obj.opacity ?? 1,
-              rotate: degrees(obj.rotation || 0)
+              rotate: degrees(rotImgOrigin.pdfRotationDeg)
             });
           } catch {
             // Fallback if image format differs
@@ -1187,7 +1350,8 @@ export async function exportEditedPdfDocument(
           obj.gradientFill?.enabled ||
           kind === 'rounded-rectangle' ||
           kind === 'polygon' ||
-          (obj.cornerRadius && obj.cornerRadius > 0);
+          (obj.cornerRadius && obj.cornerRadius > 0) ||
+          ((kind === 'circle' || kind === 'ellipse') && (obj.rotation || 0) !== 0);
 
         if (
           usesAdvancedCanvasRender &&
@@ -1207,12 +1371,20 @@ export async function exportEditedPdfDocument(
             const padPt = obj.shadow?.enabled
               ? Math.ceil(obj.shadow.blur + Math.max(Math.abs(obj.shadow.offsetX), Math.abs(obj.shadow.offsetY)))
               : 2;
+            const rotPatchOrigin = computePdfCenterRotatedOrigin(
+              obj.x - padPt,
+              obj.y - padPt,
+              obj.width + padPt * 2,
+              obj.height + padPt * 2,
+              pageDesc.height,
+              obj.rotation || 0
+            );
             outPage.drawImage(embeddedPatch, {
-              x: obj.x - padPt,
-              y: pdfY - padPt,
+              x: rotPatchOrigin.x,
+              y: rotPatchOrigin.y,
               width: obj.width + padPt * 2,
               height: obj.height + padPt * 2,
-              rotate: degrees(obj.rotation || 0)
+              rotate: degrees(rotPatchOrigin.pdfRotationDeg)
             });
             continue;
           }
@@ -1336,9 +1508,17 @@ export async function exportEditedPdfDocument(
             });
           }
         } else {
+          const rotRectOrigin = computePdfCenterRotatedOrigin(
+            obj.x,
+            obj.y,
+            obj.width,
+            obj.height,
+            pageDesc.height,
+            obj.rotation || 0
+          );
           outPage.drawRectangle({
-            x: obj.x,
-            y: pdfY,
+            x: rotRectOrigin.x,
+            y: rotRectOrigin.y,
             width: obj.width,
             height: obj.height,
             color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
@@ -1347,7 +1527,7 @@ export async function exportEditedPdfDocument(
             borderWidth: obj.strokeWidth ?? 2,
             borderOpacity: strokeAlpha,
             borderDashArray: dashArray,
-            rotate: degrees(obj.rotation || 0)
+            rotate: degrees(rotRectOrigin.pdfRotationDeg)
           });
         }
       } else if (obj.type === 'form-field') {

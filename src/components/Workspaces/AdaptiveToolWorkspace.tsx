@@ -32,7 +32,6 @@ import {
 } from '../../services/pdfToolsProcessor';
 import { PDF_TOOLS_CATALOG } from '../../data/toolsCatalog';
 import { ToolIcon } from '../IconMapper';
-import { ThreeWorkspaceBanner } from '../Three/ThreeWorkspaceBanner';
 import {
   ArrowLeft,
   Upload,
@@ -494,8 +493,8 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       const sampleImgs: File[] = [];
 
       const cards = [
-        { title: '01 // ARCHITECTURAL DIAGRAM', accent: '#7c3aed', bg: '#181824' },
-        { title: '02 // INFRASTRUCTURE TOPOLOGY', accent: '#10b981', bg: '#14201e' }
+        { title: '01 // ARCHITECTURAL DIAGRAM', accent: '#059669', bg: '#0D1F18' },
+        { title: '02 // INFRASTRUCTURE TOPOLOGY', accent: '#10b981', bg: '#132A21' }
       ];
 
       for (let i = 0; i < cards.length; i++) {
@@ -513,7 +512,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         ctx.fillText(cards[i].title, 80, 140);
         ctx.fillStyle = '#a1a1aa';
         ctx.font = '22px monospace';
-        ctx.fillText(`Vellum Sample ${ext.toUpperCase()} Plate #${i + 1} (960 × 640 px)`, 80, 200);
+        ctx.fillText(`Local Desk Sample ${ext.toUpperCase()} Plate #${i + 1} (960 × 640 px)`, 80, 200);
         ctx.fillStyle = cards[i].accent;
         ctx.fillRect(80, 260, 360, 180);
         const dataUrl = canvas.toDataURL(mime, 0.92);
@@ -522,7 +521,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         const bytes = new Uint8Array(bin.length);
         for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
         sampleImgs.push(
-          new File([bytes], `Vellum_Diagram_0${i + 1}.${ext}`, { type: mime })
+          new File([bytes], `LocalDesk_Diagram_0${i + 1}.${ext}`, { type: mime })
         );
       }
       await handleFilesSelected(sampleImgs);
@@ -531,7 +530,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
     if (tool.id === 'html-to-pdf') {
       const htmlBytes = new TextEncoder().encode(htmlInput);
-      const htmlFile = new File([htmlBytes], 'Vellum_Specification_2026.html', {
+      const htmlFile = new File([htmlBytes], 'LocalDesk_Specification_2026.html', {
         type: 'text/html'
       });
       await handleFilesSelected([htmlFile]);
@@ -819,7 +818,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         const combinedResult: ProcessingResult = {
           success: true,
           toolId: tool.id,
-          outputFileName: `Vellum_${tool.id}_${files.length}_files.zip`,
+          outputFileName: `LocalDesk_${tool.id}_${files.length}_files.zip`,
           outputMimeType: 'application/zip',
           outputBytes: zipBytes,
           originalSize: files.reduce((a, b) => a + b.size, 0),
@@ -944,6 +943,9 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               <ToolIcon name={tool.iconName} className="w-6 h-6 text-theme-accent" />
               <span>{tool.name}</span>
             </h1>
+            <p className="text-xs text-theme-secondary mt-1 max-w-2xl">
+              {tool.description}
+            </p>
           </div>
         </div>
 
@@ -1003,33 +1005,60 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Interactive Three.js 3D Spatial Pipeline Stage */}
-      <ThreeWorkspaceBanner
-        title={tool.name}
-        subtitle={`${tool.conversionSubcategoryLabel || tool.categoryLabel} · Interactive 3D Pipeline Stage`}
-        mode={
-          tool.category === 'pdf-security' ||
-          (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword)
-            ? 'security'
-            : tool.category === 'organize-pdf'
-            ? 'organizer'
-            : 'converter'
-        }
-        fileCount={files.length}
-        completedCount={
-          result
-            ? files.length
-            : Object.values(perFileStates).filter(
-                (s: PerFileBatchState) => s.status === 'completed'
-              ).length
-        }
-        isProcessing={processing}
-        progressPercent={progressPercent}
-        isPasswordLocked={
-          tool.id === 'protect-pdf' ||
-          (CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword)
-        }
-      />
+      {/* Section A: Clean 2D Conversion Format & Pipeline Status Bar */}
+      <div className="p-4 rounded-xl bg-theme-surface border border-theme-subtle flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-elevated border border-theme-subtle font-mono">
+            <span className="text-theme-secondary">Source:</span>
+            <span className="font-bold text-theme-primary">
+              {tool.acceptedExtensions.join(', ').toUpperCase()}
+            </span>
+            <span className="text-theme-accent font-bold">→</span>
+            <span className="text-theme-secondary">Target:</span>
+            <span className="font-bold text-theme-accent">
+              {tool.outputExtension.toUpperCase()}
+            </span>
+          </div>
+
+          <span className="text-theme-secondary">
+            {files.length === 0
+              ? 'No document uploaded yet'
+              : `${files.length} file(s) staged (${(
+                  files.reduce((acc, item) => acc + item.size, 0) / 1024
+                ).toFixed(1)} KB total)`}
+          </span>
+        </div>
+
+        {/* Functional Conversion State Badge */}
+        <div className="flex items-center gap-2 font-mono">
+          {errorMsg ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-semibold">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Status: Failed
+            </span>
+          ) : processing ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Status: Processing ({progressPercent}%)
+            </span>
+          ) : result ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Status: Completed
+            </span>
+          ) : files.length > 0 ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-theme-elevated border border-theme-subtle text-theme-primary font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-theme-accent" />
+              Status: Ready to Convert
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-theme-elevated border border-theme-subtle text-theme-muted">
+              <Clock className="w-3.5 h-3.5" />
+              Status: Waiting for File
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Main 2-Column Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -1200,13 +1229,23 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
                           <button
                             type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            title="Replace or add another file"
+                            className="px-2 py-1 rounded bg-theme-elevated border border-theme-subtle text-[11px] font-semibold text-theme-secondary hover:text-theme-primary hover:border-theme-accent cursor-pointer"
+                          >
+                            {tool.multipleFiles ? '+ Add / Replace' : 'Replace File'}
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() =>
                               setFiles((prev) => prev.filter((item) => item.id !== f.id))
                             }
-                            className="p-1.5 text-theme-muted hover:text-rose-400 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-theme-elevated border border-theme-subtle text-[11px] text-theme-muted hover:text-rose-400 hover:border-rose-500/30 cursor-pointer"
                             aria-label={`Remove ${f.name}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
                           </button>
                         </div>
                       </div>
@@ -1614,7 +1653,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                       step={0.04}
                       value={imageQuality}
                       onChange={(e) => setImageQuality(Number(e.target.value))}
-                      className="w-full accent-violet-500"
+                      className="w-full accent-emerald-600"
                     />
                   </div>
                 )}

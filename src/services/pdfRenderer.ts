@@ -15,12 +15,14 @@ if (typeof (Uint8Array.prototype as any).toHex !== 'function') {
 }
 
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-// Configure PDF.js worker using local bundled worker asset
+// Configure PDF.js worker using local bundled worker asset (compatible with both Vite and Node ESM)
 if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+    import.meta.url
+  ).toString();
 }
 
 export interface FileSignatureCheck {
@@ -214,6 +216,10 @@ export async function extractPdfTextAndLayout(pdfBytes: Uint8Array): Promise<{
       const y = Math.max(0, viewport.height - pdfY - fontSize * 0.85);
       const width = Math.max(20, item.width || item.str.length * fontSize * 0.52);
 
+      const styleMeta = (textContent as any).styles?.[item.fontName];
+      const styleFamily = styleMeta?.fontFamily || '';
+      const resolvedFontName = `${item.fontName || 'Helvetica'} ${styleFamily}`.trim();
+
       rawRuns.push({
         str: item.str,
         x: Math.round(x * 10) / 10,
@@ -221,7 +227,7 @@ export async function extractPdfTextAndLayout(pdfBytes: Uint8Array): Promise<{
         width: Math.round(width * 10) / 10,
         height: Math.round(height * 10) / 10,
         fontSize,
-        fontName: item.fontName || 'Helvetica'
+        fontName: resolvedFontName
       });
     }
 
@@ -290,14 +296,14 @@ export async function generateSamplePdfBytes(
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(
     kind === 'editorial-report'
-      ? 'Vellum Architecture & Financial Specification 2026'
-      : 'Vellum Architecture & Financial Specification 2026 (Revised)'
+      ? 'Local Desk Architecture & Financial Specification 2026'
+      : 'Local Desk Architecture & Financial Specification 2026 (Revised)'
   );
-  pdfDoc.setAuthor('Vellum Document Engineering Team');
+  pdfDoc.setAuthor('Local Desk Document Engineering Team');
   pdfDoc.setSubject('Interactive PDF Sample with Native Text, Vectors, and AcroForm Fields');
   pdfDoc.setKeywords(['PDF', 'Architecture', 'Object Management', 'Redaction', 'AcroForm']);
-  pdfDoc.setCreator('Vellum PDF Studio');
-  pdfDoc.setProducer('Vellum ISO-32000 Engine');
+  pdfDoc.setCreator('Local Desk Studio');
+  pdfDoc.setProducer('Local Desk ISO-32000 Engine');
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -500,7 +506,7 @@ export async function generateSamplePdfBytes(
   });
 
   // Footer Page 1
-  page1.drawText('Page 1 of 2 · Vellum Open Document Architecture · Public Sample File', {
+  page1.drawText('Page 1 of 2 · Local Desk Open Document Architecture · Public Sample File', {
     x: 48,
     y: 42,
     size: 9,
@@ -590,7 +596,7 @@ export async function generateSamplePdfBytes(
     color: rgb(0.3, 0.3, 0.36)
   });
 
-  page2.drawText('Page 2 of 2 · Vellum Open Document Architecture · Public Sample File', {
+  page2.drawText('Page 2 of 2 · Local Desk Open Document Architecture · Public Sample File', {
     x: 48,
     y: 42,
     size: 9,
@@ -603,7 +609,7 @@ export async function generateSamplePdfBytes(
     bytes: savedBytes,
     name:
       kind === 'editorial-report'
-        ? 'Vellum_Architecture_Spec_2026.pdf'
-        : 'Vellum_Architecture_Spec_2026_RevB.pdf'
+        ? 'LocalDesk_Architecture_Spec_2026.pdf'
+        : 'LocalDesk_Architecture_Spec_2026_RevB.pdf'
   };
 }

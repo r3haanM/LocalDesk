@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { PdfToolDefinition, ThemePreset } from '../types/pdf';
+import { PdfToolDefinition, AppearanceMode } from '../types/pdf';
 import { PDF_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolIcon } from './IconMapper';
-import { Search, X, CornerDownLeft, Sparkles, Palette } from 'lucide-react';
+import { Search, X, CornerDownLeft, Sparkles, Monitor } from 'lucide-react';
 
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectTool: (tool: PdfToolDefinition) => void;
-  onSelectThemePreset: (preset: ThemePreset) => void;
+  appearance: AppearanceMode;
+  onSelectAppearance: (mode: AppearanceMode) => void;
   onLoadSampleIntoEditor: () => void;
 }
 
@@ -16,7 +17,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
   onSelectTool,
-  onSelectThemePreset,
+  appearance,
+  onSelectAppearance,
   onLoadSampleIntoEditor
 }) => {
   const [query, setQuery] = useState('');
@@ -142,16 +144,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             </button>
           </div>
           <div className="flex items-center gap-1.5">
-            <Palette className="w-3.5 h-3.5 text-theme-muted" />
-            <span className="text-theme-muted">Theme:</span>
-            {(['obsidian', 'midnight', 'evergreen', 'ivory'] as ThemePreset[]).map((preset) => (
+            <Monitor className="w-3.5 h-3.5 text-theme-muted" />
+            <span className="text-theme-muted">Appearance:</span>
+            {(['dark', 'light', 'system'] as AppearanceMode[]).map((mode) => (
               <button
-                key={preset}
+                key={mode}
                 type="button"
-                onClick={() => onSelectThemePreset(preset)}
-                className="px-2 py-0.5 rounded capitalize text-theme-secondary hover:text-theme-primary hover:bg-theme-muted transition-colors cursor-pointer"
+                onClick={() => onSelectAppearance(mode)}
+                className={`px-2 py-0.5 rounded capitalize transition-colors cursor-pointer ${
+                  appearance === mode
+                    ? 'bg-theme-accent text-white font-semibold'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-muted'
+                }`}
               >
-                {preset}
+                {mode}
               </button>
             ))}
           </div>

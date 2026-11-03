@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import {
   ThemeSettings,
-  ThemePreset,
   AppearanceMode,
   UserAccountProfile,
   ActivityHistoryItem
 } from '../types/pdf';
-import { X, Sun, Moon, Monitor, Trash2, Check, UserCheck } from 'lucide-react';
+import { X, Sun, Moon, Monitor, Trash2, UserCheck, ShieldCheck } from 'lucide-react';
 
 interface ThemeAndAccountModalProps {
   isOpen: boolean;
@@ -19,46 +18,14 @@ interface ThemeAndAccountModalProps {
   onClearHistory: () => void;
 }
 
-const PRESET_CARDS: Array<{
-  id: ThemePreset;
-  name: string;
-  subtitle: string;
-  hex: string;
-  swatchBg: string;
-  swatchAccent: string;
+const APPEARANCE_OPTIONS: Array<{
+  id: AppearanceMode;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
 }> = [
-  {
-    id: 'obsidian',
-    name: 'Obsidian',
-    subtitle: 'Charcoal & Violet',
-    hex: '#17171D',
-    swatchBg: '#17171D',
-    swatchAccent: '#7C3AED'
-  },
-  {
-    id: 'midnight',
-    name: 'Midnight',
-    subtitle: 'Navy & Blue',
-    hex: '#101C32',
-    swatchBg: '#101C32',
-    swatchAccent: '#3B82F6'
-  },
-  {
-    id: 'evergreen',
-    name: 'Evergreen',
-    subtitle: 'Forest & Emerald',
-    hex: '#14251F',
-    swatchBg: '#14251F',
-    swatchAccent: '#10B981'
-  },
-  {
-    id: 'ivory',
-    name: 'Ivory',
-    subtitle: 'Warm Neutral & Plum',
-    hex: '#F3F0EB',
-    swatchBg: '#F3F0EB',
-    swatchAccent: '#7E22CE'
-  }
+  { id: 'dark', label: 'Dark', icon: Moon },
+  { id: 'light', label: 'Light', icon: Sun },
+  { id: 'system', label: 'System', icon: Monitor }
 ];
 
 export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
@@ -74,14 +41,14 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
   const [emailInput, setEmailInput] = useState(account?.email || '');
   const [nameInput, setNameInput] = useState(account?.name || '');
   const [saveHistoryPref, setSaveHistoryPref] = useState(account?.saveHistory ?? true);
-  const [syncMessage, setSyncMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
   if (!isOpen) return null;
 
-  const handleAccountSubmit = async (e: React.FormEvent) => {
+  const handleAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailInput.includes('@')) {
-      setSyncMessage('Please enter a valid email address.');
+      setStatusMessage('Please enter a valid email address.');
       return;
     }
     const nextProfile: UserAccountProfile = {
@@ -92,171 +59,88 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
       createdAt: Date.now()
     };
     onSaveAccount(nextProfile);
-
-    try {
-      await fetch('/api/account/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: nextProfile.email,
-          name: nextProfile.name,
-          themePreset: theme.preset,
-          appearance: theme.appearance,
-          saveHistory: nextProfile.saveHistory
-        })
-      });
-      setSyncMessage('Workspace preferences synchronized.');
-    } catch {
-      setSyncMessage('Preferences saved to local workspace storage.');
-    }
+    setStatusMessage('Preferences saved locally on this device.');
   };
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Appearance, Themes, and Workspace Account Settings"
+      aria-label="Workspace Preferences"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-theme-elevated border border-theme-strong rounded-xl shadow-2xl"
+        className="w-full max-w-2xl max-h-[88vh] overflow-y-auto bg-theme-elevated border border-theme-strong rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-theme-subtle">
           <div>
             <h2 className="text-lg font-bold text-theme-primary">
-              Studio Appearance &amp; Workspace Preferences
+              Workspace Preferences
             </h2>
             <p className="text-xs text-theme-secondary">
-              Customize theme presets, contrast modes, and optional workspace synchronization.
+              Configure appearance and local session preferences stored exclusively on your device.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close Settings"
+            aria-label="Close Preferences"
             className="p-1.5 rounded-lg text-theme-secondary hover:text-theme-primary hover:bg-theme-muted cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-8">
-          {/* 1. Theme Presets */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-theme-primary">01. Theme Presets</h3>
-              <span className="text-xs font-mono text-theme-muted">
-                Active: {theme.preset.toUpperCase()}
-              </span>
+        <div className="p-6 space-y-6">
+          {/* 1. Appearance */}
+          <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-theme-primary">Appearance</h3>
+              <p className="text-xs text-theme-secondary">
+                Choose how Local Desk looks across your workspace.
+              </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {PRESET_CARDS.map((p) => {
-                const active = theme.preset === p.id;
+
+            <div
+              role="radiogroup"
+              aria-label="Appearance"
+              className="inline-flex items-center gap-1 p-1 bg-theme-muted border border-theme-subtle rounded-lg shrink-0"
+            >
+              {APPEARANCE_OPTIONS.map((item) => {
+                const Icon = item.icon;
+                const active = theme.appearance === item.id;
                 return (
                   <button
-                    key={p.id}
+                    key={item.id}
                     type="button"
-                    onClick={() => onUpdateTheme({ ...theme, preset: p.id })}
-                    className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onUpdateTheme({ appearance: item.id })}
+                    className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                       active
-                        ? 'border-theme-accent bg-theme-surface ring-1 ring-violet-500/40'
-                        : 'border-theme-subtle bg-theme-surface hover:border-theme-strong'
+                        ? 'bg-theme-elevated text-theme-primary border border-theme-strong shadow-xs'
+                        : 'text-theme-secondary hover:text-theme-primary border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="w-4 h-4 rounded border border-white/20 inline-block"
-                          style={{ backgroundColor: p.swatchBg }}
-                        />
-                        <span
-                          className="w-4 h-4 rounded inline-block"
-                          style={{ backgroundColor: p.swatchAccent }}
-                        />
-                      </div>
-                      {active && <Check className="w-4 h-4 text-theme-accent" />}
-                    </div>
-                    <div className="text-sm font-bold text-theme-primary">{p.name}</div>
-                    <div className="text-xs text-theme-secondary">{p.subtitle}</div>
-                    <div className="text-[11px] font-mono text-theme-muted mt-1">{p.hex}</div>
+                    <Icon className={`w-3.5 h-3.5 ${active ? 'text-theme-accent' : ''}`} />
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
             </div>
           </section>
 
-          {/* 2. Appearance Mode & Custom Accent */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-theme-subtle">
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-theme-primary">02. Luminance Mode</h3>
-              <div className="flex items-center gap-1.5 p-1 bg-theme-muted rounded-lg">
-                {(
-                  [
-                    { id: 'dark', label: 'Dark', icon: Moon },
-                    { id: 'light', label: 'Light', icon: Sun },
-                    { id: 'system', label: 'System', icon: Monitor }
-                  ] as Array<{ id: AppearanceMode; label: string; icon: any }>
-                ).map((item) => {
-                  const Icon = item.icon;
-                  const active = theme.appearance === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => onUpdateTheme({ ...theme, appearance: item.id })}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                        active
-                          ? 'bg-theme-elevated text-theme-primary shadow-xs'
-                          : 'text-theme-secondary hover:text-theme-primary'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-theme-primary">03. Custom Accent Override</h3>
-              <div className="flex items-center gap-2">
-                {['#7C3AED', '#2563EB', '#059669', '#9333EA', '#E11D48', '#D97706'].map((hex) => (
-                  <button
-                    key={hex}
-                    type="button"
-                    onClick={() => onUpdateTheme({ ...theme, customAccent: hex })}
-                    aria-label={`Set accent color ${hex}`}
-                    className={`w-7 h-7 rounded-lg border transition-transform cursor-pointer ${
-                      theme.customAccent === hex ? 'scale-110 border-white ring-2 ring-violet-400' : 'border-black/20'
-                    }`}
-                    style={{ backgroundColor: hex }}
-                  />
-                ))}
-                {theme.customAccent && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateTheme({ ...theme, customAccent: undefined })}
-                    className="text-xs text-theme-secondary hover:text-theme-primary underline ml-2 cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* 3. Optional Account & Equal Guest Access */}
-          <section className="pt-4 border-t border-theme-subtle space-y-4">
+          {/* 2. Optional Local Profile */}
+          <section className="pt-5 border-t border-theme-subtle space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-theme-primary">
-                  04. Optional Workspace Profile (100% Free — Equal Guest &amp; Account Capabilities)
+                  Local Workspace Profile
                 </h3>
                 <p className="text-xs text-theme-secondary mt-0.5">
-                  Guests have full unrestricted access to every PDF tool and editor feature. Creating an optional profile simply synchronizes your theme settings and optional activity log.
+                  All PDF tools and editor capabilities are unrestricted. An optional local profile labels your workspace and retains your preferences on this device without cloud transmission.
                 </p>
               </div>
               {account && (
@@ -264,11 +148,11 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
                   type="button"
                   onClick={() => {
                     onSaveAccount(null);
-                    setSyncMessage('Signed out to anonymous guest mode.');
+                    setStatusMessage('Switched to anonymous local session.');
                   }}
                   className="px-3 py-1.5 text-xs font-medium text-rose-500 border border-theme-subtle rounded-lg hover:bg-theme-muted whitespace-nowrap cursor-pointer"
                 >
-                  Switch to Guest Mode
+                  Clear Local Profile
                 </button>
               )}
             </div>
@@ -286,7 +170,7 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
                 required
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="Email for preference sync"
+                placeholder="Local contact email"
                 className="px-3 py-2 text-xs rounded-lg bg-theme-surface border border-theme-subtle text-theme-primary focus:outline-none focus:border-theme-accent"
               />
               <button
@@ -294,29 +178,36 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold bg-theme-accent rounded-lg hover:opacity-95 cursor-pointer"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                {account ? 'Update Synced Profile' : 'Save Optional Profile'}
+                {account ? 'Update Local Profile' : 'Save Local Profile'}
               </button>
             </form>
 
-            <div className="flex items-center justify-between text-xs text-theme-secondary">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-theme-secondary">
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={saveHistoryPref}
                   onChange={(e) => setSaveHistoryPref(e.target.checked)}
-                  className="rounded border-theme-subtle"
+                  className="rounded border-theme-subtle accent-emerald-600"
                 />
-                <span>Keep local session activity log in browser storage</span>
+                <span>Keep local session activity log in device storage</span>
               </label>
-              {syncMessage && <span className="text-theme-accent font-medium">{syncMessage}</span>}
+              {statusMessage ? (
+                <span className="text-theme-accent font-medium">{statusMessage}</span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-theme-muted">
+                  <ShieldCheck className="w-3.5 h-3.5 text-theme-accent" />
+                  Stored locally only
+                </span>
+              )}
             </div>
           </section>
 
-          {/* 4. Recent Activity Log */}
-          <section className="pt-4 border-t border-theme-subtle space-y-3">
+          {/* 3. Recent Activity Log */}
+          <section className="pt-5 border-t border-theme-subtle space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-theme-primary">
-                05. Local Processing History ({history.length})
+                Local Processing History ({history.length})
               </h3>
               {history.length > 0 && (
                 <button
@@ -330,8 +221,8 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
               )}
             </div>
             {history.length === 0 ? (
-              <p className="text-xs text-theme-muted py-3">
-                No recent operations recorded in this browser session. Guest documents are never retained on any server.
+              <p className="text-xs text-theme-muted py-2">
+                No recent operations recorded in this browser session. Documents and preferences remain strictly on your device.
               </p>
             ) : (
               <div className="max-h-40 overflow-y-auto divide-y divide-theme-subtle border border-theme-subtle rounded-lg bg-theme-surface">

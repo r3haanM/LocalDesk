@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ThemeSettings,
-  ThemePreset,
+  AppearanceMode,
   PdfToolDefinition,
   ToolCategory,
   UploadedFileItem,
@@ -11,7 +11,8 @@ import {
 } from './types/pdf';
 import { findToolById } from './data/toolsCatalog';
 import { TopNav } from './components/TopNav';
-import { VellumLogo } from './components/VellumLogo';
+import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
+import { BrandIdentityModal } from './components/Brand/BrandIdentityModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ThemeAndAccountModal } from './components/ThemeAndAccountModal';
 import { LegalModal } from './components/LegalModal';
@@ -34,49 +35,61 @@ const BatchQueueWorkspace = React.lazy(() =>
   }))
 );
 
-const STORAGE_THEME_KEY = 'vellum_theme_settings_v1';
-const STORAGE_ACCOUNT_KEY = 'vellum_account_profile_v1';
-const STORAGE_HISTORY_KEY = 'vellum_activity_history_v1';
+const STORAGE_THEME_KEY = 'local_desk_theme_settings_v2';
+const STORAGE_ACCOUNT_KEY = 'local_desk_account_profile_v1';
+const STORAGE_HISTORY_KEY = 'local_desk_activity_history_v1';
 
 export default function App() {
-  // 1. Theme State (Obsidian default: Charcoal & Violet #17171D)
+  // 1. Appearance Mode State (Local Desk Forest & Emerald permanent identity)
   const [theme, setTheme] = useState<ThemeSettings>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_THEME_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (
+          parsed &&
+          (parsed.appearance === 'dark' ||
+            parsed.appearance === 'light' ||
+            parsed.appearance === 'system')
+        ) {
+          return { appearance: parsed.appearance };
+        }
+      }
     } catch {
       // Fallback
     }
     return {
-      preset: 'obsidian',
       appearance: 'dark'
     };
   });
 
-  // Apply theme to <html> element
+  // Apply appearance mode to <html> element and follow OS updates in System mode
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme.preset);
+    root.removeAttribute('data-theme');
+    root.style.removeProperty('--accent-primary');
 
-    let isDark = theme.appearance === 'dark';
-    if (theme.appearance === 'system') {
-      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } else if (theme.preset === 'ivory' && theme.appearance !== 'dark') {
-      isDark = false;
-    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-    root.classList.toggle('dark', isDark);
+    const applyAppearance = () => {
+      const isDark =
+        theme.appearance === 'dark' ||
+        (theme.appearance === 'system' && mediaQuery.matches);
+      root.classList.toggle('dark', isDark);
+    };
 
-    if (theme.customAccent) {
-      root.style.setProperty('--accent-primary', theme.customAccent);
-    } else {
-      root.style.removeProperty('--accent-primary');
-    }
+    applyAppearance();
 
     try {
       localStorage.setItem(STORAGE_THEME_KEY, JSON.stringify(theme));
     } catch {
       // Ignore storage quota errors
+    }
+
+    if (theme.appearance === 'system') {
+      const handleSystemChange = () => applyAppearance();
+      mediaQuery.addEventListener('change', handleSystemChange);
+      return () => mediaQuery.removeEventListener('change', handleSystemChange);
     }
   }, [theme]);
 
@@ -161,6 +174,7 @@ export default function App() {
   // 4. Modals & Command Palette
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [brandModalOpen, setBrandModalOpen] = useState<boolean>(false);
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
 
   // Global Ctrl+K / Cmd+K Listener
@@ -217,6 +231,7 @@ export default function App() {
         onOpenEditorDirect={handleOpenEditorDirect}
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
         onOpenSettingsModal={() => setSettingsOpen(true)}
+        onOpenBrandModal={() => setBrandModalOpen(true)}
       />
 
       {/* Main Content Viewport */}
@@ -237,6 +252,7 @@ export default function App() {
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
                 onOpenSettingsModal={() => setSettingsOpen(true)}
+                onOpenBrandModal={() => setBrandModalOpen(true)}
                 theme={theme}
                 account={account}
               />
@@ -251,9 +267,14 @@ export default function App() {
             >
               <Suspense
                 fallback={
-                  <div className="min-h-[60vh] flex flex-col items-center justify-center p-12 text-center space-y-3">
-                    <div className="w-7 h-7 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm font-semibold text-theme-primary">
+                  <div className="min-h-[60vh] flex flex-col items-center justify-center p-12 text-center space-y-4">
+                    <LocalDeskLogo
+                      variant="stacked"
+                      size="md"
+                      pixelSize={52}
+                      subtitle="INITIALIZING LOCAL ENGINE"
+                    />
+                    <p className="text-xs font-mono text-theme-secondary">
                       Loading {selectedTool.name} Workspace...
                     </p>
                   </div>
@@ -319,9 +340,9 @@ export default function App() {
         <footer className="border-t border-theme-subtle bg-theme-surface py-10 px-6">
           <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-xs text-theme-secondary">
             <div className="space-y-1.5">
-              <VellumLogo size="sm" />
+              <LocalDeskLogo size="sm" />
               <p className="text-theme-muted">
-                All-in-One Open PDF Productivity Platform &amp; Object Studio · 100% Free · Zero AI
+                Privacy-First Desktop PDF &amp; Document Workspace · 100% Local Execution · Zero Cloud Telemetry
               </p>
             </div>
 
@@ -342,10 +363,17 @@ export default function App() {
               </button>
               <button
                 type="button"
+                onClick={() => setBrandModalOpen(true)}
+                className="hover:text-theme-primary transition-colors cursor-pointer font-semibold text-theme-accent"
+              >
+                Brand Identity &amp; Assets
+              </button>
+              <button
+                type="button"
                 onClick={() => setSettingsOpen(true)}
                 className="hover:text-theme-primary transition-colors cursor-pointer"
               >
-                Themes &amp; Preferences
+                Appearance &amp; Preferences
               </button>
               <button
                 type="button"
@@ -363,13 +391,13 @@ export default function App() {
               </button>
               <a
                 href="/api/export-source"
-                download="vellum-pdf-toolkit-source.zip"
+                download="local-desk-pdf-toolkit-source.zip"
                 className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
               >
                 Export Source (.zip)
               </a>
               <span className="text-theme-muted font-mono">
-                © {new Date().getFullYear()} Vellum Document Engineering
+                © {new Date().getFullYear()} Local Desk Document Systems
               </span>
             </div>
           </div>
@@ -381,17 +409,14 @@ export default function App() {
         isOpen={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
         onSelectTool={(tool) => handleSelectTool(tool, [])}
-        onSelectThemePreset={(preset: ThemePreset) =>
-          setTheme((prev) => ({
-            ...prev,
-            preset,
-            appearance: preset === 'ivory' ? 'light' : 'dark'
-          }))
+        appearance={theme.appearance}
+        onSelectAppearance={(appearance: AppearanceMode) =>
+          setTheme({ appearance })
         }
         onLoadSampleIntoEditor={handleOpenEditorDirect}
       />
 
-      {/* Theme Presets & Optional Account Modal */}
+      {/* Appearance & Local Preferences Modal */}
       <ThemeAndAccountModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -405,6 +430,9 @@ export default function App() {
 
       {/* Privacy Policy & Terms Modal */}
       <LegalModal docType={legalDoc} onClose={() => setLegalDoc(null)} />
+
+      {/* Local Desk Brand Identity & Asset Studio Modal */}
+      <BrandIdentityModal isOpen={brandModalOpen} onClose={() => setBrandModalOpen(false)} />
     </div>
   );
 }

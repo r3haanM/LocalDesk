@@ -37,16 +37,13 @@ import {
 
 gsap.registerPlugin(Flip);
 
-const ThreeHeroStage = React.lazy(() =>
-  import('./Three/ThreeHeroStage').then((m) => ({ default: m.ThreeHeroStage }))
-);
-
 interface HomeAndDirectoryProps {
   initialCategory?: ToolCategory | 'all';
   onSelectTool: (tool: PdfToolDefinition, preloadFiles?: UploadedFileItem[]) => void;
   onOpenEditorWithSample: () => void;
   onOpenCommandPalette: () => void;
   onOpenSettingsModal: () => void;
+  onOpenBrandModal?: () => void;
   theme: ThemeSettings;
   account: UserAccountProfile | null;
 }
@@ -128,77 +125,26 @@ function matchesStudioGroup(tool: PdfToolDefinition, group: StudioFilterGroup): 
 }
 
 /**
- * Homepage-Exclusive 3D Spatial Perspective Tilt Card
+ * Clean 2D Editorial Tool Card
  */
 const SpatialToolCard: React.FC<{
   tool: PdfToolDefinition;
   index: number;
   onSelect: (tool: PdfToolDefinition) => void;
 }> = ({ tool, index, onSelect }) => {
-  const cardRef = useRef<HTMLButtonElement | null>(null);
-  const [tilt, setTilt] = useState<{ rx: number; ry: number; gx: number; gy: number; active: boolean }>({
-    rx: 0,
-    ry: 0,
-    gx: 50,
-    gy: 50,
-    active: false
-  });
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const el = cardRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;
-    const py = (e.clientY - rect.top) / rect.height;
-    const ry = (px - 0.5) * 10;
-    const rx = (0.5 - py) * 10;
-    setTilt({
-      rx,
-      ry,
-      gx: Math.round(px * 100),
-      gy: Math.round(py * 100),
-      active: true
-    });
-  };
-
-  const handlePointerLeave = () => {
-    setTilt({ rx: 0, ry: 0, gx: 50, gy: 50, active: false });
-  };
-
   const badgeLabel = tool.conversionSubcategoryLabel || tool.categoryLabel;
 
   return (
     <button
-      ref={cardRef}
       type="button"
       data-flip-id={tool.id}
       onClick={() => onSelect(tool)}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-      style={{
-        transform: tilt.active
-          ? `perspective(900px) rotateX(${tilt.rx.toFixed(2)}deg) rotateY(${tilt.ry.toFixed(2)}deg) translateY(-3px)`
-          : 'perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)',
-        transition: tilt.active
-          ? 'transform 70ms linear, border-color 160ms ease'
-          : 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms ease'
-      }}
-      className="tool-flip-card group relative text-left p-5 rounded-xl bg-theme-surface/90 border border-theme-subtle hover:border-theme-accent flex flex-col justify-between gap-4 cursor-pointer overflow-hidden shadow-lg"
+      className="tool-flip-card group relative text-left p-5 rounded-xl bg-theme-surface border border-theme-subtle hover:border-theme-accent transition-colors flex flex-col justify-between gap-4 cursor-pointer overflow-hidden shadow-xs"
     >
-      {/* Dynamic 3D Specular Cursor Highlight */}
-      <div
-        aria-hidden="true"
-        style={{
-          opacity: tilt.active ? 1 : 0,
-          background: `radial-gradient(320px circle at ${tilt.gx}% ${tilt.gy}%, rgba(124, 58, 237, 0.15), transparent 70%)`
-        }}
-        className="pointer-events-none absolute inset-0 transition-opacity duration-200"
-      />
-
       <div className="relative z-10 space-y-3">
         {/* Top Row: Icon + Editorial Index */}
         <div className="flex items-center justify-between gap-2">
-          <div className="p-2.5 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-accent group-hover:border-violet-500/40 transition-colors">
+          <div className="p-2.5 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-accent group-hover:border-theme-accent/50 transition-colors">
             <ToolIcon name={tool.iconName} className="w-5 h-5" />
           </div>
           <span className="text-xs font-mono text-theme-muted tabular-nums">
@@ -243,6 +189,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   onOpenEditorWithSample,
   onOpenCommandPalette,
   onOpenSettingsModal,
+  onOpenBrandModal,
   theme,
   account
 }) => {
@@ -353,15 +300,6 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
 
   return (
     <div className="relative space-y-20 pb-20">
-      {/* ========================================================= */}
-      {/* FULL-BLEED AMBIENT 3D ARCHITECTURAL BACKGROUND CANVAS     */}
-      {/* ========================================================= */}
-      <Suspense fallback={null}>
-        <ThreeHeroStage
-          isDropzoneActive={isDropzoneDragging}
-          activeFilterGroup={selectedGroup}
-        />
-      </Suspense>
 
       {/* ========================================================= */}
       {/* 1. CENTERED EDITORIAL HERO + MAGNETIC DROPZONE            */}
@@ -391,13 +329,24 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 </kbd>
               </button>
 
+              {onOpenBrandModal && (
+                <button
+                  type="button"
+                  onClick={onOpenBrandModal}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent transition-colors cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-theme-accent" />
+                  <span>Brand System</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onOpenSettingsModal}
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface/90 border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-strong transition-colors cursor-pointer"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5 text-theme-accent" />
-                <span className="capitalize">Theme: {theme.preset}</span>
+                <span className="capitalize">Appearance: {theme.appearance}</span>
                 {account && (
                   <>
                     <span aria-hidden="true">·</span>
@@ -411,7 +360,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
           {/* Wide Editorial Hero & Dropzone */}
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <div className="text-xs font-mono text-theme-accent tracking-wider uppercase">
-              Vellum PDF Studio · Direct Canvas Object Editor · 13-Tool Conversion Suite · ISO PDF/A
+              Local Desk · Privacy-First Desktop Document Studio · 2D Canvas Editor · 13-Tool Conversion Suite
             </div>
 
             <h1
@@ -429,8 +378,8 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
           {/* Magnetic Interactive Upload Dropzone */}
           <motion.div
             animate={{
-              scale: isDropzoneDragging ? 1.015 : 1,
-              borderColor: isDropzoneDragging ? 'rgba(124, 58, 237, 0.9)' : undefined
+              scale: isDropzoneDragging ? 1.01 : 1,
+              borderColor: isDropzoneDragging ? 'rgba(16, 185, 129, 0.9)' : undefined
             }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             onDragOver={(e) => {
@@ -848,7 +797,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                   <span>{tab.label}</span>
                   <span
                     className={`font-mono text-[11px] tabular-nums ${
-                      active ? 'text-violet-200' : 'text-theme-muted'
+                      active ? 'opacity-85' : 'text-theme-muted'
                     }`}
                   >
                     {tab.count}

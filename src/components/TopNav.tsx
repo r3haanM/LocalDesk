@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ToolCategory, PdfToolDefinition } from '../types/pdf';
 import { PDF_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolIcon } from './IconMapper';
-import { VellumLogo } from './VellumLogo';
+import { LocalDeskLogo } from './Brand/LocalDeskLogo';
 import { Menu, X } from 'lucide-react';
 
 interface TopNavProps {
@@ -13,6 +13,7 @@ interface TopNavProps {
   onOpenEditorDirect: () => void;
   onOpenCommandPalette?: () => void;
   onOpenSettingsModal?: () => void;
+  onOpenBrandModal?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -36,9 +37,9 @@ export const TopNav: React.FC<TopNavProps> = ({
             setMegaMenuOpen(false);
             onNavigateHome();
           }}
-          className="group whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-violet-500 rounded"
+          className="group whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-emerald-500 rounded"
         >
-          <VellumLogo size="md" />
+          <LocalDeskLogo size="md" />
         </a>
 
         {/* Zone 2: 4 concise single-line navigation links */}
@@ -125,10 +126,10 @@ export const TopNav: React.FC<TopNavProps> = ({
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-theme-subtle">
               <div>
                 <h2 className="text-sm font-bold text-theme-primary">
-                  Vellum PDF Studio &amp; 13-Tool Conversion Suite
+                  Local Desk PDF Studio &amp; 13-Tool Conversion Suite
                 </h2>
                 <p className="text-xs text-theme-secondary mt-0.5">
-                  Direct 2D canvas editing, PDF to Office/Images/Web/PDF-A, and Formats to PDF—100% free.
+                  Direct 2D canvas editing, PDF to Office/Images/Web/PDF-A, and Formats to PDF—100% local &amp; private.
                 </p>
               </div>
               <button

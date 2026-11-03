@@ -6,143 +6,35 @@
     --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-    /* Default Light / Ivory Theme variables */
-    --bg-canvas: #F3F0EB;
-    --bg-surface: #FAF8F5;
-    --bg-elevated: #FFFFFF;
-    --bg-muted: #EAE5DD;
-    --text-primary: #181619;
-    --text-secondary: #524D56;
-    --text-muted: #7D7682;
-    --border-subtle: rgba(24, 22, 25, 0.1);
-    --border-strong: rgba(24, 22, 25, 0.2);
-    --accent-primary: #6D28D9;
-    --accent-secondary: #8B5CF6;
-    --accent-contrast: #FFFFFF;
-  }
-
-  /* Theme Preset: Obsidian (Charcoal & Violet - #17171D) */
-  :root[data-theme="obsidian"].dark {
-    --bg-canvas: #17171D;
-    --bg-surface: #1E1E26;
-    --bg-elevated: #262631;
-    --bg-muted: #121217;
-    --text-primary: #F4F3F8;
-    --text-secondary: #A9A6B8;
-    --text-muted: #6E6B7E;
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.16);
-    --accent-primary: #7C3AED;
-    --accent-secondary: #A78BFA;
-    --accent-contrast: #FFFFFF;
-  }
-
-  :root[data-theme="obsidian"]:not(.dark) {
-    --bg-canvas: #F6F6F9;
+    /* Local Desk Permanent Brand Identity — Light Mode (Forest & Emerald) */
+    --bg-canvas: #F6F8F7;
     --bg-surface: #FFFFFF;
     --bg-elevated: #FFFFFF;
-    --bg-muted: #ECECF2;
-    --text-primary: #17171D;
-    --text-secondary: #4E4D5C;
-    --text-muted: #787688;
-    --border-subtle: rgba(23, 23, 29, 0.09);
-    --border-strong: rgba(23, 23, 29, 0.18);
-    --accent-primary: #6D28D9;
-    --accent-secondary: #7C3AED;
-    --accent-contrast: #FFFFFF;
-  }
-
-  /* Theme Preset: Midnight (Navy & Blue - #101C32) */
-  :root[data-theme="midnight"].dark {
-    --bg-canvas: #101C32;
-    --bg-surface: #162541;
-    --bg-elevated: #1E3052;
-    --bg-muted: #0B1424;
-    --text-primary: #F0F5FF;
-    --text-secondary: #9FB2D4;
-    --text-muted: #687FA8;
-    --border-subtle: rgba(255, 255, 255, 0.09);
-    --border-strong: rgba(255, 255, 255, 0.18);
-    --accent-primary: #3B82F6;
-    --accent-secondary: #60A5FA;
-    --accent-contrast: #FFFFFF;
-  }
-
-  :root[data-theme="midnight"]:not(.dark) {
-    --bg-canvas: #F2F6FC;
-    --bg-surface: #FFFFFF;
-    --bg-elevated: #FFFFFF;
-    --bg-muted: #E5EDF8;
-    --text-primary: #101C32;
-    --text-secondary: #3E5275;
-    --text-muted: #6A7F9E;
-    --border-subtle: rgba(16, 28, 50, 0.09);
-    --border-strong: rgba(16, 28, 50, 0.18);
-    --accent-primary: #2563EB;
-    --accent-secondary: #3B82F6;
-    --accent-contrast: #FFFFFF;
-  }
-
-  /* Theme Preset: Evergreen (Forest & Emerald - #14251F) */
-  :root[data-theme="evergreen"].dark {
-    --bg-canvas: #14251F;
-    --bg-surface: #1B3129;
-    --bg-elevated: #233E35;
-    --bg-muted: #0E1B16;
-    --text-primary: #EFFAF5;
-    --text-secondary: #A1C2B5;
-    --text-muted: #698F80;
-    --border-subtle: rgba(255, 255, 255, 0.09);
-    --border-strong: rgba(255, 255, 255, 0.18);
-    --accent-primary: #10B981;
-    --accent-secondary: #34D399;
-    --accent-contrast: #06281E;
-  }
-
-  :root[data-theme="evergreen"]:not(.dark) {
-    --bg-canvas: #F2F8F5;
-    --bg-surface: #FFFFFF;
-    --bg-elevated: #FFFFFF;
-    --bg-muted: #E3EFE9;
-    --text-primary: #14251F;
-    --text-secondary: #3D5B50;
-    --text-muted: #67877B;
-    --border-subtle: rgba(20, 37, 31, 0.09);
-    --border-strong: rgba(20, 37, 31, 0.18);
+    --bg-muted: #E9F0EC;
+    --text-primary: #0D1F18;
+    --text-secondary: #3B544A;
+    --text-muted: #658075;
+    --border-subtle: rgba(13, 31, 24, 0.09);
+    --border-strong: rgba(13, 31, 24, 0.18);
     --accent-primary: #059669;
     --accent-secondary: #10B981;
     --accent-contrast: #FFFFFF;
   }
 
-  /* Theme Preset: Ivory (Warm Neutral & Plum - #F3F0EB) */
-  :root[data-theme="ivory"]:not(.dark) {
-    --bg-canvas: #F3F0EB;
-    --bg-surface: #FAF8F5;
-    --bg-elevated: #FFFFFF;
-    --bg-muted: #E6E1D8;
-    --text-primary: #1F1924;
-    --text-secondary: #594E60;
-    --text-muted: #85788C;
-    --border-subtle: rgba(31, 25, 36, 0.1);
-    --border-strong: rgba(31, 25, 36, 0.18);
-    --accent-primary: #7E22CE;
-    --accent-secondary: #9333EA;
-    --accent-contrast: #FFFFFF;
-  }
-
-  :root[data-theme="ivory"].dark {
-    --bg-canvas: #1D1920;
-    --bg-surface: #27222B;
-    --bg-elevated: #312B36;
-    --bg-muted: #151217;
-    --text-primary: #F5F2EE;
-    --text-secondary: #B8AEB8;
-    --text-muted: #827782;
-    --border-subtle: rgba(245, 242, 238, 0.09);
-    --border-strong: rgba(245, 242, 238, 0.18);
-    --accent-primary: #A855F7;
-    --accent-secondary: #C084FC;
-    --accent-contrast: #FFFFFF;
+  /* Local Desk Permanent Brand Identity — Dark Mode (Deep Forest & Emerald) */
+  :root.dark {
+    --bg-canvas: #0D1F18;
+    --bg-surface: #132A21;
+    --bg-elevated: #1A362B;
+    --bg-muted: #091611;
+    --text-primary: #F2F7F4;
+    --text-secondary: #A3BEB3;
+    --text-muted: #6A8C7E;
+    --border-subtle: rgba(242, 247, 244, 0.09);
+    --border-strong: rgba(52, 211, 153, 0.22);
+    --accent-primary: #10B981;
+    --accent-secondary: #34D399;
+    --accent-contrast: #062218;
   }
 
   body {

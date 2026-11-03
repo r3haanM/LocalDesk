@@ -46,7 +46,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 01. Ephemeral In-Memory &amp; Browser-First Processing
               </h3>
               <p>
-                Vellum processes PDF rendering, native content stream editing, object hiding and removal, redaction, and Office conversions directly within your browser memory. Guest documents are never written to persistent server disks or shared across sessions.
+                Local Desk processes PDF rendering, native content stream editing, object hiding and removal, redaction, and Office conversions directly within your local workspace memory. Guest documents are never written to persistent server disks or shared across sessions.
               </p>
             </div>
             <div>
@@ -62,7 +62,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 03. Zero AI Training or Telemetry
               </h3>
               <p>
-                Vellum contains zero generative AI models, chatbots, or external LLM API calls. Optical character recognition (OCR) uses traditional deterministic Tesseract pattern recognition. Your documents are never analyzed, indexed, or used for model training.
+                Local Desk contains zero generative AI models, chatbots, or external LLM API calls. Optical character recognition (OCR) uses traditional deterministic Tesseract pattern recognition. Your documents are never analyzed, indexed, or used for model training.
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 01. Completely Free — Zero Tiers, Paywalls, or Credits
               </h3>
               <p>
-                Every tool in the Vellum catalogue—including the Professional PDF Editor, Sajda-style Object Manager, Permanent Redaction engine, and Batch Organizer—is provided completely free of charge to both anonymous guests and registered profile users alike.
+                Every tool in the Local Desk catalogue—including the Professional PDF Editor, Object Manager, Permanent Redaction engine, and Batch Organizer—is provided completely free of charge to both anonymous guests and registered profile users alike.
               </p>
             </div>
             <div>
@@ -81,7 +81,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 02. Cryptographic vs. Visual Signatures
               </h3>
               <p>
-                Vellum provides both visual signatures (drawn, typed, or uploaded) and SHA-256 cryptographic digest stamps. For regulated statutory PKI workflows requiring hardware token X.509 certificates, verify compliance requirements with your jurisdiction.
+                Local Desk provides both visual signatures (drawn, typed, or uploaded) and SHA-256 cryptographic digest stamps. For regulated statutory PKI workflows requiring hardware token X.509 certificates, verify compliance requirements with your jurisdiction.
               </p>
             </div>
             <div>

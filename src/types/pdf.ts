@@ -1,10 +1,7 @@
-export type ThemePreset = 'obsidian' | 'midnight' | 'evergreen' | 'ivory';
 export type AppearanceMode = 'dark' | 'light' | 'system';
 
 export interface ThemeSettings {
-  preset: ThemePreset;
   appearance: AppearanceMode;
-  customAccent?: string;
 }
 
 export type ToolCategory =
@@ -94,7 +91,7 @@ export type PdfObjectType =
   | 'redaction';
 
 export type PageContentClassification = 'native' | 'scanned' | 'mixed';
-export type OcrLanguageCode = 'eng' | 'urd' | 'eng+urd';
+export type OcrLanguageCode = 'eng';
 export type OcrPreprocessMode =
   | 'auto-enhance'
   | 'grayscale-contrast'
@@ -103,6 +100,86 @@ export type OcrPreprocessMode =
   | 'none';
 export type BgReconstructionMethod = 'auto-color' | 'inpaint-texture' | 'manual-solid';
 export type ScannedExportMode = 'visually-edited' | 'searchable-ocr' | 'redacted-sanitized';
+export type ScannedSamplePreset = 'receipt-monospaced' | 'serif-notice' | 'sans-invoice';
+
+export type PdfFontFamily =
+  | 'Helvetica'
+  | 'Arial-Clean'
+  | 'Roboto-Condensed'
+  | 'Times-Roman'
+  | 'Libre-Baskerville'
+  | 'Merriweather-Slab'
+  | 'Courier'
+  | 'Courier-Prime'
+  | 'Consolas-Mono'
+  | 'Space-Mono';
+
+export type OcrFontClassification =
+  | 'monospaced'
+  | 'serif'
+  | 'slab-serif'
+  | 'sans-serif'
+  | 'condensed-sans';
+
+export type OcrFontWeightLevel = 'light' | 'regular' | 'medium' | 'semibold' | 'bold';
+
+export interface OcrFontCandidateMatch {
+  fontFamily: PdfFontFamily;
+  displayName: string;
+  cssFontStack: string;
+  classification: OcrFontClassification;
+  similarityScore: number; // 0 to 1
+}
+
+export interface OcrTypographyProfile {
+  fontClassification: OcrFontClassification;
+  fontStyleDescriptor: string; // e.g. 'receipt-mono', 'typewriter', 'traditional-serif', 'condensed-sans', 'neo-grotesque-sans'
+  matchedFontFamily: PdfFontFamily;
+  candidateMatches: OcrFontCandidateMatch[];
+  fontWeightLevel: OcrFontWeightLevel;
+  numericFontWeight: 300 | 400 | 500 | 600 | 700;
+  estimatedFontSizePt: number;
+  capHeightPt: number;
+  xHeightPt: number;
+  strokeThicknessPx: number;
+  characterSpacingPt: number;
+  lineHeightRatio: number;
+  horizontalScale: number; // e.g. 0.92 to 1.08
+  estimatedCharacterWidthPt: number;
+  textDensity: number;
+  isMonospaced: boolean;
+  isSerif: boolean;
+  isCondensed: boolean;
+  textColorHex: string;
+  baselineOffsetPt: number;
+  confidence: number; // 0 to 1
+  nearbyReferenceTexts: string[];
+  scanEdgeSoftnessPx: number; // e.g. 0.25 to 0.75
+  scanInkFade: number; // 0 to 0.25
+  scanGrainAmount: number; // 0 to 0.2
+  originalCropDataUrl?: string;
+  replacementPreviewCropDataUrl?: string;
+  reusedGlyphCount?: number;
+}
+
+export interface OcrSelectionGeometry {
+  imageBboxPx: { x0: number; y0: number; x1: number; y1: number };
+  baselinePx?: { x0: number; y0: number; x1: number; y1: number };
+  sourceImageWidthPx: number;
+  sourceImageHeightPx: number;
+  preprocessedWidthPx: number;
+  preprocessedHeightPx: number;
+  pdfPageWidthPt: number;
+  pdfPageHeightPt: number;
+  pageRotationDeg: number;
+  pdfTopLeftPt: { x: number; y: number; width: number; height: number };
+  pdfBottomLeftPt: { x: number; y: number; width: number; height: number };
+  baselineOffsetPt: number; // distance from top of bbox to typographic baseline in pt
+  anchorXPt: number; // left x, center x, or right x depending on detectedAlign
+  detectedAlign: 'left' | 'center' | 'right';
+  originalEstimatedFontSizePt: number;
+  recognitionSource: 'tesseract-words' | 'tesseract-lines' | 'tesseract-tsv' | 'connected-components-2d';
+}
 
 export type PdfShapeKind =
   | 'rectangle'
@@ -142,7 +219,7 @@ export interface PdfEditableObject {
   rotation: number;
   opacity: number;
 
-  // Original native geometry (so moving/modifying native objects knows where to mask original stream content)
+  // Original native/OCR geometry (immutable anchor for background reconstruction and replacement alignment)
   originalX?: number;
   originalY?: number;
   originalWidth?: number;
@@ -151,22 +228,33 @@ export interface PdfEditableObject {
   // Text properties (for native-text, ocr-text, added-text, watermark, annotation comment)
   text?: string;
   originalText?: string;
-  fontFamily?: 'Helvetica' | 'Times-Roman' | 'Courier';
+  fontFamily?: PdfFontFamily;
+  originalFontFamily?: PdfFontFamily;
   fontSize?: number;
+  originalFontSize?: number;
   fontWeight?: 'normal' | 'bold';
+  originalFontWeight?: 'normal' | 'bold';
+  numericFontWeight?: 300 | 400 | 500 | 600 | 700;
   fontStyle?: 'normal' | 'italic';
+  originalFontStyle?: 'normal' | 'italic';
   underline?: boolean;
   color?: string;
   textAlign?: 'left' | 'center' | 'right';
   lineHeight?: number;
   letterSpacing?: number;
+  horizontalScale?: number; // 0.8 to 1.25
+  baselineAdjustmentPt?: number; // fine vertical baseline adjustment in pt (-4 to +4)
+  scanPrintRealism?: boolean; // when true on ocr-text, reproduces subtle scan edge softness/ink fade
+  reuseOriginalGlyphs?: boolean; // when true on ocr-text, reuses matching character/digit crops where reliable
+  widthOverflowWarning?: string;
 
-  // OCR & Scanned Document Editing properties (Sections 6–12)
+  // OCR & Scanned Document Editing properties (English-only OCR + Exact Geometry + Font Matching Pipeline)
   ocrConfidence?: number; // 0 to 100
   ocrConfidenceVerified?: boolean;
   ocrLanguage?: OcrLanguageCode;
-  textDirection?: 'ltr' | 'rtl';
   readingOrder?: number;
+  ocrGeometry?: OcrSelectionGeometry;
+  ocrTypography?: OcrTypographyProfile;
   bgReconstructionMethod?: BgReconstructionMethod;
   sampledBgColor?: string;
   sampledTextColor?: string;
