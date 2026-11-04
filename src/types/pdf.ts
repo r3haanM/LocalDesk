@@ -2,6 +2,7 @@ export type AppearanceMode = 'dark' | 'light' | 'system';
 
 export interface ThemeSettings {
   appearance: AppearanceMode;
+  smoothScrolling?: boolean;
 }
 
 export type ToolCategory =

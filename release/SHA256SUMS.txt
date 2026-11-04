@@ -1,4 +1,5 @@
-30e0e407959567bb616cbd1d0e08ca339d0e63f71b3d0a2a144258cc7d206e0c  Local-Desk-Setup-1.0.1-x64.exe
-4188e6f53c5fbf4d416658f9977740ba44d38e73b70694c9dcc3b773af5fb1ed  Local-Desk-Portable-1.0.1-win-x64.zip
-1eebd905733a5145db9d9aa5797766eb0ab61435c1c38300bf758c93b94a0177  Local Desk.exe
-17f82de7de2d04c94a55da091148f63be484a3e2f0bf45712ed889facc1c58dc  icon.ico
+9b505cc1fab275e2f8cad31139457b02d180e62ca3f3c30e00fc904e5bce3d79  Local-Desk-Setup-1.0.3-x64.exe
+c2b0f2e3fa320d3fb3ca8cf3c9d952e259fb60d0c096b202d09dba919209f6fc  Local-Desk-Portable-1.0.3-win-x64.zip
+b04adc4cbf876012a8a30c58e3c0dfa445d25382e0bc10b8805169f60bb4ee6c  Local Desk.exe
+6defda5bf1dfbffc2f45f98ec3fd497ca3f0b34793e40bf5b3fcab9b40c44eb9  Uninstall Local Desk.exe
+3439abd8fd791931bfdb6ec6465df5a909dbf498d5e4854d1ce78919f90fc4c4  icon.ico

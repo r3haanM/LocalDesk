@@ -1278,12 +1278,12 @@ async function main() {
     }
   );
 
-  // 22. DSK-001: Windows Release Artifacts, Multi-Resolution .ICO & SHA-256 Checksum Verification
+  // 22. DSK-001: Windows Release Artifacts, Multi-Resolution .ICO (9-Frame DIB + PNG) & SHA-256 Checksum Verification
   await runTest(
     'DSK-001',
     'Desktop Release',
-    'Windows Setup (.exe), Portable (.zip), Multi-Size .ICO & SHA-256 Verification',
-    'Verify build/icon.ico contains 7 ICONDIR entries (16..256px) and verify SHA-256 hashes of Local-Desk-Setup-1.0.1-x64.exe and Local-Desk-Portable-1.0.1-win-x64.zip against SHA256SUMS.txt',
+    'Windows Setup (.exe), Portable (.zip), 9-Frame Multi-Size .ICO & SHA-256 Verification',
+    'Verify build/icon.ico contains 9 ICONDIR entries (16, 20, 24, 32, 40, 48, 64, 128px 32-bit BGRA BITMAPINFOHEADER DIBs + 256px PNG) and verify SHA-256 hashes of Local-Desk-Setup-1.0.3-x64.exe and Local-Desk-Portable-1.0.3-win-x64.zip against SHA256SUMS.txt',
     'All Windows release artifacts exist, non-empty, and match recorded SHA-256 checksums',
     async () => {
       const fsMod = await import('fs/promises');
@@ -1293,10 +1293,15 @@ async function main() {
       const icoBytes = await fsMod.readFile(pathMod.resolve('build/icon.ico'));
       assert(icoBytes.readUInt16LE(0) === 0 && icoBytes.readUInt16LE(2) === 1, 'Invalid ICO header magic');
       const iconCount = icoBytes.readUInt16LE(4);
-      assert(iconCount === 7, `Expected 7 icon resolutions in icon.ico, got ${iconCount}`);
+      assert(iconCount === 9, `Expected 9 DPI-complete icon resolutions in icon.ico, got ${iconCount}`);
 
-      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.1-x64.exe'));
-      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.1-win-x64.zip'));
+      // Verify first icon (16x16) starts with BITMAPINFOHEADER biSize = 40 (0x28), NOT raw PNG
+      const firstIconOffset = icoBytes.readUInt32LE(6 + 12);
+      const firstIconBiSize = icoBytes.readUInt32LE(firstIconOffset);
+      assert(firstIconBiSize === 40, `Expected 16x16 icon to have BITMAPINFOHEADER biSize=40, got ${firstIconBiSize}`);
+
+      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.3-x64.exe'));
+      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
       const sumsText = await fsMod.readFile(pathMod.resolve('release/SHA256SUMS.txt'), 'utf-8');
 
       const setupSha = cryptoMod.createHash('sha256').update(setupBytes).digest('hex');
@@ -1305,7 +1310,7 @@ async function main() {
       assert(sumsText.includes(setupSha), 'Setup EXE SHA-256 mismatch in SHA256SUMS.txt');
       assert(sumsText.includes(portableSha), 'Portable ZIP SHA-256 mismatch in SHA256SUMS.txt');
 
-      return `Verified icon.ico (7 layers, ${icoBytes.byteLength}B), Setup EXE v1.0.1 (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP v1.0.1 (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
+      return `Verified icon.ico (9 layers: 16,20,24,32,40,48,64,128px DIB biSize=40 + 256px PNG, ${icoBytes.byteLength}B), Setup EXE v1.0.3 (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP v1.0.3 (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
     }
   );
 
@@ -1338,44 +1343,184 @@ async function main() {
     }
   );
 
-  // 24. DSK-003: Windows x64 PE32+ Executable Header, Machine Architecture, Import Table & SFX Payload Verification
+  // 24. DSK-003: Windows 11 x64 5-Section PE32+ Header, Relocated SFX ZIP Central Directory & Embedded Local Desk.exe Verification
   await runTest(
     'DSK-003',
-    'Windows x64 PE32+ Verification',
-    'PE32+ Header (MZ / PE\\0\\0 / 0x8664 AMD64 / GUI Subsystem), Import Table & Embedded Local Desk.exe Verification',
-    'Inspect PE headers, section alignment, CheckSum, KERNEL32.dll IAT, .rsrc manifest, and embedded ZIP payload of Local-Desk-Setup-1.0.1-x64.exe and Local Desk.exe',
-    'Valid MZ (0x5A4D), PE\\0\\0 (0x00004550), Machine=0x8664 (AMD64), Magic=0x020B (PE32+), Subsystem=2 (WINDOWS_GUI), valid CheckSum, and valid embedded Local Desk.exe',
+    'Windows 11 x64 PE32+ & SFX Verification',
+    '5-Section PE32+ Header (.text/.rdata/.data/.rsrc/.reloc, ASLR 0x8160), Relocated SFX ZIP Central Directory & Embedded Local Desk.exe Verification',
+    'Inspect PE32+ headers, section isolation, CheckSum, relocated PK\\x05\\x06 EOCD & PK\\x01\\x02 Central Directory offsets from byte 0, and embedded Local Desk.exe',
+    'Valid MZ (0x5A4D), PE\\0\\0 (0x00004550), Machine=0x8664 (AMD64), 5 sections, DllCharacteristics=0x8160, relocated EOCD cdOffset pointing to PK\\x01\\x02, and valid Local Desk.exe',
     async () => {
       const fsMod = await import('fs/promises');
       const pathMod = await import('path');
       const jszipMod = await import('jszip');
-      const { verifyPe64BinaryInvariants, PE64_SETUP_HEADER_SIZE } = await import('./build_windows_release');
+      const { verifyPe64BinaryInvariants } = await import('./build_windows_release');
 
-      const setupBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.1-x64.exe'));
-      verifyPe64BinaryInvariants(setupBuf, 'Local-Desk-Setup-1.0.1-x64.exe');
+      const setupBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.3-x64.exe'));
+      const sfxInfo = verifyPe64BinaryInvariants(setupBuf, 'Local-Desk-Setup-1.0.3-x64.exe', true);
 
-      // Verify SFX ZIP payload starts at PE64_SETUP_HEADER_SIZE (65536 = 0x10000) with PK\x03\x04
-      const zipOverlay = setupBuf.subarray(PE64_SETUP_HEADER_SIZE);
-      assert(
-        zipOverlay[0] === 0x50 && zipOverlay[1] === 0x4b && zipOverlay[2] === 0x03 && zipOverlay[3] === 0x04,
-        'SFX ZIP payload missing PK\\x03\\x04 signature at offset 0x10000'
-      );
-
-      // Extract embedded Local Desk.exe and Uninstall Local Desk.exe from SFX payload and verify their PE32+ headers
-      const zip = await jszipMod.default.loadAsync(zipOverlay);
+      // Extract Local Desk.exe and Uninstall Local Desk.exe from Portable ZIP and verify their 5-section PE32+ headers
+      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const zip = await jszipMod.default.loadAsync(portableBuf);
       const appExeEntry = zip.file('Local Desk.exe');
       const uninstExeEntry = zip.file('Uninstall Local Desk.exe');
-      assert(Boolean(appExeEntry), 'Local Desk.exe missing inside installer payload');
-      assert(Boolean(uninstExeEntry), 'Uninstall Local Desk.exe missing inside installer payload');
+      assert(Boolean(appExeEntry), 'Local Desk.exe missing inside portable archive');
+      assert(Boolean(uninstExeEntry), 'Uninstall Local Desk.exe missing inside portable archive');
 
       const appExeBuf = await appExeEntry!.async('nodebuffer');
       const uninstExeBuf = await uninstExeEntry!.async('nodebuffer');
-      verifyPe64BinaryInvariants(appExeBuf, 'Local Desk.exe');
-      verifyPe64BinaryInvariants(uninstExeBuf, 'Uninstall Local Desk.exe');
+      verifyPe64BinaryInvariants(appExeBuf, 'Local Desk.exe', false);
+      verifyPe64BinaryInvariants(uninstExeBuf, 'Uninstall Local Desk.exe', false);
 
-      const lfanew = setupBuf.readUInt32LE(0x3c);
-      const peChecksum = setupBuf.readUInt32LE(lfanew + 24 + 0x40);
-      return `Verified PE32+ x64 (MZ=0x5A4D, PE=0x4550, Machine=0x8664 AMD64, Magic=0x020B, Subsystem=2 GUI, CheckSum=0x${peChecksum.toString(16)}) on Setup.exe, Local Desk.exe (${appExeBuf.byteLength}B), and Uninstall Local Desk.exe`;
+      return `Verified 5-section ASLR PE32+ x64 (Machine=0x8664, DllChars=0x8160, CheckSum=0x${sfxInfo.checkSum.toString(16)}, peEnd=0x${sfxInfo.peSectionsEndOffset.toString(16)}, relocatedSfxEntries=${sfxInfo.sfxEntryCount}) on Setup.exe, Local Desk.exe (${appExeBuf.byteLength}B), and Uninstall Local Desk.exe`;
+    }
+  );
+
+  // 25. DSK-004: Windows PowerShell 5.1 UTF-8 BOM (EF BB BF), ASCII-Safe Punctuation & Shortcut Description Verification
+  await runTest(
+    'DSK-004',
+    'Windows PowerShell 5.1 Encoding & Shortcut Audit',
+    'UTF-8 BOM (0xEF 0xBB 0xBF), Zero Non-ASCII Bytes & Single-Quoted Shortcut Description Verification',
+    'Extract Install-Local-Desk-Shortcuts.ps1, Launch-Local-Desk.ps1, and Uninstall-Local-Desk.ps1 from the packaged release archive and verify single UTF-8 BOM, zero bytes >= 0x80 after BOM, and exact shortcut description',
+    'Every packaged .ps1 script begins with 0xEF 0xBB 0xBF (no duplicate BOM), contains 0 non-ASCII bytes in body, and sets Description to \'Local Desk - All-in-One Privacy-First PDF & Document Studio\'',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const jszipMod = await import('jszip');
+
+      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const zip = await jszipMod.default.loadAsync(portableBuf);
+
+      const scriptNames = [
+        'Install-Local-Desk-Shortcuts.ps1',
+        'Launch-Local-Desk.ps1',
+        'Uninstall-Local-Desk.ps1'
+      ];
+
+      for (const name of scriptNames) {
+        const entry = zip.file(name);
+        assert(Boolean(entry), `Missing ${name} in release package`);
+        const buf = await entry!.async('nodebuffer');
+        assert(
+          buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf,
+          `${name} is missing UTF-8 BOM (expected EF BB BF, got ${buf.subarray(0, 3).toString('hex')})`
+        );
+        assert(
+          !(buf[3] === 0xef && buf[4] === 0xbb && buf[5] === 0xbf),
+          `${name} has duplicate UTF-8 BOM`
+        );
+        for (let i = 3; i < buf.byteLength; i++) {
+          assert(
+            buf[i] < 0x80,
+            `${name} contains non-ASCII byte 0x${buf[i].toString(16)} at offset ${i}`
+          );
+        }
+      }
+
+      const installBuf = await zip.file('Install-Local-Desk-Shortcuts.ps1')!.async('nodebuffer');
+      const installText = installBuf.subarray(3).toString('utf8');
+      assert(
+        installText.includes(
+          "$DesktopShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'"
+        ),
+        'DesktopShortcut.Description does not match expected single-quoted ASCII hyphen string'
+      );
+      assert(
+        installText.includes(
+          "$StartShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'"
+        ),
+        'StartShortcut.Description does not match expected single-quoted ASCII hyphen string'
+      );
+      assert(!installText.includes('\u2014'), 'Em dash U+2014 still present in Install-Local-Desk-Shortcuts.ps1');
+
+      return `Verified single UTF-8 BOM (EF BB BF), 0 non-ASCII body bytes across all 3 .ps1 scripts, and exact '$DesktopShortcut.Description = \\'Local Desk - All-in-One Privacy-First PDF & Document Studio\\''`;
+    }
+  );
+
+  // 26. DSK-005: Windows Desktop Polish (Title Bar, Custom Scrollbars, Smooth Scrolling, Cursor Rules & Taskbar Icon Crispness)
+  await runTest(
+    'DSK-005',
+    'Windows Desktop Polish Verification',
+    'DesktopTitleBar, Scrollbar Styling, Smooth Scrolling Toggle, Cursor Rules & Multi-DPI Taskbar Icons',
+    'Verify DesktopTitleBar.tsx caption controls, src/index.css scrollbar and cursor rules, ThemeAndAccountModal.tsx smoothScrolling toggle, and 9-frame PNG/ICO resolutions',
+    'All 4 Windows Desktop Polish areas verified present and spec-compliant',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+
+      const titleBarSrc = await fsMod.readFile(pathMod.resolve('src/components/DesktopTitleBar.tsx'), 'utf-8');
+      assert(titleBarSrc.includes('app-titlebar-drag'), 'Missing app-titlebar-drag in DesktopTitleBar.tsx');
+      assert(titleBarSrc.includes('#E81123'), 'Missing Windows Close red hover state (#E81123) in DesktopTitleBar.tsx');
+      assert(titleBarSrc.includes('Restore Down') && titleBarSrc.includes('Maximize'), 'Missing Maximize/Restore state toggle in DesktopTitleBar.tsx');
+
+      const cssSrc = await fsMod.readFile(pathMod.resolve('src/index.css'), 'utf-8');
+      assert(cssSrc.includes('::-webkit-scrollbar-thumb'), 'Missing custom scrollbar thumb rules in src/index.css');
+      assert(cssSrc.includes('smooth-scroll-enabled'), 'Missing smooth-scroll-enabled rule in src/index.css');
+      assert(cssSrc.includes('cursor-nwse-resize') && cssSrc.includes('cursor-nesw-resize'), 'Missing directional resize cursor rules in src/index.css');
+
+      const prefsSrc = await fsMod.readFile(pathMod.resolve('src/components/ThemeAndAccountModal.tsx'), 'utf-8');
+      assert(prefsSrc.includes('Smooth Scrolling'), 'Missing Smooth Scrolling toggle in ThemeAndAccountModal.tsx');
+
+      for (const sz of [16, 20, 24, 32, 40, 48, 64, 128, 256]) {
+        const st = await fsMod.stat(pathMod.resolve(`public/brand/png/local-desk-app-icon-${sz}x${sz}.png`));
+        assert(st.size > 150, `Icon PNG ${sz}x${sz} is unexpectedly small (${st.size}B)`);
+      }
+
+      return 'Verified DesktopTitleBar (Minimize, Maximize/Restore, #E81123 Close), Forest/Emerald custom scrollbars, Smooth Scrolling toggle, directional PDF editor cursors, and 9 crisp icon resolutions (16..256px)';
+    }
+  );
+
+  // 27. DSK-006: Unsigned Development Build Configuration vs. Signed Production Release Enforcement
+  await runTest(
+    'DSK-006',
+    'Unsigned Dev vs. Signed Prod Gate',
+    'ALLOW_UNSIGNED_DEV_BUILDS=true & FORCE_CODE_SIGNING=false Verification',
+    'Verify unsigned development environment (WIN_CSC_LINK unset, WIN_CSC_KEY_PASSWORD unset, WIN_PUBLISHER_NAME unset, WIN_TIMESTAMP_SERVER unset, FORCE_CODE_SIGNING=false, ALLOW_UNSIGNED_DEV_BUILDS=true) succeeds without credentials while FORCE_CODE_SIGNING=true aborts when credentials are missing',
+    'Development build configuration permits unsigned Windows installer without inventing publisher identity; production configuration strictly fails without certificate',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const { inspectSigningEnvironment, assertSigningReadinessForBuild } = await import(
+        './authenticode_signer'
+      );
+
+      // 1. Verify unsigned development environment with all 4 signing vars unset
+      const devEnv = inspectSigningEnvironment({
+        NODE_ENV: 'development',
+        FORCE_CODE_SIGNING: 'false',
+        ALLOW_UNSIGNED_DEV_BUILDS: 'true'
+      });
+      assert(devEnv.buildMode === 'development-unsigned', `Expected development-unsigned, got ${devEnv.buildMode}`);
+      assert(devEnv.forceCodeSigning === false, 'Expected forceCodeSigning=false');
+      assert(devEnv.allowUnsignedDevBuilds === true, 'Expected allowUnsignedDevBuilds=true');
+      assert(devEnv.hasCertificateCredentials === false, 'Expected hasCertificateCredentials=false');
+      assert(devEnv.publisherName === null, `Expected publisherName=null when unset, got ${devEnv.publisherName}`);
+      assert(devEnv.timestampServerUrl === null, `Expected timestampServerUrl=null when unset, got ${devEnv.timestampServerUrl}`);
+      assertSigningReadinessForBuild(devEnv);
+
+      // 2. Verify production enforcement gate fails when FORCE_CODE_SIGNING=true and credentials are unset
+      const prodEnv = inspectSigningEnvironment({
+        NODE_ENV: 'production',
+        FORCE_CODE_SIGNING: 'true',
+        ALLOW_UNSIGNED_DEV_BUILDS: 'false'
+      });
+      let prodGateThrew = false;
+      try {
+        assertSigningReadinessForBuild(prodEnv);
+      } catch (err: any) {
+        prodGateThrew = String(err?.message || '').includes('PRODUCTION CODE SIGNING ENFORCEMENT FAILED');
+      }
+      assert(prodGateThrew, 'Expected FORCE_CODE_SIGNING=true without certificate credentials to throw');
+
+      // 3. Verify electron-builder.yml (dev) and electron-builder.prod.yml (prod)
+      const ebDev = await fsMod.readFile(pathMod.resolve('electron-builder.yml'), 'utf-8');
+      const ebProd = await fsMod.readFile(pathMod.resolve('electron-builder.prod.yml'), 'utf-8');
+      const envExample = await fsMod.readFile(pathMod.resolve('.env.example'), 'utf-8');
+      assert(ebDev.includes('forceCodeSigning: false'), 'electron-builder.yml must set forceCodeSigning: false');
+      assert(ebProd.includes('forceCodeSigning: true'), 'electron-builder.prod.yml must set forceCodeSigning: true');
+      assert(envExample.includes('ALLOW_UNSIGNED_DEV_BUILDS=true'), '.env.example must contain ALLOW_UNSIGNED_DEV_BUILDS=true');
+
+      return 'Verified unsigned dev build config (WIN_CSC_LINK/KEY_PASSWORD/PUBLISHER_NAME/TIMESTAMP_SERVER unset, FORCE_CODE_SIGNING=false, ALLOW_UNSIGNED_DEV_BUILDS=true) & strict production signing gate';
     }
   );
 

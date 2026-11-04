@@ -1,324 +1,268 @@
-'use strict';
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  shell,
+  Menu,
+  session,
+  nativeImage
+} = require('electron');
+const path = require('node:path');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
+const crypto = require('node:crypto');
 
-/**
- * Local Desk — Production Windows Desktop Main Process (Electron)
- *
- * Security & Privacy Architecture:
- * - contextIsolation: true, nodeIntegration: false, sandbox: true
- * - Zero-Outbound-Network Firewall enforced via session.defaultSession.webRequest
- * - Atomic File Save (writes to %LOCALAPPDATA%\Local Desk\Temp then renames)
- * - Automatic Temporary File Purge on Startup and Exit
- * - Single-Instance Lock & Windows Explorer .pdf File Association Handler
- */
-
-const { app, BrowserWindow, ipcMain, dialog, session, Menu, shell } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const fsp = require('fs/promises');
-const crypto = require('crypto');
-const os = require('os');
-
-const APP_NAME = 'Local Desk';
-const APP_VERSION = '1.0.0';
-const isDev = process.env.NODE_ENV === 'development' && !app.isPackaged;
-
-// Configure Windows AppUserModelId for proper Taskbar & Start Menu grouping
+// ---------------------------------------------------------------------------
+// 1. WINDOWS APP USER MODEL ID & SINGLE-INSTANCE LOCK
+// ---------------------------------------------------------------------------
+const APP_ID = 'com.localdesk.pdfstudio';
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.localdesk.pdfstudio');
+  app.setAppUserModelId(APP_ID);
 }
-
-// Resolve Windows-standard paths (%APPDATA%\Local Desk and %LOCALAPPDATA%\Local Desk\Temp)
-function getUserDataPath() {
-  return app.getPath('userData');
-}
-
-function getLocalTempPath() {
-  const localAppData = process.env.LOCALAPPDATA || app.getPath('temp');
-  return path.join(localAppData, 'Local Desk', 'Temp');
-}
-
-function getPreferencesFilePath() {
-  return path.join(getUserDataPath(), 'preferences.json');
-}
-
-function getRecentFilesPath() {
-  return path.join(getUserDataPath(), 'recent-files.json');
-}
-
-function getWindowStatePath() {
-  return path.join(getUserDataPath(), 'window-state.json');
-}
-
-// Allowed document extensions for IPC open/save operations
-const ALLOWED_EXTENSIONS = new Set([
-  '.pdf',
-  '.docx',
-  '.xlsx',
-  '.pptx',
-  '.csv',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.webp',
-  '.html',
-  '.htm',
-  '.txt',
-  '.zip'
-]);
-
-// Outbound network firewall audit state
-const networkAuditLog = {
-  firewallActive: true,
-  allowedLocalRequests: 0,
-  blockedExternalRequests: 0,
-  blockedUrls: []
-};
 
 let mainWindow = null;
-let pendingOpenFilePath = null;
+let pendingFilePathToOpen = null;
 
-/**
- * Extracts a .pdf or supported document file path from Windows command-line arguments
- */
-function extractFilePathFromArgs(argv) {
-  if (!Array.isArray(argv)) return null;
+function extractPdfOrDocArg(argv) {
+  const supportedExts = new Set([
+    '.pdf',
+    '.docx',
+    '.xlsx',
+    '.pptx',
+    '.txt',
+    '.html',
+    '.htm',
+    '.epub',
+    '.rtf',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.svg'
+  ]);
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i];
     if (!arg || arg.startsWith('-')) continue;
     const ext = path.extname(arg).toLowerCase();
-    if (ALLOWED_EXTENSIONS.has(ext) && fs.existsSync(arg)) {
+    if (supportedExts.has(ext) && fs.existsSync(arg)) {
       return path.resolve(arg);
     }
   }
   return null;
 }
 
-/**
- * Purges all temporary staging files inside %LOCALAPPDATA%\Local Desk\Temp
- */
-async function cleanupLocalTempDirectory() {
-  const tempDir = getLocalTempPath();
-  let filesRemoved = 0;
-  let bytesFreed = 0;
-  try {
-    await fsp.mkdir(tempDir, { recursive: true });
-    const entries = await fsp.readdir(tempDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(tempDir, entry.name);
-      try {
-        const stat = await fsp.stat(fullPath);
-        bytesFreed += stat.size || 0;
-        await fsp.rm(fullPath, { recursive: true, force: true });
-        filesRemoved++;
-      } catch {
-        // Ignore locked file
+pendingFilePathToOpen = extractPdfOrDocArg(process.argv);
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const fileToOpen = extractPdfOrDocArg(commandLine);
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      if (fileToOpen) {
+        sendFileToRenderer(fileToOpen);
       }
     }
-  } catch {
-    // Directory creation/cleanup non-fatal
-  }
-  return { tempDir, filesRemoved, bytesFreed };
-}
-
-/**
- * Reads JSON safely from disk
- */
-async function readJsonFileSafe(filePath, fallbackValue) {
-  try {
-    const raw = await fsp.readFile(filePath, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return fallbackValue;
-  }
-}
-
-/**
- * Writes JSON atomically to disk
- */
-async function writeJsonFileAtomic(filePath, data) {
-  const dir = path.dirname(filePath);
-  await fsp.mkdir(dir, { recursive: true });
-  const tmpFile = `${filePath}.${Date.now()}.tmp`;
-  await fsp.writeFile(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-  await fsp.rename(tmpFile, filePath);
-}
-
-/**
- * Records a file in the user's Recent Documents list (%APPDATA%\Local Desk\recent-files.json)
- */
-async function addRecentDocumentEntry(filePath, action = 'opened') {
-  try {
-    const stat = await fsp.stat(filePath);
-    const list = await readJsonFileSafe(getRecentFilesPath(), []);
-    const filtered = Array.isArray(list)
-      ? list.filter((item) => item && item.path !== filePath)
-      : [];
-    filtered.unshift({
-      name: path.basename(filePath),
-      path: filePath,
-      size: stat.size,
-      lastModified: stat.mtimeMs,
-      lastOpenedAt: Date.now(),
-      action
-    });
-    const trimmed = filtered.slice(0, 20);
-    await writeJsonFileAtomic(getRecentFilesPath(), trimmed);
-    if (process.platform === 'win32') {
-      app.addRecentDocument(filePath);
-    }
-    return trimmed;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Enforces a Zero-Outbound-Network Firewall on the Electron session
- * so documents, filenames, and telemetry can never leave the user's Windows PC.
- */
-function installSessionNetworkFirewall() {
-  const ses = session.defaultSession;
-
-  ses.webRequest.onBeforeRequest((details, callback) => {
-    const url = details.url || '';
-    const isLocalProtocol =
-      url.startsWith('file://') ||
-      url.startsWith('data:') ||
-      url.startsWith('blob:') ||
-      url.startsWith('devtools://') ||
-      url.startsWith('chrome-extension://');
-
-    const isDevLocalhost =
-      isDev &&
-      (url.startsWith('http://localhost:3000') ||
-        url.startsWith('http://127.0.0.1:3000') ||
-        url.startsWith('ws://localhost:3000'));
-
-    if (isLocalProtocol || isDevLocalhost) {
-      networkAuditLog.allowedLocalRequests++;
-      callback({ cancel: false });
-      return;
-    }
-
-    // Block all external internet traffic
-    networkAuditLog.blockedExternalRequests++;
-    if (networkAuditLog.blockedUrls.length < 25) {
-      networkAuditLog.blockedUrls.push({
-        url: url.slice(0, 120),
-        timestamp: new Date().toISOString()
-      });
-    }
-    callback({ cancel: true });
   });
+}
 
-  ses.webRequest.onHeadersReceived((details, callback) => {
+// ---------------------------------------------------------------------------
+// 2. NATIVE STORAGE DIRECTORIES (%APPDATA%\Local Desk & %LOCALAPPDATA%\Local Desk\Temp)
+// ---------------------------------------------------------------------------
+function getAppStoragePaths() {
+  const userDataDir = app.getPath('userData');
+  const tempBaseDir = path.join(app.getPath('temp'), 'Local Desk');
+  const logsDir = path.join(userDataDir, 'logs');
+  const settingsFile = path.join(userDataDir, 'workspace-settings.json');
+  const recentFilesPath = path.join(userDataDir, 'recent-files.json');
+
+  for (const dir of [userDataDir, tempBaseDir, logsDir]) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+  return { userDataDir, tempBaseDir, logsDir, settingsFile, recentFilesPath };
+}
+
+function writeDiagnosticLog(level, message) {
+  try {
+    const { logsDir } = getAppStoragePaths();
+    const logFile = path.join(logsDir, 'local-desk-desktop.log');
+    const line = `[${new Date().toISOString()}] [${level}] ${message}\n`;
+    fs.appendFileSync(logFile, line, 'utf8');
+  } catch {
+    // Non-fatal
+  }
+}
+
+async function cleanupEphemeralTempDir() {
+  try {
+    const { tempBaseDir } = getAppStoragePaths();
+    if (fs.existsSync(tempBaseDir)) {
+      const entries = await fsp.readdir(tempBaseDir);
+      for (const entry of entries) {
+        await fsp.rm(path.join(tempBaseDir, entry), { recursive: true, force: true });
+      }
+    }
+  } catch (err) {
+    writeDiagnosticLog('WARN', `Temp cleanup skipped: ${err?.message || 'unknown'}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. STRICT CONTENT SECURITY POLICY & ZERO TELEMETRY NETWORK GUARD
+// ---------------------------------------------------------------------------
+function installOfflineSecurityPolicy() {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' file: data: blob:; " +
+          "default-src 'self' blob: data: file:; " +
             "script-src 'self' 'wasm-unsafe-eval' blob:; " +
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: blob: file:; " +
             "font-src 'self' data:; " +
-            "connect-src 'self' blob: data: file:; " +
-            "object-src 'none'; " +
-            "base-uri 'self'; " +
-            "frame-ancestors 'none';"
+            "worker-src 'self' blob:; " +
+            "connect-src 'self' blob: data: file:;"
         ]
       }
     });
   });
+
+  // Block all unsolicited external HTTP/HTTPS requests at the Chromium session layer
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    const url = details.url || '';
+    const isLocalAllowed =
+      url.startsWith('file://') ||
+      url.startsWith('blob:') ||
+      url.startsWith('data:') ||
+      url.startsWith('devtools://') ||
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('http://localhost:') ||
+      url.startsWith('http://127.0.0.1:') ||
+      url.startsWith('ws://localhost:') ||
+      url.startsWith('ws://127.0.0.1:');
+
+    if (!isLocalAllowed) {
+      writeDiagnosticLog('SECURITY', `Blocked external network request: ${url}`);
+      return callback({ cancel: true });
+    }
+    return callback({ cancel: false });
+  });
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
 }
 
-// Single-Instance Lock: Ensure double-clicking a PDF in Windows Explorer focuses the active window
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (_event, commandLine) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-      const targetFile = extractFilePathFromArgs(commandLine);
-      if (targetFile) {
-        mainWindow.webContents.send('localdesk:os-open-file', targetFile);
+// ---------------------------------------------------------------------------
+// 4. RESOLVE CRISP MULTI-RESOLUTION APPLICATION ICON
+// ---------------------------------------------------------------------------
+function resolveWindowIcon() {
+  const candidates = [
+    path.join(__dirname, '../build/icon.ico'),
+    path.join(__dirname, '../public/favicon.ico'),
+    path.join(__dirname, '../public/brand/png/local-desk-app-icon-256x256.png'),
+    path.join(__dirname, '../dist/favicon.ico'),
+    path.join(__dirname, '../dist/brand/png/local-desk-app-icon-256x256.png')
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      const img = nativeImage.createFromPath(candidate);
+      if (!img.isEmpty()) {
+        return img;
       }
     }
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// 5. MAIN DESKTOP WINDOW & NATIVE MENU
+// ---------------------------------------------------------------------------
+function broadcastWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('localdesk:window-state-changed', {
+    isMaximized: mainWindow.isMaximized(),
+    isMinimized: mainWindow.isMinimized(),
+    isFullScreen: mainWindow.isFullScreen(),
+    isFocused: mainWindow.isFocused()
   });
 }
 
-async function createMainWindow() {
-  const savedWindowState = await readJsonFileSafe(getWindowStatePath(), {
-    width: 1440,
-    height: 920,
-    isMaximized: false
-  });
-
-  const iconPath = path.join(__dirname, '..', 'build', 'icon.ico');
+function createMainWindow() {
+  const iconImage = resolveWindowIcon();
 
   mainWindow = new BrowserWindow({
-    width: Math.max(1024, savedWindowState.width || 1440),
-    height: Math.max(700, savedWindowState.height || 920),
-    minWidth: 960,
-    minHeight: 640,
-    title: 'Local Desk — PDF & Document Studio',
-    backgroundColor: '#0D1F18',
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    width: 1440,
+    height: 920,
+    minWidth: 1024,
+    minHeight: 680,
+    title: 'Local Desk — All-in-One PDF & Document Studio',
+    backgroundColor: '#0A1612',
+    icon: iconImage,
     show: false,
-    autoHideMenuBar: false,
+    frame: process.platform !== 'win32',
+    titleBarStyle: process.platform === 'win32' ? 'hidden' : 'default',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
-      allowRunningInsecureContent: false,
-      spellcheck: false
+      spellcheck: false,
+      devTools: !app.isPackaged
     }
   });
 
-  if (savedWindowState.isMaximized) {
-    mainWindow.maximize();
+  if (iconImage && process.platform === 'win32') {
+    mainWindow.setIcon(iconImage);
   }
 
-  // Persist window geometry on close
-  mainWindow.on('close', async () => {
-    if (!mainWindow) return;
-    const bounds = mainWindow.getBounds();
-    await writeJsonFileAtomic(getWindowStatePath(), {
-      width: bounds.width,
-      height: bounds.height,
-      isMaximized: mainWindow.isMaximized()
-    });
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    broadcastWindowState();
+    if (pendingFilePathToOpen) {
+      sendFileToRenderer(pendingFilePathToOpen);
+      pendingFilePathToOpen = null;
+    }
   });
 
-  // Prevent navigation to external websites inside the application window
+  mainWindow.on('maximize', broadcastWindowState);
+  mainWindow.on('unmaximize', broadcastWindowState);
+  mainWindow.on('enter-full-screen', broadcastWindowState);
+  mainWindow.on('leave-full-screen', broadcastWindowState);
+  mainWindow.on('focus', broadcastWindowState);
+  mainWindow.on('blur', broadcastWindowState);
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    if (!navigationUrl.startsWith('file://') && !navigationUrl.startsWith('http://localhost:3000')) {
+    const parsedUrl = new URL(navigationUrl);
+    if (parsedUrl.protocol !== 'file:' && !navigationUrl.startsWith('http://localhost:')) {
       event.preventDefault();
     }
   });
 
-  mainWindow.webContents.setWindowOpenHandler(() => {
-    return { action: 'deny' };
-  });
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    const startupFile = pendingOpenFilePath || extractFilePathFromArgs(process.argv);
-    if (startupFile) {
-      pendingOpenFilePath = null;
-      mainWindow.webContents.send('localdesk:os-open-file', startupFile);
-    }
-  });
-
-  if (isDev) {
-    await mainWindow.loadURL('http://localhost:3000');
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl && !app.isPackaged) {
+    mainWindow.loadURL(devServerUrl);
   } else {
-    const indexHtml = path.join(__dirname, '..', 'dist', 'index.html');
-    await mainWindow.loadFile(indexHtml);
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  buildNativeApplicationMenu();
 }
 
 function buildNativeApplicationMenu() {
@@ -329,23 +273,19 @@ function buildNativeApplicationMenu() {
         {
           label: 'Open Document...',
           accelerator: 'CmdOrCtrl+O',
-          click: () => {
-            if (mainWindow) mainWindow.webContents.send('localdesk:menu-command', 'open-file');
-          }
-        },
-        {
-          label: 'Save Document As...',
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => {
-            if (mainWindow) mainWindow.webContents.send('localdesk:menu-command', 'save-file-as');
+          click: async () => {
+            const picked = await promptOpenFilesDialog(false);
+            if (picked && picked.length > 0 && mainWindow) {
+              mainWindow.webContents.send('localdesk:files-opened', picked);
+            }
           }
         },
         { type: 'separator' },
         {
-          label: 'Purge Local Temp Cache',
-          click: async () => {
-            await cleanupLocalTempDirectory();
-            if (mainWindow) mainWindow.webContents.send('localdesk:menu-command', 'temp-purged');
+          label: 'Open Temp Workspace Folder',
+          click: () => {
+            const { tempBaseDir } = getAppStoragePaths();
+            shell.openPath(tempBaseDir);
           }
         },
         { type: 'separator' },
@@ -367,14 +307,6 @@ function buildNativeApplicationMenu() {
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Quick Tool Search',
-          accelerator: 'CmdOrCtrl+K',
-          click: () => {
-            if (mainWindow) mainWindow.webContents.send('localdesk:menu-command', 'open-search');
-          }
-        },
-        { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
@@ -383,12 +315,17 @@ function buildNativeApplicationMenu() {
       ]
     },
     {
-      label: 'Help & Privacy Audit',
+      label: 'Help',
       submenu: [
         {
-          label: 'Offline & Privacy Verification Center',
+          label: 'Local Desk v1.0.3 — 100% Offline Privacy Guarantee',
+          enabled: false
+        },
+        {
+          label: 'Open Local Diagnostic Logs',
           click: () => {
-            if (mainWindow) mainWindow.webContents.send('localdesk:menu-command', 'open-desktop-center');
+            const { logsDir } = getAppStoragePaths();
+            shell.openPath(logsDir);
           }
         }
       ]
@@ -399,219 +336,247 @@ function buildNativeApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-// ============================================================================
-// NARROWLY SCOPED, VALIDATED IPC HANDLERS
-// ============================================================================
+// ---------------------------------------------------------------------------
+// 6. SAFE FILE SYSTEM & NATIVE WINDOW CONTROL IPC HANDLERS
+// ---------------------------------------------------------------------------
+async function readFileAsPayload(filePath) {
+  const resolved = path.resolve(filePath);
+  const stat = await fsp.stat(resolved);
+  if (!stat.isFile()) {
+    throw new Error('Selected path is not a regular file.');
+  }
+  const buffer = await fsp.readFile(resolved);
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
-function registerIpcHandlers() {
-  // 1. Open Native File Dialog
-  ipcMain.handle('localdesk:open-file-dialog', async (_event, options = {}) => {
-    if (!mainWindow) return { canceled: true, files: [] };
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: options.title || 'Open Document in Local Desk',
-      properties: options.multiSelections
-        ? ['openFile', 'multiSelections']
-        : ['openFile'],
-      filters: options.filters || [
-        {
-          name: 'All Supported Documents',
-          extensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'html', 'htm', 'txt']
-        },
-        { name: 'PDF Documents (*.pdf)', extensions: ['pdf'] },
-        { name: 'Office Documents (*.docx, *.xlsx, *.pptx)', extensions: ['docx', 'xlsx', 'pptx', 'csv'] },
-        { name: 'Images (*.png, *.jpg, *.webp)', extensions: ['png', 'jpg', 'jpeg', 'webp'] }
-      ]
-    });
-
-    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-      return { canceled: true, files: [] };
-    }
-
-    const loadedFiles = [];
-    for (const filePath of result.filePaths) {
-      const resolved = path.resolve(filePath);
-      const ext = path.extname(resolved).toLowerCase();
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
-        continue;
-      }
-      const stat = await fsp.stat(resolved);
-      if (!stat.isFile() || stat.size > 512 * 1024 * 1024) {
-        continue; // Guard against files > 512 MB
-      }
-      const buffer = await fsp.readFile(resolved);
-      await addRecentDocumentEntry(resolved, 'opened');
-      loadedFiles.push({
-        name: path.basename(resolved),
-        path: resolved,
-        size: stat.size,
-        lastModified: stat.mtimeMs,
-        bytes: Uint8Array.from(buffer)
-      });
-    }
-
-    return { canceled: false, files: loadedFiles };
+  app.addRecentDocument(resolved);
+  await recordRecentFileMetadata({
+    filePath: resolved,
+    name: path.basename(resolved),
+    size: stat.size,
+    lastOpenedAt: Date.now()
   });
 
-  // 2. Open Specific File Path from Recent List or OS File Association
-  ipcMain.handle('localdesk:open-recent-path', async (_event, targetPath) => {
-    if (typeof targetPath !== 'string' || !targetPath.trim()) {
-      throw new Error('Invalid file path');
-    }
-    const resolved = path.resolve(targetPath);
-    const ext = path.extname(resolved).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.has(ext)) {
-      throw new Error(`Unsupported file extension: ${ext}`);
-    }
-    if (!fs.existsSync(resolved)) {
-      throw new Error('File no longer exists at this location.');
-    }
-    const stat = await fsp.stat(resolved);
-    if (!stat.isFile()) {
-      throw new Error('Target path is not a regular file.');
-    }
-    const buffer = await fsp.readFile(resolved);
-    await addRecentDocumentEntry(resolved, 'opened');
-    return {
-      name: path.basename(resolved),
-      path: resolved,
-      size: stat.size,
-      lastModified: stat.mtimeMs,
-      bytes: Uint8Array.from(buffer)
-    };
-  });
-
-  // 3. Save File Dialog with Atomic Temp-to-Target Write & SHA-256 Verification
-  ipcMain.handle('localdesk:save-file-dialog', async (_event, payload) => {
-    if (!mainWindow || !payload || !payload.bytes) {
-      return { canceled: true };
-    }
-
-    const suggestedName = path.basename(payload.suggestedName || 'LocalDesk_Output.pdf');
-    const ext = path.extname(suggestedName).toLowerCase().replace('.', '') || 'pdf';
-
-    const saveResult = await dialog.showSaveDialog(mainWindow, {
-      title: payload.title || 'Save Processed Document',
-      defaultPath: path.join(app.getPath('documents'), suggestedName),
-       properties: ['showOverwriteConfirmation', 'createDirectory'],
-      filters: [
-        { name: `${ext.toUpperCase()} Document (*.${ext})`, extensions: [ext] },
-        { name: 'All Files (*.*)', extensions: ['*'] }
-      ]
-    });
-
-    if (saveResult.canceled || !saveResult.filePath) {
-      return { canceled: true };
-    }
-
-    const destPath = path.resolve(saveResult.filePath);
-    const byteBuffer = Buffer.from(payload.bytes);
-
-    // Atomic write: write to %LOCALAPPDATA%\Local Desk\Temp first, then move into place
-    const tempDir = getLocalTempPath();
-    await fsp.mkdir(tempDir, { recursive: true });
-    const stagingPath = path.join(
-      tempDir,
-      `LocalDesk-Atomic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.tmp`
-    );
-
-    await fsp.writeFile(stagingPath, byteBuffer);
-    const sha256 = crypto.createHash('sha256').update(byteBuffer).digest('hex');
-
-    try {
-      await fsp.rename(stagingPath, destPath);
-    } catch {
-      // Cross-volume fallback: copy then unlink staging file
-      await fsp.copyFile(stagingPath, destPath);
-      await fsp.rm(stagingPath, { force: true });
-    }
-
-    await addRecentDocumentEntry(destPath, 'saved');
-
-    return {
-      canceled: false,
-      savedPath: destPath,
-      fileName: path.basename(destPath),
-      size: byteBuffer.byteLength,
-      sha256
-    };
-  });
-
-  // 4. Recent Files Management
-  ipcMain.handle('localdesk:get-recent-files', async () => {
-    const list = await readJsonFileSafe(getRecentFilesPath(), []);
-    if (!Array.isArray(list)) return [];
-    return list.filter((item) => item && typeof item.path === 'string' && fs.existsSync(item.path));
-  });
-
-  ipcMain.handle('localdesk:clear-recent-files', async () => {
-    await writeJsonFileAtomic(getRecentFilesPath(), []);
-    if (process.platform === 'win32') {
-      app.clearRecentDocuments();
-    }
-    return [];
-  });
-
-  // 5. Preferences Persistence (%APPDATA%\Local Desk\preferences.json)
-  ipcMain.handle('localdesk:get-preferences', async () => {
-    return await readJsonFileSafe(getPreferencesFilePath(), {
-      appearance: 'dark'
-    });
-  });
-
-  ipcMain.handle('localdesk:set-preferences', async (_event, prefs) => {
-    if (!prefs || typeof prefs !== 'object') return false;
-    await writeJsonFileAtomic(getPreferencesFilePath(), prefs);
-    return true;
-  });
-
-  // 6. Temporary Directory Cleanup
-  ipcMain.handle('localdesk:cleanup-temp', async () => {
-    return await cleanupLocalTempDirectory();
-  });
-
-  // 7. Desktop Runtime & Privacy Diagnostics
-  ipcMain.handle('localdesk:get-diagnostics', async () => {
-    return {
-      appName: APP_NAME,
-      appVersion: APP_VERSION,
-      platform: process.platform,
-      arch: process.arch,
-      electronVersion: process.versions.electron,
-      chromeVersion: process.versions.chrome,
-      nodeVersion: process.versions.node,
-      userDataPath: getUserDataPath(),
-      tempPath: getLocalTempPath(),
-      isPackaged: app.isPackaged,
-      networkFirewall: networkAuditLog,
-      hostname: os.hostname(),
-      totalMemMb: Math.round(os.totalmem() / (1024 * 1024))
-    };
-  });
-
-  // 8. Reveal Saved File in Windows Explorer
-  ipcMain.handle('localdesk:show-item-in-folder', async (_event, fullPath) => {
-    if (typeof fullPath === 'string' && fs.existsSync(fullPath)) {
-      shell.showItemInFolder(path.resolve(fullPath));
-      return true;
-    }
-    return false;
-  });
+  return {
+    filePath: resolved,
+    name: path.basename(resolved),
+    size: stat.size,
+    lastModified: stat.mtimeMs,
+    sha256,
+    bytes: new Uint8Array(buffer)
+  };
 }
 
+async function sendFileToRenderer(filePath) {
+  try {
+    const payload = await readFileAsPayload(filePath);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('localdesk:files-opened', [payload]);
+    }
+  } catch (err) {
+    writeDiagnosticLog('ERROR', `Failed to open CLI file: ${err?.message || 'unknown'}`);
+  }
+}
+
+async function promptOpenFilesDialog(multiSelections = true) {
+  if (!mainWindow) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Document in Local Desk',
+    properties: multiSelections ? ['openFile', 'multiSelections'] : ['openFile'],
+    filters: [
+      {
+        name: 'Supported Documents & PDFs',
+        extensions: [
+          'pdf',
+          'docx',
+          'xlsx',
+          'pptx',
+          'txt',
+          'html',
+          'htm',
+          'epub',
+          'rtf',
+          'png',
+          'jpg',
+          'jpeg',
+          'webp',
+          'svg'
+        ]
+      },
+      { name: 'PDF Documents (*.pdf)', extensions: ['pdf'] },
+      { name: 'All Files (*.*)', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return [];
+  }
+
+  const payloads = [];
+  for (const fp of result.filePaths) {
+    try {
+      payloads.push(await readFileAsPayload(fp));
+    } catch (err) {
+      writeDiagnosticLog('ERROR', `Could not read selected file: ${err?.message || 'unknown'}`);
+    }
+  }
+  return payloads;
+}
+
+async function recordRecentFileMetadata(item) {
+  try {
+    const { recentFilesPath } = getAppStoragePaths();
+    let list = [];
+    if (fs.existsSync(recentFilesPath)) {
+      list = JSON.parse(await fsp.readFile(recentFilesPath, 'utf8'));
+    }
+    const filtered = list.filter((entry) => entry.filePath !== item.filePath);
+    filtered.unshift(item);
+    await fsp.writeFile(recentFilesPath, JSON.stringify(filtered.slice(0, 20), null, 2), 'utf8');
+  } catch {
+    // Non-fatal
+  }
+}
+
+// Native Window Controls IPC
+ipcMain.handle('localdesk:window-minimize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+    broadcastWindowState();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('localdesk:window-maximize-toggle', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+    broadcastWindowState();
+    return { isMaximized: mainWindow.isMaximized() };
+  }
+  return { isMaximized: false };
+});
+
+ipcMain.handle('localdesk:window-close', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('localdesk:window-get-state', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return {
+      isMaximized: mainWindow.isMaximized(),
+      isMinimized: mainWindow.isMinimized(),
+      isFullScreen: mainWindow.isFullScreen(),
+      isFocused: mainWindow.isFocused()
+    };
+  }
+  return {
+    isMaximized: false,
+    isMinimized: false,
+    isFullScreen: false,
+    isFocused: true
+  };
+});
+
+ipcMain.handle('localdesk:get-runtime-info', () => {
+  const { userDataDir, tempBaseDir, logsDir } = getAppStoragePaths();
+  return {
+    isDesktopApp: true,
+    platform: process.platform,
+    arch: process.arch,
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+    appVersion: app.getVersion(),
+    appId: APP_ID,
+    userDataDir,
+    tempBaseDir,
+    logsDir,
+    offlineEnforced: true
+  };
+});
+
+ipcMain.handle('localdesk:open-files-dialog', async (_event, options) => {
+  return promptOpenFilesDialog(Boolean(options?.multiSelections ?? true));
+});
+
+ipcMain.handle('localdesk:save-file-dialog', async (_event, payload) => {
+  if (!mainWindow || !payload || !payload.bytes) {
+    return { canceled: true };
+  }
+  const suggestedName = path.basename(payload.defaultFileName || 'Local-Desk-Output.pdf');
+  const ext = path.extname(suggestedName).replace('.', '').toLowerCase() || 'pdf';
+
+  const saveResult = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Processed Document — Local Desk',
+    defaultPath: path.join(app.getPath('documents'), suggestedName),
+    filters: [
+      { name: `${ext.toUpperCase()} Document (*.${ext})`, extensions: [ext] },
+      { name: 'All Files (*.*)', extensions: ['*'] }
+    ]
+  });
+
+  if (saveResult.canceled || !saveResult.filePath) {
+    return { canceled: true };
+  }
+
+  const targetPath = path.resolve(saveResult.filePath);
+  const tempWritePath = `${targetPath}.localdesk-${Date.now()}.tmp`;
+  const dataBuffer = Buffer.from(payload.bytes);
+
+  await fsp.writeFile(tempWritePath, dataBuffer);
+  await fsp.rename(tempWritePath, targetPath);
+
+  const sha256 = crypto.createHash('sha256').update(dataBuffer).digest('hex');
+  return {
+    canceled: false,
+    filePath: targetPath,
+    size: dataBuffer.byteLength,
+    sha256
+  };
+});
+
+ipcMain.handle('localdesk:get-recent-files', async () => {
+  try {
+    const { recentFilesPath } = getAppStoragePaths();
+    if (!fs.existsSync(recentFilesPath)) return [];
+    const list = JSON.parse(await fsp.readFile(recentFilesPath, 'utf8'));
+    return list.filter((entry) => fs.existsSync(entry.filePath));
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('localdesk:open-recent-file', async (_event, filePath) => {
+  if (!filePath || typeof filePath !== 'string') return null;
+  return readFileAsPayload(filePath);
+});
+
+ipcMain.handle('localdesk:reveal-in-explorer', async (_event, filePath) => {
+  if (filePath && typeof filePath === 'string' && fs.existsSync(filePath)) {
+    shell.showItemInFolder(path.resolve(filePath));
+    return true;
+  }
+  return false;
+});
+
+// ---------------------------------------------------------------------------
+// 7. APPLICATION LIFECYCLE
+// ---------------------------------------------------------------------------
 app.whenReady().then(async () => {
-  await cleanupLocalTempDirectory();
-  installSessionNetworkFirewall();
-  registerIpcHandlers();
-  buildNativeApplicationMenu();
-  await createMainWindow();
+  installOfflineSecurityPolicy();
+  await cleanupEphemeralTempDir();
+  createMainWindow();
+  writeDiagnosticLog('INFO', 'Local Desk Windows Desktop Application started.');
 });
 
-app.on('will-quit', async () => {
-  await cleanupLocalTempDirectory();
-});
-
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  await cleanupEphemeralTempDir();
   if (process.platform !== 'darwin') {
     app.quit();
   }

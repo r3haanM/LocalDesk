@@ -1,4 +1,4 @@
-# Local Desk — Bundled Dependencies & Third-Party Licenses
+# Local Desk - Bundled Dependencies & Third-Party Licenses
 
 | Package | Version | License | Purpose |
 | :--- | :--- | :--- | :--- |

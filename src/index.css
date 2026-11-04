@@ -1,198 +1,297 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
 
-/* Offline-First Local Font Stack Aliases (Zero External CDN Requests) */
-@font-face {
-  font-family: 'Manrope';
-  src: local('Manrope'), local('Segoe UI Variable Display'), local('Segoe UI'), local('Inter'), local('Calibri');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: local('JetBrains Mono'), local('Cascadia Mono'), local('Consolas'), local('Courier New');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Courier Prime';
-  src: local('Courier Prime'), local('Courier New'), local('Consolas');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  src: local('IBM Plex Mono'), local('Consolas'), local('Cascadia Mono'), local('Lucida Console');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Space Mono';
-  src: local('Space Mono'), local('Cascadia Mono'), local('Consolas'), local('Courier New');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Libre Baskerville';
-  src: local('Libre Baskerville'), local('Georgia'), local('Palatino Linotype'), local('Times New Roman');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Merriweather';
-  src: local('Merriweather'), local('Georgia'), local('Cambria'), local('Times New Roman');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Roboto Condensed';
-  src: local('Roboto Condensed'), local('Arial Narrow'), local('Bahnschrift Condensed'), local('Segoe UI Semibold');
-  font-display: swap;
+@theme {
+  --font-sans: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
-@layer base {
-  :root {
-    --font-sans: 'Manrope', 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+/* ==========================================================================
+   LOCAL DESK — WINDOWS DESKTOP DESIGN TOKENS (LIGHT & DARK MODES)
+   ========================================================================== */
+:root {
+  --bg-canvas: #F6F8F7;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #EFF4F1;
+  --bg-muted: #E4ECE7;
+  --text-primary: #0D1F18;
+  --text-secondary: #3B5249;
+  --text-muted: #647D73;
+  --border-subtle: rgba(13, 31, 24, 0.10);
+  --border-strong: rgba(13, 31, 24, 0.20);
 
-    /* Local Desk Permanent Brand Identity — Light Mode (Forest & Emerald) */
-    --bg-canvas: #F3F7F5;
-    --bg-surface: #FFFFFF;
-    --bg-elevated: #EAF1ED;
-    --bg-muted: #DCE7E1;
-    --text-primary: #091812;
-    --text-secondary: #284238;
-    --text-muted: #4A685C;
-    --border-subtle: rgba(13, 31, 24, 0.14);
-    --border-strong: rgba(5, 150, 105, 0.34);
-    --accent-primary: #059669;
-    --accent-secondary: #10B981;
-    --accent-contrast: #FFFFFF;
-  }
+  /* Forest Green + Emerald Brand Tokens */
+  --accent-primary: #059669;
+  --accent-hover: #047857;
+  --accent-contrast: #FFFFFF;
+  --accent-soft: rgba(5, 150, 105, 0.11);
 
-  /* Local Desk Permanent Brand Identity — Dark Mode (Deep Forest & Emerald) */
-  :root.dark {
-    --bg-canvas: #0D1F18;
-    --bg-surface: #132A21;
-    --bg-elevated: #1A362B;
-    --bg-muted: #091611;
-    --text-primary: #F2F7F4;
-    --text-secondary: #A3BEB3;
-    --text-muted: #6A8C7E;
-    --border-subtle: rgba(242, 247, 244, 0.10);
-    --border-strong: rgba(52, 211, 153, 0.26);
-    --accent-primary: #10B981;
-    --accent-secondary: #34D399;
-    --accent-contrast: #FFFFFF;
-  }
+  /* Scrollbar Tokens — Light Mode */
+  --scrollbar-track: rgba(13, 31, 24, 0.04);
+  --scrollbar-thumb: rgba(19, 58, 43, 0.28);
+  --scrollbar-thumb-hover: #059669;
+  --scrollbar-thumb-active: #047857;
+}
 
-  body {
-    font-family: var(--font-sans);
-    background-color: var(--bg-canvas);
-    color: var(--text-primary);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
-    transition: background-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-      color 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  }
+html.dark {
+  --bg-canvas: #090D16;
+  --bg-surface: #111827;
+  --bg-elevated: #172133;
+  --bg-muted: #1E293B;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
-  code, pre, .font-mono, .tabular-nums {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+  /* Emerald Brand Accent for Dark Mode */
+  --accent-primary: #10B981;
+  --accent-hover: #34D399;
+  --accent-contrast: #06281E;
+  --accent-soft: rgba(16, 185, 129, 0.14);
+
+  /* Scrollbar Tokens — Dark Mode */
+  --scrollbar-track: rgba(9, 13, 22, 0.45);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.26);
+  --scrollbar-thumb-hover: #10B981;
+  --scrollbar-thumb-active: #34D399;
+}
+
+/* ==========================================================================
+   BASE DESKTOP TYPOGRAPHY, SMOOTH SCROLLING & CURSOR CONVENTIONS
+   ========================================================================== */
+html {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.smooth-scroll-enabled,
+  html.smooth-scroll-enabled body,
+  html.smooth-scroll-enabled main,
+  html.smooth-scroll-enabled aside,
+  html.smooth-scroll-enabled .overflow-y-auto,
+  html.smooth-scroll-enabled .overflow-auto {
+    scroll-behavior: smooth;
   }
 }
 
-/* Circular Radial Iris View Transition for Instant Theme Switching */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
+/* Prevent smooth-scroll lag when actively dragging objects or resizing on the PDF canvas */
+html.canvas-dragging-active,
+html.canvas-dragging-active * {
+  scroll-behavior: auto !important;
 }
 
-::view-transition-old(root) {
-  z-index: 1;
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  cursor: default;
 }
 
-::view-transition-new(root) {
-  z-index: 9999;
+/* Native Windows Title Bar Dragging Regions */
+.app-titlebar-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
 }
 
-/* Tailwind v4 @utility definitions so hover:, focus:, group-hover: variants work automatically */
-@utility bg-theme-canvas {
+.app-titlebar-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* ==========================================================================
+   WINDOWS DESKTOP CURSOR & POINTER CONVENTIONS
+   ========================================================================== */
+/* Interactive controls: pointer */
+a,
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[role="radio"]:not([aria-disabled="true"]),
+[role="menuitem"]:not([aria-disabled="true"]),
+select:not(:disabled),
+summary,
+label[for],
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="range"]:not(:disabled),
+input[type="color"]:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Text inputs, search fields, editable text areas: text I-beam */
+input[type="text"]:not(:disabled),
+input[type="email"]:not(:disabled),
+input[type="search"]:not(:disabled),
+input[type="password"]:not(:disabled),
+input[type="url"]:not(:disabled),
+input[type="tel"]:not(:disabled),
+input[type="number"]:not(:disabled),
+textarea:not(:disabled),
+[contenteditable="true"] {
+  cursor: text;
+}
+
+/* Disabled controls: not-allowed */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+/* Explicit directional resize and manipulation cursor helpers */
+.cursor-nwse-resize {
+  cursor: nwse-resize !important;
+}
+.cursor-nesw-resize {
+  cursor: nesw-resize !important;
+}
+.cursor-ns-resize {
+  cursor: ns-resize !important;
+}
+.cursor-ew-resize {
+  cursor: ew-resize !important;
+}
+.cursor-col-resize {
+  cursor: col-resize !important;
+}
+.cursor-row-resize {
+  cursor: row-resize !important;
+}
+.cursor-move {
+  cursor: move !important;
+}
+.cursor-grab {
+  cursor: grab !important;
+}
+.cursor-grabbing,
+.cursor-grab:active {
+  cursor: grabbing !important;
+}
+.cursor-crosshair {
+  cursor: crosshair !important;
+}
+
+/* ==========================================================================
+   CUSTOM WINDOWS DESKTOP SCROLLBAR STYLING (WEBKIT / CHROMIUM / ELECTRON)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+/* Slimmer 8px scrollbar inside sidebars, inspector panels, modals, and dropdowns */
+aside::-webkit-scrollbar,
+nav::-webkit-scrollbar,
+[role="dialog"] ::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 36px;
+  transition: background-color 150ms ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active);
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ==========================================================================
+   THEME UTILITY CLASSES
+   ========================================================================== */
+.bg-theme-canvas {
   background-color: var(--bg-canvas);
 }
-@utility bg-theme-surface {
+
+.bg-theme-surface {
   background-color: var(--bg-surface);
 }
-@utility bg-theme-elevated {
+
+.bg-theme-elevated {
   background-color: var(--bg-elevated);
 }
-@utility bg-theme-muted {
+
+.bg-theme-muted {
   background-color: var(--bg-muted);
 }
-@utility text-theme-primary {
+
+.text-theme-primary {
   color: var(--text-primary);
 }
-@utility text-theme-secondary {
+
+.text-theme-secondary {
   color: var(--text-secondary);
 }
-@utility text-theme-muted {
+
+.text-theme-muted {
   color: var(--text-muted);
 }
-@utility border-theme-subtle {
+
+.border-theme-subtle {
   border-color: var(--border-subtle);
 }
-@utility border-theme-strong {
+
+.border-theme-strong {
   border-color: var(--border-strong);
 }
-@utility bg-theme-accent {
+
+.bg-theme-accent {
   background-color: var(--accent-primary);
   color: var(--accent-contrast);
 }
-@utility text-theme-accent {
+
+.bg-theme-accent-soft {
+  background-color: var(--accent-soft);
+}
+
+.text-theme-accent {
   color: var(--accent-primary);
 }
-@utility border-theme-accent {
+
+.border-theme-accent {
   border-color: var(--accent-primary);
 }
 
-/* Explicit opacity-qualified surface & border utilities for crisp Light/Dark mode cards over 3D canvas */
-.bg-theme-surface\/95 {
-  background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
-}
-.bg-theme-surface\/90 {
-  background-color: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-}
-.bg-theme-surface\/60 {
-  background-color: color-mix(in srgb, var(--bg-surface) 75%, transparent);
-}
-.bg-theme-elevated\/80 {
-  background-color: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-}
-.bg-theme-muted\/60 {
-  background-color: color-mix(in srgb, var(--bg-muted) 68%, transparent);
-}
-.border-theme-accent\/50 {
-  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
-}
-
-/* Light Mode WCAG AA contrast enforcement for semantic status utilities */
-:root:not(.dark) .text-emerald-400 {
-  color: #047857;
-}
-:root:not(.dark) .text-emerald-300 {
-  color: #065F46;
-}
-:root:not(.dark) .text-amber-400,
-:root:not(.dark) .text-amber-300,
-:root:not(.dark) .text-amber-200 {
-  color: #B45309;
-}
-:root:not(.dark) .text-rose-400,
-:root:not(.dark) .text-rose-300 {
-  color: #BE123C;
-}
-
-/* Reduced motion compliance */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* Architectural Grid Background */
+.bg-grid-architectural {
+  background-size: 36px 36px;
+  background-image:
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
 }

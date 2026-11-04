@@ -1,0 +1,18 @@
+# ============================================================================
+# Local Desk — Electron Builder Production Configuration (Signed Release Gate)
+# Extends electron-builder.yml and enforces mandatory Authenticode code signing.
+#
+# Usage (requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD):
+#   npm run desktop:dist:win:prod
+# ============================================================================
+extends: ./electron-builder.yml
+
+win:
+  icon: build/icon.ico
+  forceCodeSigning: true
+  signAndEditExecutable: true
+  signDlls: true
+  signingHashAlgorithms:
+    - sha256
+  timeStampServer: "http://timestamp.digicert.com"
+  rfc3161TimeStampServer: "http://timestamp.digicert.com"

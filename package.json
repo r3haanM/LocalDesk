@@ -1,11 +1,11 @@
 {
   "name": "local-desk",
   "productName": "Local Desk",
-  "description": "Local Desk — Privacy-First Windows Desktop PDF & Document Workspace",
-  "author": "Local Desk Document Systems",
+  "description": "Local Desk - Privacy-First Windows Desktop PDF & Document Workspace",
+  "author": "Local Desk",
   "license": "MIT",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.3",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -16,9 +16,13 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:qa": "tsx scripts/qa_validation_suite.ts",
-    "desktop:release": "tsx scripts/build_windows_release.ts",
+    "desktop:release": "FORCE_CODE_SIGNING=false ALLOW_UNSIGNED_DEV_BUILDS=true tsx scripts/build_windows_release.ts",
+    "desktop:release:dev": "FORCE_CODE_SIGNING=false ALLOW_UNSIGNED_DEV_BUILDS=true tsx scripts/build_windows_release.ts",
+    "desktop:release:prod": "FORCE_CODE_SIGNING=true ALLOW_UNSIGNED_DEV_BUILDS=false tsx scripts/build_windows_release.ts",
     "desktop:electron": "electron electron/main.cjs",
-    "desktop:dist:win": "vite build && electron-builder --win --x64 --config electron-builder.yml"
+    "desktop:dist:win": "FORCE_CODE_SIGNING=false ALLOW_UNSIGNED_DEV_BUILDS=true vite build && electron-builder --win --x64 --config electron-builder.yml",
+    "desktop:dist:win:dev": "FORCE_CODE_SIGNING=false ALLOW_UNSIGNED_DEV_BUILDS=true vite build && electron-builder --win --x64 --config electron-builder.yml",
+    "desktop:dist:win:prod": "FORCE_CODE_SIGNING=true ALLOW_UNSIGNED_DEV_BUILDS=false vite build && electron-builder --win --x64 --config electron-builder.prod.yml -c.win.forceCodeSigning=true"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

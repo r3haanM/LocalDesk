@@ -1,6 +1,19 @@
+# ============================================================================
+# Local Desk — Electron Builder Configuration (Development / Unsigned Default)
+# Compatible with electron-builder v24.x / v25.x
+#
+# Note on Environment Variables:
+# - Electron Builder natively reads: WIN_CSC_LINK (or CSC_LINK) and
+#   WIN_CSC_KEY_PASSWORD (or CSC_KEY_PASSWORD). When unset and
+#   forceCodeSigning is false, Electron Builder produces unsigned Windows
+#   NSIS and Portable builds without failing.
+# - Custom pipeline variables (FORCE_CODE_SIGNING, ALLOW_UNSIGNED_DEV_BUILDS,
+#   WIN_PUBLISHER_NAME, WIN_TIMESTAMP_SERVER) are consumed by
+#   scripts/authenticode_signer.ts and scripts/build_windows_release.ts.
+# ============================================================================
 appId: com.localdesk.pdfstudio
 productName: Local Desk
-copyright: Copyright © 2026 Local Desk Document Systems
+copyright: Copyright (C) 2026 Local Desk
 asar: true
 compression: normal
 
@@ -19,6 +32,9 @@ asarUnpack:
 
 win:
   icon: build/icon.ico
+  # Development build default: do not require a signing certificate or invent a publisherName
+  forceCodeSigning: false
+  signAndEditExecutable: true
   target:
     - target: nsis
       arch:
@@ -42,7 +58,7 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Local Desk
-  uninstallDisplayName: Local Desk — PDF & Document Studio
+  uninstallDisplayName: Local Desk - PDF & Document Studio
   deleteAppDataOnUninstall: false
   artifactName: "Local-Desk-Setup-${version}-${arch}.${ext}"
 

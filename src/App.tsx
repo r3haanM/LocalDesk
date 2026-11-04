@@ -11,12 +11,15 @@ import {
 } from './types/pdf';
 import { findToolById } from './data/toolsCatalog';
 import { TopNav } from './components/TopNav';
+import { DesktopTitleBar } from './components/DesktopTitleBar';
 import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
 import { CommandPalette } from './components/CommandPalette';
 import { LegalModal } from './components/LegalModal';
 import { DesktopReleaseModal } from './components/DesktopReleaseModal';
+import { ThemeAndAccountModal } from './components/ThemeAndAccountModal';
 import { HomeAndDirectory } from './components/HomeAndDirectory';
 import { StudioLaunchTransition } from './components/StudioLaunchTransition';
+import { VibeCodedOverlay } from './components/VibeCodedOverlay';
 import {
   openNativeFileDialogIfAvailable,
   createUploadedFileItemFromBytes,
@@ -57,18 +60,22 @@ export default function App() {
             parsed.appearance === 'light' ||
             parsed.appearance === 'system')
         ) {
-          return { appearance: parsed.appearance };
+          return {
+            appearance: parsed.appearance,
+            smoothScrolling: parsed.smoothScrolling !== false
+          };
         }
       }
     } catch {
       // Fallback
     }
     return {
-      appearance: 'dark'
+      appearance: 'dark',
+      smoothScrolling: true
     };
   });
 
-  // Apply appearance mode to <html> element and follow OS updates in System mode
+  // Apply appearance mode & smooth scrolling preference to <html> element
   useEffect(() => {
     const root = document.documentElement;
     root.removeAttribute('data-theme');
@@ -81,6 +88,7 @@ export default function App() {
         theme.appearance === 'dark' ||
         (theme.appearance === 'system' && mediaQuery.matches);
       root.classList.toggle('dark', isDark);
+      root.classList.toggle('smooth-scroll-enabled', theme.smoothScrolling !== false);
     };
 
     applyAppearance();
@@ -181,6 +189,7 @@ export default function App() {
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState<boolean>(false);
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
   const [desktopReleaseOpen, setDesktopReleaseOpen] = useState<boolean>(false);
+  const [preferencesOpen, setPreferencesOpen] = useState<boolean>(false);
 
   const handleSelectTool = useCallback(
     (tool: PdfToolDefinition, files: UploadedFileItem[] = []) => {
@@ -265,19 +274,38 @@ export default function App() {
 
   return (
     <div id="top" className="min-h-screen flex flex-col bg-theme-canvas text-theme-primary">
+      {/* Refined Windows Desktop Title Bar & Native Window Controls */}
+      <DesktopTitleBar
+        activeDocumentTitle={
+          activeView === 'workspace' && selectedTool
+            ? preloadedFiles[0]?.name
+              ? `${preloadedFiles[0].name} · ${selectedTool.name}`
+              : selectedTool.name
+            : 'All-in-One PDF & Document Studio'
+        }
+        onOpenPreferences={() => setPreferencesOpen(true)}
+        onNavigateHome={() => {
+          setActiveView('home');
+          setSelectedTool(null);
+          window.scrollTo({ top: 0, behavior: theme.smoothScrolling !== false ? 'smooth' : 'auto' });
+        }}
+      />
+
       {/* Top Bar Navigation */}
       <TopNav
         activeView={activeView === 'workspace' ? 'workspace' : 'home'}
         onNavigateHome={() => {
           setActiveView('home');
           setSelectedTool(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: theme.smoothScrolling !== false ? 'smooth' : 'auto' });
         }}
         onNavigateDirectory={handleNavigateDirectory}
         onSelectTool={(tool) => handleSelectTool(tool, [])}
         onOpenEditorDirect={handleOpenEditorDirect}
         appearance={theme.appearance}
-        onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
+        onUpdateAppearance={(mode: AppearanceMode) =>
+          setTheme((prev) => ({ ...prev, appearance: mode }))
+        }
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
         onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
       />
@@ -300,7 +328,9 @@ export default function App() {
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
                 onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
-                onUpdateAppearance={(mode: AppearanceMode) => setTheme({ appearance: mode })}
+                onUpdateAppearance={(mode: AppearanceMode) =>
+                  setTheme((prev) => ({ ...prev, appearance: mode }))
+                }
                 theme={theme}
                 account={account}
               />
@@ -443,12 +473,15 @@ export default function App() {
                 Export Source (.zip)
               </a>
               <span className="text-theme-muted font-mono">
-                © {new Date().getFullYear()} Local Desk Document Systems
+                © {new Date().getFullYear()} Local Desk · VibeCoded by Rehan Mumtaz
               </span>
             </div>
           </div>
         </footer>
       )}
+
+      {/* Floating Bottom-Right Forest Green & Emerald Signature Card (Shown on Home, Hidden in PDF Editor) */}
+      <VibeCodedOverlay visible={activeView === 'home' || !selectedTool} />
 
       {/* Global Command Palette (Ctrl+K / Cmd+K) */}
       <CommandPalette
@@ -461,6 +494,18 @@ export default function App() {
       <DesktopReleaseModal
         isOpen={desktopReleaseOpen}
         onClose={() => setDesktopReleaseOpen(false)}
+      />
+
+      {/* Workspace Preferences Modal (Appearance, Smooth Scrolling & Local Profile) */}
+      <ThemeAndAccountModal
+        isOpen={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
+        theme={theme}
+        onUpdateTheme={(next) => setTheme(next)}
+        account={account}
+        onSaveAccount={handleSaveAccount}
+        history={history}
+        onClearHistory={handleClearHistory}
       />
 
       {/* Privacy Policy & Terms Modal */}

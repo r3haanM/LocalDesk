@@ -117,7 +117,7 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    onClick={() => onUpdateTheme({ appearance: item.id })}
+                    onClick={() => onUpdateTheme({ ...theme, appearance: item.id })}
                     className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                       active
                         ? 'bg-theme-elevated text-theme-primary border border-theme-strong shadow-xs'
@@ -126,6 +126,51 @@ export const ThemeAndAccountModal: React.FC<ThemeAndAccountModalProps> = ({
                   >
                     <Icon className={`w-3.5 h-3.5 ${active ? 'text-theme-accent' : ''}`} />
                     <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* 1b. Smooth Scrolling Toggle (Default: On) */}
+          <section className="pt-4 border-t border-theme-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-theme-primary">Smooth Scrolling</h3>
+              <p className="text-xs text-theme-secondary">
+                Enable fluid viewport and panel scrolling (automatically respects OS reduced-motion settings).
+              </p>
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-label="Smooth Scrolling"
+              className="inline-flex items-center gap-1 p-1 bg-theme-muted border border-theme-subtle rounded-lg shrink-0"
+            >
+              {[
+                { id: true, label: 'On' },
+                { id: false, label: 'Off' }
+              ].map((opt) => {
+                const isSmoothEnabled = theme.smoothScrolling !== false;
+                const active = isSmoothEnabled === opt.id;
+                return (
+                  <button
+                    key={String(opt.id)}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() =>
+                      onUpdateTheme({
+                        ...theme,
+                        smoothScrolling: opt.id
+                      })
+                    }
+                    className={`inline-flex items-center justify-center py-1.5 px-4 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      active
+                        ? 'bg-theme-elevated text-theme-primary border border-theme-strong shadow-xs'
+                        : 'text-theme-secondary hover:text-theme-primary border border-transparent'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
                   </button>
                 );
               })}

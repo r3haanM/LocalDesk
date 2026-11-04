@@ -1681,6 +1681,35 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     }
   };
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('canvas-dragging-active', Boolean(dragState));
+    return () => {
+      document.documentElement.classList.remove('canvas-dragging-active');
+    };
+  }, [dragState]);
+
+  const getActiveCanvasCursorClass = (): string => {
+    if (dragState) {
+      if (dragState.mode === 'rotate') return 'cursor-grabbing';
+      if (dragState.mode === 'move') return 'cursor-move';
+      if (dragState.mode === 'resize') {
+        const dir = dragState.resizeDir || 'se';
+        if (dir === 'nw' || dir === 'se') return 'cursor-nwse-resize';
+        if (dir === 'ne' || dir === 'sw') return 'cursor-nesw-resize';
+        if (dir === 'n' || dir === 's') return 'cursor-ns-resize';
+        return 'cursor-ew-resize';
+      }
+      return 'cursor-crosshair';
+    }
+    if (toolMode === 'edit-text' || toolMode === 'add-text') {
+      return 'cursor-text';
+    }
+    if (toolMode !== 'select') {
+      return 'cursor-crosshair';
+    }
+    return 'cursor-default';
+  };
+
   const handleCanvasMouseUp = () => {
     setSnapGuides({ vertical: [], horizontal: [] });
     if (!dragState || !currentPage) return;
@@ -4962,9 +4991,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                 height: Math.round(currentPage.height * zoom),
                 transform: `rotate(${currentPage.rotation}deg)`
               }}
-              className={`relative bg-white shadow-2xl border border-black/15 transition-shadow shrink-0 my-auto ${
-                toolMode !== 'select' ? 'cursor-crosshair' : 'cursor-default'
-              }`}
+              className={`relative bg-white shadow-2xl border border-black/15 transition-shadow shrink-0 my-auto ${getActiveCanvasCursorClass()}`}
             >
               {/* Rendered PDF Page Canvas Image */}
               {pageBgUrl && (
@@ -5263,7 +5290,18 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                           ? 'ring-1 ring-amber-500/85 bg-amber-500/5 hover:ring-2 hover:ring-amber-400'
                           : 'ring-1 ring-cyan-500/55 hover:ring-2 hover:ring-emerald-500'
                         : 'hover:ring-1 hover:ring-emerald-500/75'
-                    } ${obj.locked ? 'cursor-not-allowed' : 'cursor-move'}`}
+                    } ${
+                      obj.locked
+                        ? 'cursor-not-allowed'
+                        : isEditingInline ||
+                          (toolMode === 'edit-text' &&
+                            (obj.type === 'native-text' ||
+                              obj.type === 'ocr-text' ||
+                              obj.type === 'added-text' ||
+                              obj.type === 'watermark'))
+                        ? 'cursor-text'
+                        : 'cursor-move'
+                    }`}
                   >
                     {/* OCR Confidence, Font Classification & Alignment Badge on Hover or Selection */}
                     {obj.type === 'ocr-text' &&

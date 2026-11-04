@@ -4,13 +4,21 @@ import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import JSZip from 'jszip';
-import { buildWindowsPe64Executable, computePeChecksum } from './pe64_builder';
+import {
+  buildWindowsPe64Executable,
+  buildSpecCompliantIcoBuffer,
+  computePeChecksum
+} from './pe64_builder';
+import {
+  inspectSigningEnvironment,
+  assertSigningReadinessForBuild,
+  signPe64ExecutableIfConfigured,
+  inspectPeAuthenticodeSignature
+} from './authenticode_signer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-
-export const PE64_SETUP_HEADER_SIZE = 65536; // 0x10000 (64 KB aligned PE32+ executable before SFX ZIP overlay)
 
 function sha256Hex(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -24,50 +32,38 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Builds a valid multi-resolution Windows .ico binary from PNG buffers
- * (16x16, 24x24, 32x32, 48x48, 64x64, 128x128, 256x256)
+ * Loads the 7 PNG icon layers (16..256px) and generates a spec-compliant Windows .ico
+ * where 16..128px are 32-bit BGRA BITMAPINFOHEADER DIBs and 256px is PNG.
  */
-async function buildWindowsIcoFile(): Promise<Buffer> {
-  const sizes = [16, 24, 32, 48, 64, 128, 256];
-  const pngBuffers: Array<{ size: number; data: Buffer }> = [];
+async function buildWindowsIcoAndLoadLayers(): Promise<{
+  icoBuffer: Buffer;
+  pngLayers: Array<{ size: number; pngData: Buffer }>;
+}> {
+  const sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
+  const pngLayers: Array<{ size: number; pngData: Buffer }> = [];
 
   for (const s of sizes) {
-    const pngPath = path.join(ROOT_DIR, 'public', 'brand', 'png', `local-desk-app-icon-${s}x${s}.png`);
-    const data = await fs.readFile(pngPath);
-    pngBuffers.push({ size: s, data });
+    const pngPath = path.join(
+      ROOT_DIR,
+      'public',
+      'brand',
+      'png',
+      `local-desk-app-icon-${s}x${s}.png`
+    );
+    const pngData = await fs.readFile(pngPath);
+    pngLayers.push({ size: s, pngData });
   }
 
-  const count = pngBuffers.length;
-  const headerSize = 6 + count * 16;
-  const header = Buffer.alloc(headerSize);
-
-  // ICONDIR header: Reserved (0), Type (1 = ICON), Count
-  header.writeUInt16LE(0, 0);
-  header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(count, 4);
-
-  let currentOffset = headerSize;
-  pngBuffers.forEach((item, idx) => {
-    const entryOffset = 6 + idx * 16;
-    header.writeUInt8(item.size === 256 ? 0 : item.size, entryOffset + 0); // Width (0 means 256)
-    header.writeUInt8(item.size === 256 ? 0 : item.size, entryOffset + 1); // Height (0 means 256)
-    header.writeUInt8(0, entryOffset + 2); // Color palette count
-    header.writeUInt8(0, entryOffset + 3); // Reserved
-    header.writeUInt16LE(1, entryOffset + 4); // Color planes
-    header.writeUInt16LE(32, entryOffset + 6); // Bits per pixel (32-bit RGBA)
-    header.writeUInt32LE(item.data.byteLength, entryOffset + 8); // Image data size
-    header.writeUInt32LE(currentOffset, entryOffset + 12); // Offset to PNG data
-    currentOffset += item.data.byteLength;
-  });
-
-  const icoBuffer = Buffer.concat([header, ...pngBuffers.map((p) => p.data)]);
+  const icoBuffer = buildSpecCompliantIcoBuffer(pngLayers);
   const buildDir = path.join(ROOT_DIR, 'build');
   await fs.mkdir(buildDir, { recursive: true });
   await fs.writeFile(path.join(buildDir, 'icon.ico'), icoBuffer);
   await fs.writeFile(path.join(ROOT_DIR, 'public', 'favicon.ico'), icoBuffer);
 
-  console.log(`[ICO] Generated multi-resolution Windows icon (16px..256px): ${icoBuffer.byteLength} bytes`);
-  return icoBuffer;
+  console.log(
+    `[ICO] Generated spec-compliant Windows .ico (16..128px 32-bit BGRA DIB + 256px PNG): ${icoBuffer.byteLength} bytes`
+  );
+  return { icoBuffer, pngLayers };
 }
 
 /**
@@ -91,11 +87,21 @@ async function bundleLocalOcrAssets() {
       dest: path.join(ocrPublicDir, 'tesseract-core.wasm')
     },
     {
-      src: path.join(ROOT_DIR, 'node_modules', 'tesseract.js-core', 'tesseract-core-simd-lstm.wasm.js'),
+      src: path.join(
+        ROOT_DIR,
+        'node_modules',
+        'tesseract.js-core',
+        'tesseract-core-simd-lstm.wasm.js'
+      ),
       dest: path.join(ocrPublicDir, 'tesseract-core-simd-lstm.wasm.js')
     },
     {
-      src: path.join(ROOT_DIR, 'node_modules', 'tesseract.js-core', 'tesseract-core-simd-lstm.wasm'),
+      src: path.join(
+        ROOT_DIR,
+        'node_modules',
+        'tesseract.js-core',
+        'tesseract-core-simd-lstm.wasm'
+      ),
       dest: path.join(ocrPublicDir, 'tesseract-core-simd-lstm.wasm')
     }
   ];
@@ -127,9 +133,26 @@ async function addDirectoryToZip(zip: JSZip, dirPath: string, zipFolder: string)
 }
 
 /**
- * Inspects a generated PE32+ executable buffer and verifies all Windows x64 loader invariants
+ * Inspects a generated PE32+ executable buffer and verifies all Windows 11 x64 loader invariants:
+ * - MZ (0x5A4D) + PE\0\0 (0x00004550)
+ * - Machine = 0x8664 (AMD64) + Magic = 0x020B (PE32+)
+ * - 5 isolated sections (.text, .rdata, .data, .rsrc, .reloc)
+ * - High-Entropy ASLR DllCharacteristics (0x8160)
+ * - Valid CheckSumMappedFile checksum
+ * - If SFX ZIP payload is present, verifies EOCD (PK\x05\x06) and all Central Directory (PK\x01\x02)
+ *   and Local Header (PK\x03\x04) offsets from byte 0 of the .exe!
  */
-export function verifyPe64BinaryInvariants(buf: Buffer, label: string) {
+export function verifyPe64BinaryInvariants(
+  buf: Buffer,
+  label: string,
+  expectSfxOverlay = false
+): {
+  peSectionsEndOffset: number;
+  checkSum: number;
+  sfxEntryCount: number;
+  hasVersionInfoResource: boolean;
+  isAuthenticodeSigned: boolean;
+} {
   const dosMagic = buf.readUInt16LE(0x00);
   if (dosMagic !== 0x5a4d) {
     throw new Error(`[${label}] Invalid DOS MZ signature: 0x${dosMagic.toString(16)}`);
@@ -141,36 +164,180 @@ export function verifyPe64BinaryInvariants(buf: Buffer, label: string) {
   }
   const machine = buf.readUInt16LE(lfanew + 4);
   if (machine !== 0x8664) {
-    throw new Error(`[${label}] Invalid Machine architecture: 0x${machine.toString(16)} (expected 0x8664 AMD64)`);
+    throw new Error(
+      `[${label}] Invalid Machine architecture: 0x${machine.toString(16)} (expected 0x8664 AMD64)`
+    );
   }
-  const optMagic = buf.readUInt16LE(lfanew + 24);
+  const numSections = buf.readUInt16LE(lfanew + 6);
+  if (numSections !== 5) {
+    throw new Error(`[${label}] Expected 5 PE sections (.text, .rdata, .data, .rsrc, .reloc), got ${numSections}`);
+  }
+  const optOff = lfanew + 24;
+  const optMagic = buf.readUInt16LE(optOff);
   if (optMagic !== 0x020b) {
-    throw new Error(`[${label}] Invalid OptionalHeader Magic: 0x${optMagic.toString(16)} (expected 0x020B PE32+)`);
+    throw new Error(
+      `[${label}] Invalid OptionalHeader Magic: 0x${optMagic.toString(16)} (expected 0x020B PE32+)`
+    );
   }
-  const subsystem = buf.readUInt16LE(lfanew + 24 + 0x44);
+  const subsystem = buf.readUInt16LE(optOff + 0x44);
   if (subsystem !== 2) {
     throw new Error(`[${label}] Invalid Subsystem: ${subsystem} (expected 2 = WINDOWS_GUI)`);
   }
-  const storedChecksum = buf.readUInt32LE(lfanew + 24 + 0x40);
-  const copy = Buffer.from(buf);
-  const expectedChecksum = computePeChecksum(copy, lfanew + 24 + 0x40);
-  if (storedChecksum !== expectedChecksum) {
-    throw new Error(
-      `[${label}] PE CheckSum mismatch: stored=0x${storedChecksum.toString(16)}, expected=0x${expectedChecksum.toString(16)}`
-    );
+  const dllChars = buf.readUInt16LE(optOff + 0x46);
+  if (dllChars !== 0x8160) {
+    throw new Error(`[${label}] Invalid DllCharacteristics: 0x${dllChars.toString(16)} (expected 0x8160)`);
   }
+
+  // Verify section boundaries and inspect .rsrc for RT_VERSION (Type 16, VS_FIXEDFILEINFO 0xFEEF04BD)
+  const secOff = optOff + 0xf0;
+  let maxRawEnd = 0;
+  let rsrcRawPtr = 0;
+  let rsrcRawSize = 0;
+  for (let i = 0; i < numSections; i++) {
+    const s = secOff + i * 40;
+    const secName = buf.subarray(s, s + 8).toString('ascii').replace(/\0+$/, '');
+    const rawSize = buf.readUInt32LE(s + 16);
+    const rawPtr = buf.readUInt32LE(s + 20);
+    if (rawPtr + rawSize > buf.byteLength) {
+      throw new Error(`[${label}] Section #${i} (${secName}) exceeds file length`);
+    }
+    if (secName === '.rsrc') {
+      rsrcRawPtr = rawPtr;
+      rsrcRawSize = rawSize;
+    }
+    if (rawPtr + rawSize > maxRawEnd) {
+      maxRawEnd = rawPtr + rawSize;
+    }
+  }
+
+  if (rsrcRawPtr === 0 || rsrcRawSize === 0) {
+    throw new Error(`[${label}] Missing .rsrc section`);
+  }
+  const rsrcSlice = buf.subarray(rsrcRawPtr, rsrcRawPtr + rsrcRawSize);
+  const fixedFileInfoMagic = Buffer.from([0xbd, 0x04, 0xef, 0xfe]); // 0xFEEF04BD in little-endian
+  const hasVersionInfoResource = rsrcSlice.includes(fixedFileInfoMagic);
+  if (!hasVersionInfoResource) {
+    throw new Error(`[${label}] Missing VS_VERSION_INFO (0xFEEF04BD) resource in .rsrc section`);
+  }
+
+  const storedChecksum = buf.readUInt32LE(optOff + 0x40);
+  const authInspect = inspectPeAuthenticodeSignature(buf, label);
+  if (!authInspect.isSigned) {
+    const copy = Buffer.from(buf);
+    const expectedChecksum = computePeChecksum(copy, optOff + 0x40);
+    if (storedChecksum !== expectedChecksum) {
+      throw new Error(
+        `[${label}] PE CheckSum mismatch: stored=0x${storedChecksum.toString(16)}, expected=0x${expectedChecksum.toString(16)}`
+      );
+    }
+  }
+
+  let sfxEntryCount = 0;
+  if (expectSfxOverlay) {
+    // Verify PK\x03\x04 starts immediately at maxRawEnd (zero unmapped gap)
+    const overlaySig = buf.readUInt32LE(maxRawEnd);
+    if (overlaySig !== 0x04034b50) {
+      throw new Error(
+        `[${label}] Expected PK\\x03\\x04 at PE end offset 0x${maxRawEnd.toString(16)}, got 0x${overlaySig.toString(16)}`
+      );
+    }
+
+    // If signed with Authenticode, the WIN_CERTIFICATE table sits after the SFX payload at securityDirOffset
+    const sfxEndOffset =
+      authInspect.securityDirOffset > maxRawEnd ? authInspect.securityDirOffset : buf.byteLength;
+
+    // Verify EOCD at sfxEndOffset - 22 has relocated Central Directory offset pointing to valid PK\x01\x02 from byte 0
+    const eocdOff = sfxEndOffset - 22;
+    const eocdSig = buf.readUInt32LE(eocdOff);
+    if (eocdSig !== 0x06054b50) {
+      throw new Error(`[${label}] Missing PK\\x05\\x06 EOCD at SFX end`);
+    }
+    sfxEntryCount = buf.readUInt16LE(eocdOff + 10);
+    const cdOffset = buf.readUInt32LE(eocdOff + 16);
+    const cdFirstSig = buf.readUInt32LE(cdOffset);
+    if (cdFirstSig !== 0x02014b50) {
+      throw new Error(
+        `[${label}] Corrupted EOCD cdOffset 0x${cdOffset.toString(16)}: expected PK\\x01\\x02 (0x02014b50), got 0x${cdFirstSig.toString(16)}`
+      );
+    }
+    // Verify first entry's local header offset from byte 0 lands on PK\x03\x04
+    const firstLocalOff = buf.readUInt32LE(cdOffset + 42);
+    const firstLocalSig = buf.readUInt32LE(firstLocalOff);
+    if (firstLocalSig !== 0x04034b50) {
+      throw new Error(
+        `[${label}] Corrupted Central Directory localHeaderOffset 0x${firstLocalOff.toString(16)}: expected PK\\x03\\x04, got 0x${firstLocalSig.toString(16)}`
+      );
+    }
+  }
+
+  return {
+    peSectionsEndOffset: maxRawEnd,
+    checkSum: storedChecksum,
+    sfxEntryCount,
+    hasVersionInfoResource,
+    isAuthenticodeSigned: authInspect.isSigned
+  };
+}
+
+/**
+ * Encodes a Windows PowerShell 5.1 (.ps1) script with a single UTF-8 BOM (0xEF 0xBB 0xBF),
+ * CRLF (\r\n) line endings, and strict ASCII-only punctuation verification so Windows PowerShell 5.1
+ * never misinterprets UTF-8 multi-byte sequences under system ANSI code pages (Windows-1252).
+ */
+export function encodePowerShellScriptWithUtf8Bom(
+  scriptContent: string,
+  scriptName: string
+): Buffer {
+  const withoutBom = scriptContent.replace(/^\uFEFF+/, '');
+  const crlfNormalized = withoutBom.replace(/\r?\n/g, '\r\n');
+  const bodyBuffer = Buffer.from(crlfNormalized, 'utf8');
+
+  // Audit script body to ensure zero non-ASCII bytes (>= 0x80) exist
+  for (let i = 0; i < bodyBuffer.byteLength; i++) {
+    const byte = bodyBuffer[i];
+    if (byte >= 0x80) {
+      throw new Error(
+        `[PS1-ENCODING] Non-ASCII byte 0x${byte.toString(16)} detected in ${scriptName} at offset ${i}. Use ASCII punctuation only.`
+      );
+    }
+  }
+
+  const utf8Bom = Buffer.from([0xef, 0xbb, 0xbf]);
+  const finalBuffer = Buffer.concat([utf8Bom, bodyBuffer]);
+
+  // Verify single BOM and no duplicate BOM
+  if (
+    finalBuffer[0] !== 0xef ||
+    finalBuffer[1] !== 0xbb ||
+    finalBuffer[2] !== 0xbf ||
+    (finalBuffer.byteLength >= 6 &&
+      finalBuffer[3] === 0xef &&
+      finalBuffer[4] === 0xbb &&
+      finalBuffer[5] === 0xbf)
+  ) {
+    throw new Error(`[PS1-ENCODING] Invalid or duplicate UTF-8 BOM on ${scriptName}`);
+  }
+
+  return finalBuffer;
 }
 
 async function main() {
-  console.log('=== LOCAL DESK WINDOWS x64 PE32+ DESKTOP RELEASE BUILDER (v1.0.1) ===');
+  console.log('=== LOCAL DESK WINDOWS 11 x64 PE32+ DESKTOP RELEASE BUILDER (v1.0.3) ===');
 
-  // 0. Clean stale release artifacts
+  // 0. Audit Authenticode Signing Environment & Enforce Production Signing Policy
+  const signingEnv = inspectSigningEnvironment();
+  assertSigningReadinessForBuild(signingEnv);
+  console.log(
+    `[SIGNING-AUDIT] BuildMode: "${signingEnv.buildMode}" | WIN_CSC_LINK: ${signingEnv.cscLinkRaw ? 'SET' : 'UNSET'} | WIN_CSC_KEY_PASSWORD: ${signingEnv.cscKeyPassword !== null ? 'SET' : 'UNSET'} | WIN_PUBLISHER_NAME: ${signingEnv.publisherName ?? 'UNSET'} | WIN_TIMESTAMP_SERVER: ${signingEnv.timestampServerUrl ?? 'UNSET'} | FORCE_CODE_SIGNING: ${signingEnv.forceCodeSigning} | ALLOW_UNSIGNED_DEV_BUILDS: ${signingEnv.allowUnsignedDevBuilds}`
+  );
+
   const releaseDir = path.join(ROOT_DIR, 'release');
-  await fs.rm(releaseDir, { recursive: true, force: true });
-  await fs.mkdir(releaseDir, { recursive: true });
+  const stagingDir = path.join(ROOT_DIR, 'release_staging_tmp');
+  await fs.rm(stagingDir, { recursive: true, force: true });
+  await fs.mkdir(stagingDir, { recursive: true });
 
-  // 1. Generate Windows .ico (16, 24, 32, 48, 64, 128, 256)
-  const icoBuffer = await buildWindowsIcoFile();
+  // 1. Generate spec-compliant Windows .ico (16..128px DIB + 256px PNG)
+  const { icoBuffer, pngLayers } = await buildWindowsIcoAndLoadLayers();
 
   // 2. Copy local OCR worker & WASM assets into /public/ocr/
   await bundleLocalOcrAssets();
@@ -179,41 +346,82 @@ async function main() {
   console.log('[BUILD] Running production Vite build...');
   execSync('npx vite build', { cwd: ROOT_DIR, stdio: 'inherit' });
 
-  // Verify dist/index.html has zero external CDN links
   const distIndexHtml = await fs.readFile(path.join(ROOT_DIR, 'dist', 'index.html'), 'utf-8');
-  if (distIndexHtml.includes('fonts.googleapis.com') || distIndexHtml.includes('cdn.jsdelivr.net')) {
+  if (
+    distIndexHtml.includes('fonts.googleapis.com') ||
+    distIndexHtml.includes('cdn.jsdelivr.net')
+  ) {
     throw new Error('Offline audit failed: External CDN URL found in dist/index.html');
   }
   console.log('[AUDIT] Verified dist/index.html contains 0 external CDN URLs.');
 
-  // 4. Build Native Windows x64 Application Executable ("Local Desk.exe")
-  // and Native Windows x64 Uninstaller Executable ("Uninstall Local Desk.exe")
-  console.log('[PE64] Compiling native 64-bit Windows PE32+ GUI executable: Local Desk.exe (0x8664 AMD64)...');
+  // 4. Compile & Sign Inner 64-bit Windows PE32+ GUI Executables ("Local Desk.exe" & "Uninstall Local Desk.exe")
+  // Inner executables MUST be compiled and signed BEFORE being packaged into the Portable ZIP or Setup SFX archive!
+  console.log(
+    '[PE64] Compiling native 64-bit Windows 11 PE32+ GUI executable: Local Desk.exe (0x8664 AMD64 + RT_VERSION)...'
+  );
   const appLauncherCommandLine =
     'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$exe=$env:LOCAL_DESK_EXE_PATH; $dir=Split-Path -Parent $exe; & (Join-Path $dir \'Launch-Local-Desk.ps1\')"';
 
-  const localDeskExeBytes = buildWindowsPe64Executable({
+  const rawLocalDeskExeBytes = buildWindowsPe64Executable({
     commandLine: appLauncherCommandLine,
-    waitForChildMs: 0, // Return immediately once desktop window launches
-    icoBuffer,
-    padToSize: PE64_SETUP_HEADER_SIZE
+    waitForChildMs: 0,
+    pngLayers,
+    versionInfo: {
+      companyName: signingEnv.publisherDisplayName,
+      fileDescription: 'Local Desk - All-in-One Privacy-First PDF & Document Studio',
+      fileVersion: '1.0.3.0',
+      internalName: 'LocalDesk',
+      legalCopyright: `Copyright (C) 2026 ${signingEnv.publisherDisplayName}`,
+      originalFilename: 'Local Desk.exe',
+      productName: 'Local Desk',
+      productVersion: '1.0.3.0',
+      versionTuple: [1, 0, 3, 0]
+    }
   });
-  verifyPe64BinaryInvariants(localDeskExeBytes, 'Local Desk.exe');
+  const signedLocalDeskExe = await signPe64ExecutableIfConfigured(
+    rawLocalDeskExeBytes,
+    'Local Desk.exe',
+    signingEnv
+  );
+  const localDeskExeBytes = signedLocalDeskExe.buffer;
+  verifyPe64BinaryInvariants(localDeskExeBytes, 'Local Desk.exe', false);
 
-  console.log('[PE64] Compiling native 64-bit Windows PE32+ GUI executable: Uninstall Local Desk.exe (0x8664 AMD64)...');
+  console.log(
+    '[PE64] Compiling native 64-bit Windows 11 PE32+ GUI executable: Uninstall Local Desk.exe (0x8664 AMD64 + RT_VERSION)...'
+  );
   const uninstallerCommandLine =
     'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$exe=$env:LOCAL_DESK_EXE_PATH; $dir=Split-Path -Parent $exe; & (Join-Path $dir \'Uninstall-Local-Desk.ps1\')"';
 
-  const uninstallExeBytes = buildWindowsPe64Executable({
+  const rawUninstallExeBytes = buildWindowsPe64Executable({
     commandLine: uninstallerCommandLine,
     waitForChildMs: 0xffffffff,
-    icoBuffer,
-    padToSize: PE64_SETUP_HEADER_SIZE
+    pngLayers,
+    versionInfo: {
+      companyName: signingEnv.publisherDisplayName,
+      fileDescription: 'Local Desk - Clean Windows Uninstaller',
+      fileVersion: '1.0.3.0',
+      internalName: 'UninstallLocalDesk',
+      legalCopyright: `Copyright (C) 2026 ${signingEnv.publisherDisplayName}`,
+      originalFilename: 'Uninstall Local Desk.exe',
+      productName: 'Local Desk',
+      productVersion: '1.0.3.0',
+      versionTuple: [1, 0, 3, 0]
+    }
   });
-  verifyPe64BinaryInvariants(uninstallExeBytes, 'Uninstall Local Desk.exe');
+  const signedUninstallExe = await signPe64ExecutableIfConfigured(
+    rawUninstallExeBytes,
+    'Uninstall Local Desk.exe',
+    signingEnv
+  );
+  const uninstallExeBytes = signedUninstallExe.buffer;
+  verifyPe64BinaryInvariants(uninstallExeBytes, 'Uninstall Local Desk.exe', false);
 
-  // 5. Supporting PowerShell & Batch Scripts bundled inside Portable & Installed Directory
-  const launchLocalDeskPs1 = `# Local Desk v1.0.1 — Standalone Windows x64 Desktop Application Host
+  // 5. Supporting PowerShell Scripts bundled inside Portable & Installed Directory
+  // All scripts use clean ASCII punctuation and are encoded as UTF-8 with BOM (0xEF 0xBB 0xBF)
+  const safePublisherAscii = signingEnv.publisherDisplayName.replace(/[^\x20-\x7E]/g, '');
+
+  const launchLocalDeskPs1 = `# Local Desk v1.0.3 - Standalone Windows 10/11 x64 Desktop Application Host
 $ErrorActionPreference = "SilentlyContinue"
 $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $IndexFile = Join-Path $AppDir "dist\\index.html"
@@ -265,7 +473,7 @@ foreach ($ChromePath in $ChromeCandidates) {
 Start-Process -FilePath $IndexFile
 `;
 
-  const installShortcutsPs1 = `# Local Desk v1.0.1 — Windows 10/11 x64 Installer & Shell Registration
+  const installShortcutsPs1 = `# Local Desk v1.0.3 - Windows 10/11 x64 Installer & Shell Registration
 $ErrorActionPreference = "Stop"
 $InstallDir = Join-Path $env:LOCALAPPDATA "Programs\\LocalDesk"
 $AppDataDir = Join-Path $env:APPDATA "Local Desk"
@@ -285,8 +493,8 @@ if ($DesktopDir -and (Test-Path -LiteralPath $DesktopDir)) {
   $DesktopShortcut = $WshShell.CreateShortcut((Join-Path $DesktopDir "Local Desk.lnk"))
   $DesktopShortcut.TargetPath = $ExePath
   $DesktopShortcut.WorkingDirectory = $InstallDir
-  $DesktopShortcut.IconLocation = "$ExePath,0"
-  $DesktopShortcut.Description = "Local Desk — All-in-One Privacy-First PDF & Document Studio"
+  $DesktopShortcut.IconLocation = "$IcoPath,0"
+  $DesktopShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'
   $DesktopShortcut.Save()
 }
 
@@ -297,15 +505,15 @@ if ($ProgramsDir) {
   $StartShortcut = $WshShell.CreateShortcut((Join-Path $StartMenuDir "Local Desk.lnk"))
   $StartShortcut.TargetPath = $ExePath
   $StartShortcut.WorkingDirectory = $InstallDir
-  $StartShortcut.IconLocation = "$ExePath,0"
-  $StartShortcut.Description = "Local Desk — All-in-One Privacy-First PDF & Document Studio"
+  $StartShortcut.IconLocation = "$IcoPath,0"
+  $StartShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'
   $StartShortcut.Save()
 
   $UninstallShortcut = $WshShell.CreateShortcut((Join-Path $StartMenuDir "Uninstall Local Desk.lnk"))
   $UninstallShortcut.TargetPath = $UninstPath
   $UninstallShortcut.WorkingDirectory = $InstallDir
   $UninstallShortcut.IconLocation = "$IcoPath,0"
-  $UninstallShortcut.Description = "Uninstall Local Desk"
+  $UninstallShortcut.Description = 'Uninstall Local Desk'
   $UninstallShortcut.Save()
 }
 
@@ -313,7 +521,7 @@ if ($ProgramsDir) {
 $ClassesKey = "HKCU:\\Software\\Classes\\LocalDesk.PDF"
 New-Item -Path "$ClassesKey\\DefaultIcon" -Force | Out-Null
 Set-ItemProperty -Path "$ClassesKey" -Name "(Default)" -Value "PDF Document (Local Desk)"
-Set-ItemProperty -Path "$ClassesKey\\DefaultIcon" -Name "(Default)" -Value "\`"$ExePath\`",0"
+Set-ItemProperty -Path "$ClassesKey\\DefaultIcon" -Name "(Default)" -Value "\`"$IcoPath\`",0"
 New-Item -Path "$ClassesKey\\shell\\open\\command" -Force | Out-Null
 Set-ItemProperty -Path "$ClassesKey\\shell\\open\\command" -Name "(Default)" -Value "\`"$ExePath\`" \`"%1\`""
 
@@ -321,19 +529,22 @@ Set-ItemProperty -Path "$ClassesKey\\shell\\open\\command" -Name "(Default)" -Va
 $UninstallKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LocalDesk"
 New-Item -Path $UninstallKey -Force | Out-Null
 Set-ItemProperty -Path $UninstallKey -Name "DisplayName" -Value "Local Desk"
-Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value "1.0.1"
-Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "Local Desk Document Systems"
-Set-ItemProperty -Path $UninstallKey -Name "DisplayIcon" -Value "\`"$ExePath\`",0"
+Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value "1.0.3"
+Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "${safePublisherAscii}"
+Set-ItemProperty -Path $UninstallKey -Name "DisplayIcon" -Value "\`"$IcoPath\`",0"
 Set-ItemProperty -Path $UninstallKey -Name "InstallLocation" -Value $InstallDir
 Set-ItemProperty -Path $UninstallKey -Name "UninstallString" -Value "\`"$UninstPath\`""
 Set-ItemProperty -Path $UninstallKey -Name "NoModify" -Type DWord -Value 1
 Set-ItemProperty -Path $UninstallKey -Name "NoRepair" -Type DWord -Value 1
 
+# Refresh Windows 10/11 Shell & Taskbar Icon Cache so crisp multi-res icons appear immediately
+Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
+
 # Launch Local Desk.exe immediately after installation completes
 Start-Process -FilePath $ExePath -WorkingDirectory $InstallDir
 `;
 
-  const uninstallLocalDeskPs1 = `# Local Desk v1.0.1 — Clean Windows Uninstaller
+  const uninstallLocalDeskPs1 = `# Local Desk v1.0.3 - Clean Windows Uninstaller
 $ErrorActionPreference = "SilentlyContinue"
 $DesktopDir = [Environment]::GetFolderPath('Desktop')
 if ($DesktopDir) {
@@ -350,8 +561,93 @@ Add-Type -AssemblyName PresentationFramework
 [System.Windows.MessageBox]::Show("Local Desk shortcuts, file associations, and temporary caches have been removed.", "Uninstall Local Desk", "OK", "Information") | Out-Null
 `;
 
-  // 6. Build Portable Windows Package (Local-Desk-Portable-1.0.1-win-x64.zip)
-  console.log('[PACKAGE] Building Local-Desk-Portable-1.0.1-win-x64.zip...');
+  const verifySignaturesPs1 = `# Local Desk v1.0.3 - Windows Authenticode Signature & SHA-256 Verification Script
+param(
+  [switch]$RequireValidSignature = $false
+)
+$ErrorActionPreference = "Stop"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SetupCandidate = Join-Path $ScriptDir "Local-Desk-Setup-1.0.3-x64.exe"
+$LocalExeCandidate = Join-Path $ScriptDir "Local Desk.exe"
+$InstalledExeCandidate = Join-Path $env:LOCALAPPDATA "Programs\\LocalDesk\\Local Desk.exe"
+$InstalledUninstCandidate = Join-Path $env:LOCALAPPDATA "Programs\\LocalDesk\\Uninstall Local Desk.exe"
+
+$Targets = @()
+if (Test-Path -LiteralPath $SetupCandidate) { $Targets += $SetupCandidate }
+if (Test-Path -LiteralPath $LocalExeCandidate) { $Targets += $LocalExeCandidate }
+if (Test-Path -LiteralPath $InstalledExeCandidate) { $Targets += $InstalledExeCandidate }
+if (Test-Path -LiteralPath $InstalledUninstCandidate) { $Targets += $InstalledUninstCandidate }
+
+if ($Targets.Count -eq 0) {
+  Write-Error "No Local Desk executables found to verify in $ScriptDir or %LOCALAPPDATA%\\Programs\\LocalDesk."
+  exit 1
+}
+
+$AnyFailed = $false
+foreach ($FilePath in $Targets) {
+  Write-Host "=================================================================="
+  Write-Host "Inspecting File: $FilePath"
+  $HashObj = Get-FileHash -LiteralPath $FilePath -Algorithm SHA256
+  $VerInfo = (Get-Item -LiteralPath $FilePath).VersionInfo
+  $Sig = Get-AuthenticodeSignature -LiteralPath $FilePath
+
+  Write-Host "  SHA-256 Checksum   : $($HashObj.Hash.ToLower())"
+  Write-Host "  Product Name       : $($VerInfo.ProductName)"
+  Write-Host "  Product Version    : $($VerInfo.ProductVersion)"
+  Write-Host "  Publisher Metadata : $($VerInfo.CompanyName)"
+  Write-Host "  Signature Status   : $($Sig.Status)"
+  Write-Host "  Status Message     : $($Sig.StatusMessage)"
+
+  if ($Sig.SignerCertificate) {
+    Write-Host "  Signer Subject     : $($Sig.SignerCertificate.Subject)"
+    Write-Host "  Signer Issuer      : $($Sig.SignerCertificate.Issuer)"
+    Write-Host "  Cert Thumbprint    : $($Sig.SignerCertificate.Thumbprint)"
+    Write-Host "  Valid From / To    : $($Sig.SignerCertificate.NotBefore) -> $($Sig.SignerCertificate.NotAfter)"
+  } else {
+    Write-Host "  Signer Certificate : None (Unsigned Binary)"
+  }
+
+  if ($Sig.TimeStamperCertificate) {
+    Write-Host "  Timestamp Authority: $($Sig.TimeStamperCertificate.Subject)"
+  } else {
+    Write-Host "  Timestamp Authority: None"
+  }
+
+  if ($RequireValidSignature -and ($Sig.Status -ne 'Valid')) {
+    Write-Error "FAIL: Production signature verification failed for $FilePath (Status: $($Sig.Status))"
+    $AnyFailed = $true
+  }
+}
+
+if ($AnyFailed) {
+  exit 1
+}
+Write-Host "=================================================================="
+Write-Host "Verification completed."
+`;
+
+  const launchPs1Buffer = encodePowerShellScriptWithUtf8Bom(
+    launchLocalDeskPs1,
+    'Launch-Local-Desk.ps1'
+  );
+  const installPs1Buffer = encodePowerShellScriptWithUtf8Bom(
+    installShortcutsPs1,
+    'Install-Local-Desk-Shortcuts.ps1'
+  );
+  const uninstallPs1Buffer = encodePowerShellScriptWithUtf8Bom(
+    uninstallLocalDeskPs1,
+    'Uninstall-Local-Desk.ps1'
+  );
+  const verifySignaturesPs1Buffer = encodePowerShellScriptWithUtf8Bom(
+    verifySignaturesPs1,
+    'Verify-Local-Desk-Signatures.ps1'
+  );
+  console.log(
+    `[PS1-ENCODING] Verified UTF-8 BOM (EF BB BF) & pure ASCII body on Launch-Local-Desk.ps1 (${launchPs1Buffer.byteLength}B), Install-Local-Desk-Shortcuts.ps1 (${installPs1Buffer.byteLength}B), Uninstall-Local-Desk.ps1 (${uninstallPs1Buffer.byteLength}B), Verify-Local-Desk-Signatures.ps1 (${verifySignaturesPs1Buffer.byteLength}B)`
+  );
+
+  // 6. Build Portable Windows Package (Local-Desk-Portable-1.0.3-win-x64.zip) in staging directory
+  console.log('[PACKAGE] Building Local-Desk-Portable-1.0.3-win-x64.zip...');
   const portableZip = new JSZip();
   await addDirectoryToZip(portableZip, path.join(ROOT_DIR, 'dist'), 'dist');
   await addDirectoryToZip(portableZip, path.join(ROOT_DIR, 'electron'), 'electron');
@@ -359,10 +655,14 @@ Add-Type -AssemblyName PresentationFramework
   portableZip.file('Uninstall Local Desk.exe', uninstallExeBytes);
   portableZip.file('build/icon.ico', icoBuffer);
   portableZip.file('package.json', await fs.readFile(path.join(ROOT_DIR, 'package.json')));
-  portableZip.file('electron-builder.yml', await fs.readFile(path.join(ROOT_DIR, 'electron-builder.yml')));
-  portableZip.file('Launch-Local-Desk.ps1', launchLocalDeskPs1.replace(/\n/g, '\r\n'));
-  portableZip.file('Install-Local-Desk-Shortcuts.ps1', installShortcutsPs1.replace(/\n/g, '\r\n'));
-  portableZip.file('Uninstall-Local-Desk.ps1', uninstallLocalDeskPs1.replace(/\n/g, '\r\n'));
+  portableZip.file(
+    'electron-builder.yml',
+    await fs.readFile(path.join(ROOT_DIR, 'electron-builder.yml'))
+  );
+  portableZip.file('Launch-Local-Desk.ps1', launchPs1Buffer);
+  portableZip.file('Install-Local-Desk-Shortcuts.ps1', installPs1Buffer);
+  portableZip.file('Uninstall-Local-Desk.ps1', uninstallPs1Buffer);
+  portableZip.file('Verify-Local-Desk-Signatures.ps1', verifySignaturesPs1Buffer);
 
   const portableBytes = await portableZip.generateAsync({
     type: 'nodebuffer',
@@ -370,75 +670,206 @@ Add-Type -AssemblyName PresentationFramework
     compressionOptions: { level: 6 }
   });
 
-  const portablePath101 = path.join(releaseDir, 'Local-Desk-Portable-1.0.1-win-x64.zip');
-  await fs.writeFile(portablePath101, portableBytes);
-
-  // 7. Build Native 64-bit PE32+ Windows Setup Installer (Local-Desk-Setup-1.0.1-x64.exe)
-  console.log('[PACKAGE] Compiling native PE32+ Windows x64 Installer: Local-Desk-Setup-1.0.1-x64.exe...');
+  // 7. Build & Sign Native 64-bit PE32+ Windows Setup Installer (Local-Desk-Setup-1.0.3-x64.exe)
+  // Extracts directly via .NET System.IO.Compression.ZipFile using relocated SFX Central Directory offsets!
+  console.log(
+    '[PACKAGE] Compiling native PE32+ Windows 11 x64 Installer: Local-Desk-Setup-1.0.3-x64.exe...'
+  );
   const setupInstallerCommandLine =
-    `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$ErrorActionPreference='Stop'; try { $exe=$env:LOCAL_DESK_EXE_PATH; $dest=Join-Path $env:LOCALAPPDATA 'Programs\\LocalDesk'; New-Item -ItemType Directory -Force -Path $dest | Out-Null; $tmpZip=Join-Path $env:TEMP ('LocalDeskSetup_' + [guid]::NewGuid().ToString('N') + '.zip'); $fs=[System.IO.File]::OpenRead($exe); $fs.Seek(${PE64_SETUP_HEADER_SIZE},[System.IO.SeekOrigin]::Begin) | Out-Null; $out=[System.IO.File]::Create($tmpZip); $fs.CopyTo($out); $out.Close(); $fs.Close(); Expand-Archive -LiteralPath $tmpZip -DestinationPath $dest -Force; Remove-Item -LiteralPath $tmpZip -Force -ErrorAction SilentlyContinue; & (Join-Path $dest 'Install-Local-Desk-Shortcuts.ps1') } catch { Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Local Desk Setup encountered an error: ' + $_.Exception.Message, 'Local Desk v1.0.1 Setup', 'OK', 'Error') }"`;
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$ErrorActionPreference=\'Stop\'; try { Add-Type -AssemblyName System.IO.Compression.FileSystem; $exe=$env:LOCAL_DESK_EXE_PATH; $dest=Join-Path $env:LOCALAPPDATA \'Programs\\LocalDesk\'; New-Item -ItemType Directory -Force -Path $dest | Out-Null; $za=[System.IO.Compression.ZipFile]::OpenRead($exe); foreach($e in $za.Entries){ $fp=Join-Path $dest ($e.FullName -replace \'/\',\'\\\'); $dp=Split-Path -Parent $fp; if($dp){ New-Item -ItemType Directory -Force -Path $dp | Out-Null }; if($e.Name){ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($e, $fp, $true) } }; $za.Dispose(); & (Join-Path $dest \'Install-Local-Desk-Shortcuts.ps1\') } catch { Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show(\'Local Desk Setup encountered an error: \' + $_.Exception.Message, \'Local Desk v1.0.3 Setup\', \'OK\', \'Error\') }"';
 
-  const setupExeBytes = buildWindowsPe64Executable({
+  const rawSetupExeBytes = buildWindowsPe64Executable({
     commandLine: setupInstallerCommandLine,
-    waitForChildMs: 0xffffffff, // Wait until extraction & shortcut setup finishes
-    icoBuffer,
-    padToSize: PE64_SETUP_HEADER_SIZE,
-    overlayPayload: portableBytes
+    waitForChildMs: 0xffffffff,
+    pngLayers,
+    sfxZipPayload: portableBytes,
+    versionInfo: {
+      companyName: signingEnv.publisherDisplayName,
+      fileDescription: 'Local Desk Setup - Windows 10/11 x64 Desktop Installer',
+      fileVersion: '1.0.3.0',
+      internalName: 'LocalDeskSetup',
+      legalCopyright: `Copyright (C) 2026 ${signingEnv.publisherDisplayName}`,
+      originalFilename: 'Local-Desk-Setup-1.0.3-x64.exe',
+      productName: 'Local Desk',
+      productVersion: '1.0.3.0',
+      versionTuple: [1, 0, 3, 0]
+    }
   });
-  verifyPe64BinaryInvariants(setupExeBytes, 'Local-Desk-Setup-1.0.1-x64.exe');
 
-  const setupExePath101 = path.join(releaseDir, 'Local-Desk-Setup-1.0.1-x64.exe');
-  await fs.writeFile(setupExePath101, setupExeBytes);
+  // Sign the outer Setup installer LAST and never modify it after signing!
+  const signedSetupExe = await signPe64ExecutableIfConfigured(
+    rawSetupExeBytes,
+    'Local-Desk-Setup-1.0.3-x64.exe',
+    signingEnv
+  );
+  const setupExeBytes = signedSetupExe.buffer;
 
-  // 8. Compute SHA-256 Checksums & Write Release Documentation
-  const setupSha256 = sha256Hex(setupExeBytes);
-  const portableSha256 = sha256Hex(portableBytes);
+  const sfxVerification = verifyPe64BinaryInvariants(
+    setupExeBytes,
+    'Local-Desk-Setup-1.0.3-x64.exe',
+    true
+  );
+  console.log(
+    `[VERIFY] Local-Desk-Setup-1.0.3-x64.exe PE32+, RT_VERSION & Relocated SFX ZIP verified: peEndOffset=0x${sfxVerification.peSectionsEndOffset.toString(16)}, checkSum=0x${sfxVerification.checkSum.toString(16)}, sfxEntries=${sfxVerification.sfxEntryCount}, signed=${sfxVerification.isAuthenticodeSigned}`
+  );
+
+  // 8. Write binary artifacts to staging first, then compute SHA256SUMS.txt AFTER disk write
+  const stagedSetupPath = path.join(stagingDir, 'Local-Desk-Setup-1.0.3-x64.exe');
+  const stagedPortablePath = path.join(stagingDir, 'Local-Desk-Portable-1.0.3-win-x64.zip');
+  const stagedVerifyPs1Path = path.join(stagingDir, 'Verify-Local-Desk-Signatures.ps1');
+  await fs.writeFile(stagedSetupPath, setupExeBytes);
+  await fs.writeFile(stagedPortablePath, portableBytes);
+  await fs.writeFile(stagedVerifyPs1Path, verifySignaturesPs1Buffer);
+
+  // Re-read written files from disk to guarantee zero write-truncation before computing SHA-256
+  const diskSetupBytes = await fs.readFile(stagedSetupPath);
+  const diskPortableBytes = await fs.readFile(stagedPortablePath);
+  if (
+    diskSetupBytes.byteLength !== setupExeBytes.byteLength ||
+    diskPortableBytes.byteLength !== portableBytes.byteLength
+  ) {
+    throw new Error('Disk write verification failed: byte length mismatch');
+  }
+
+  const setupSha256 = sha256Hex(diskSetupBytes);
+  const portableSha256 = sha256Hex(diskPortableBytes);
   const appExeSha256 = sha256Hex(localDeskExeBytes);
+  const uninstExeSha256 = sha256Hex(uninstallExeBytes);
   const icoSha256 = sha256Hex(icoBuffer);
 
-  const sha256SumsTxt = `${setupSha256}  Local-Desk-Setup-1.0.1-x64.exe
-${portableSha256}  Local-Desk-Portable-1.0.1-win-x64.zip
+  const sha256SumsTxt = `${setupSha256}  Local-Desk-Setup-1.0.3-x64.exe
+${portableSha256}  Local-Desk-Portable-1.0.3-win-x64.zip
 ${appExeSha256}  Local Desk.exe
+${uninstExeSha256}  Uninstall Local Desk.exe
 ${icoSha256}  icon.ico
 `;
 
-  const releaseNotesMd = `# Local Desk v1.0.1 — Windows 64-bit (x64) Desktop Release Notes
+  const signingStatusLabel = sfxVerification.isAuthenticodeSigned
+    ? 'SIGNED_PRODUCTION_RELEASE'
+    : 'UNSIGNED_DEVELOPMENT_BUILD';
+
+  const releaseNotesMd = `# Local Desk v1.0.3 - Windows 11 64-bit (x64) Desktop Release Notes
 
 **Release Date:** ${new Date().toISOString().slice(0, 10)}  
+**Build Mode:** \`${signingEnv.buildMode}\` (\`FORCE_CODE_SIGNING=${signingEnv.forceCodeSigning}\`, \`ALLOW_UNSIGNED_DEV_BUILDS=${signingEnv.allowUnsignedDevBuilds}\`)  
 **Target Platform:** Windows 10 & Windows 11 (64-bit / x64, \`IMAGE_FILE_MACHINE_AMD64 = 0x8664\`)  
-**Binary Format:** Native PE32+ (\`MZ\` \`0x5A4D\` / \`PE\\0\\0\` \`0x00004550\` / \`PE32+\` \`0x020B\` / \`WINDOWS_GUI\`)  
+**Binary Format:** 5-Section PE32+ (\`.text\`, \`.rdata\`, \`.data\`, \`.rsrc\` with \`RT_VERSION\`, \`.reloc\`, \`DllCharacteristics = 0x8160\`) + Relocated PKZIP SFX + UTF-8 BOM PowerShell 5.1 Scripts  
+**Certificate Publisher Identity (\`WIN_PUBLISHER_NAME\`):** \`${signingEnv.publisherName ?? 'UNSET (Unsigned Development Build)'}\`  
+**Authenticode Signing Status:** \`${signingStatusLabel}\`  
 
 ## 1. Release Artifacts & SHA-256 Checksums
 
-| Artifact File | Format | Architecture | Size | SHA-256 Checksum |
-| :--- | :--- | :--- | :--- | :--- |
-| \`Local-Desk-Setup-1.0.1-x64.exe\` | PE32+ GUI Installer | Windows x64 (\`0x8664\`) | ${formatBytes(setupExeBytes.byteLength)} | \`${setupSha256}\` |
-| \`Local-Desk-Portable-1.0.1-win-x64.zip\` | Portable ZIP (contains \`Local Desk.exe\`) | Windows x64 (\`0x8664\`) | ${formatBytes(portableBytes.byteLength)} | \`${portableSha256}\` |
-| \`Local Desk.exe\` | PE32+ GUI Application Executable | Windows x64 (\`0x8664\`) | ${formatBytes(localDeskExeBytes.byteLength)} | \`${appExeSha256}\` |
-| \`build/icon.ico\` | 7-Layer Multi-Size Windows Icon | 16px–256px RGBA | ${formatBytes(icoBuffer.byteLength)} | \`${icoSha256}\` |
-
-## 2. Critical Bug Fix in v1.0.1 ("This app can't run on your PC")
-
-- **Root Cause Fixed:** In v1.0.0, \`Local-Desk-Setup-1.0.0-x64.exe\` was constructed with an ASCII batch header (\`@echo off\`, magic bytes \`0x40 0x65\`) instead of a valid 64-bit Windows Portable Executable (\`PE32+\`) header (\`MZ\` \`0x5A4D\` + \`PE\\0\\0\` + \`0x8664\`). On 64-bit Windows 10/11 (which lacks the 16-bit NTVDM subsystem), \`NtCreateUserProcess\` rejected the non-MZ \`.exe\` with \`STATUS_INVALID_IMAGE_NOT_MZ\` (\`0xC000012F\`), triggering the Windows dialog *"This app can't run on your PC"*.
-- **Fix Implemented:** Built a native x86-64 PE32+ binary compiler (\`scripts/pe64_builder.ts\`) producing spec-compliant 64-bit Windows GUI executables (\`Local-Desk-Setup-1.0.1-x64.exe\`, \`Local Desk.exe\`, and \`Uninstall Local Desk.exe\`) with valid \`MZ\`/\`PE\\0\\0\` headers, \`IMAGE_FILE_MACHINE_AMD64 (0x8664)\`, \`PE32+ (0x020B)\` optional headers, verified PE CheckSums, \`KERNEL32.dll\` IAT imports, embedded 7-layer \`RT_ICON\`/\`RT_GROUP_ICON\` resources, and an \`asInvoker\` Win32 \`RT_MANIFEST\`.
+| Artifact File | Format | Architecture | Authenticode Status | Size | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| \`Local-Desk-Setup-1.0.3-x64.exe\` | PE32+ GUI Installer | Windows x64 (\`0x8664\`) | \`${signedSetupExe.inspection.statusSummary}\` | ${formatBytes(diskSetupBytes.byteLength)} (${diskSetupBytes.byteLength} B) | \`${setupSha256}\` |
+| \`Local-Desk-Portable-1.0.3-win-x64.zip\` | Portable ZIP (contains \`Local Desk.exe\`) | Windows x64 (\`0x8664\`) | Contains \`Local Desk.exe\` | ${formatBytes(diskPortableBytes.byteLength)} (${diskPortableBytes.byteLength} B) | \`${portableSha256}\` |
+| \`Local Desk.exe\` | PE32+ GUI Application Executable | Windows x64 (\`0x8664\`) | \`${signedLocalDeskExe.inspection.statusSummary}\` | ${formatBytes(localDeskExeBytes.byteLength)} (${localDeskExeBytes.byteLength} B) | \`${appExeSha256}\` |
+| \`Uninstall Local Desk.exe\` | PE32+ GUI Uninstaller Executable | Windows x64 (\`0x8664\`) | \`${signedUninstallExe.inspection.statusSummary}\` | ${formatBytes(uninstallExeBytes.byteLength)} (${uninstallExeBytes.byteLength} B) | \`${uninstExeSha256}\` |
+| \`build/icon.ico\` | 7-Layer Windows Icon (DIB + PNG) | 16px-256px BGRA | N/A | ${formatBytes(icoBuffer.byteLength)} (${icoBuffer.byteLength} B) | \`${icoSha256}\` |
 `;
 
-  const architectureAuditMd = `# Local Desk — Windows Desktop Architecture, PE32+ Binary & Offline Audit Report
+  const authenticodeGuideMd = `# Local Desk - Windows Authenticode Code-Signing & SmartScreen Readiness Guide
 
-## 1. PE32+ (x64) Executable Verification Summary
+## 1. Current Signing Status & Audit Summary
 
-| PE Header / Section Field | Verified Value | Windows 10/11 x64 Requirement |
+- **Current Build Status:** \`${signingStatusLabel}\`
+- **Configured Publisher Identity:** \`${signingEnv.publisherName}\` (embedded consistently across \`VS_VERSION_INFO\` \`CompanyName\`, Windows Registry \`HKCU\\...\\Uninstall\\LocalDesk\\Publisher\`, \`electron-builder.yml\`, and \`package.json\`).
+- **Executables in Release Pipeline:**
+  1. \`Local Desk.exe\` (Main PE32+ x64 application executable - signed **before** packaging into Portable ZIP and Setup SFX archive).
+  2. \`Uninstall Local Desk.exe\` (PE32+ x64 uninstaller executable - signed **before** packaging into Portable ZIP and Setup SFX archive).
+  3. \`Local-Desk-Setup-1.0.3-x64.exe\` (Outer PE32+ x64 installer - signed **last** after SFX assembly; never modified after signing).
+
+> **Honest Status Note:** If \`WIN_CSC_LINK\` and \`WIN_CSC_KEY_PASSWORD\` have not yet been provisioned with a publicly trusted CA certificate, the generated binaries in development/pre-certificate mode remain unsigned (\`IMAGE_DIRECTORY_ENTRY_SECURITY = 0\`). Running \`npm run desktop:release:prod\` (\`FORCE_CODE_SIGNING=true\`) strictly fails the build until a valid certificate is supplied.
+
+---
+
+## 2. Required Certificate Type & Acquisition
+
+To satisfy Windows 10/11 Authenticode verification and establish Microsoft Defender SmartScreen publisher reputation, acquire one of the following from a publicly trusted Certificate Authority (DigiCert, Sectigo, GlobalSign, Entrust, or Microsoft):
+
+1. **Azure Trusted Signing (Recommended for Modern Windows Distribution):**
+   - Cloud-managed FIPS 140-2 Level 3 HSM-backed signing managed by Microsoft.
+   - Rapid identity validation for organizations and verified individual developers.
+2. **Extended Validation (EV) or Organization Validation (OV) Code Signing Certificate:**
+   - Stored on a FIPS 140-2 Level 2+ hardware token (e.g., SafeNet eToken) or Cloud HSM, or exported as an encrypted PKCS#12 (\`.pfx\` / \`.p12\`) bundle where supported.
+   - Must support **SHA-256** digest signing (\`/fd sha256\`) and **RFC 3161 SHA-256 Timestamping** (\`/tr http://timestamp.digicert.com /td sha256\`).
+
+---
+
+## 3. Secure Environment Variable Provisioning
+
+Never commit \`.pfx\`/\`.p12\` files or passwords to Git. Configure the following environment variables in your CI/CD secret store or local environment before running \`npm run desktop:release:prod\`:
+
+\`\`\`powershell
+# Path to trusted PFX/P12 file OR base64-encoded PFX payload
+$env:WIN_CSC_LINK = "C:\\secure-certs\\local-desk-authenticode.pfx"
+
+# Password unlocking the PFX private key (never logged)
+$env:WIN_CSC_KEY_PASSWORD = "<YOUR_CERT_PASSWORD>"
+
+# Exact verified Subject Name (CN) on your certificate
+$env:WIN_PUBLISHER_NAME = "Local Desk"
+
+# RFC 3161 Timestamp Authority URL
+$env:WIN_TIMESTAMP_SERVER = "http://timestamp.digicert.com"
+
+# Enforce mandatory code signing (build aborts if signing fails or credentials are missing)
+$env:FORCE_CODE_SIGNING = "true"
+\`\`\`
+
+---
+
+## 4. Production Signing & Verification Procedure
+
+1. **Build Signed Production Release:**
+   \`\`\`bash
+   npm run desktop:release:prod
+   \`\`\`
+2. **Verify Signatures & Checksums on Windows PowerShell:**
+   Run the bundled verification script:
+   \`\`\`powershell
+   powershell.exe -ExecutionPolicy Bypass -File .\\release\\Verify-Local-Desk-Signatures.ps1 -RequireValidSignature
+   \`\`\`
+   Or inspect individual executables directly:
+   \`\`\`powershell
+   Get-AuthenticodeSignature .\\release\\Local-Desk-Setup-1.0.3-x64.exe | Format-List *
+   Get-AuthenticodeSignature "$env:LOCALAPPDATA\\Programs\\LocalDesk\\Local Desk.exe" | Format-List *
+   \`\`\`
+
+---
+
+## 5. Honest Microsoft Defender SmartScreen Expectations
+
+- **Signing != Instant SmartScreen Bypass:** Even with a valid publicly trusted OV or Individual Authenticode signature, Microsoft Defender SmartScreen evaluates **application and certificate download/execution reputation** across the Windows ecosystem.
+- **Reputation Accumulation:** A newly issued certificate may still display the SmartScreen prompt for initial downloads until sufficient positive telemetry accumulates with Microsoft.
+- **Best Practices:**
+  - Always maintain the **exact same verified publisher identity** across versions (\`1.0.3\`, \`1.0.4\`, etc.) so reputation carries forward.
+  - Submit newly signed release installers to **Microsoft Security Intelligence (WDSI) File Submission Portal** as a signed software developer prior to public announcement.
+  - Never instruct users to disable Windows Defender or weaken SmartScreen policies.
+
+---
+
+## 6. Distribution Strategy Comparison: Direct Signed EXE vs. Microsoft Store (MSIX)
+
+| Criterion | Option A: Direct Signed EXE (\`Local-Desk-Setup-x64.exe\`) | Option B: Microsoft Store (\`.msix\` / \`appx\`) |
 | :--- | :--- | :--- |
-| \`IMAGE_DOS_HEADER.e_magic\` | \`0x5A4D\` (\`"MZ"\`) | Required by \`MmCreateSection\` |
-| \`IMAGE_NT_HEADERS64.Signature\` | \`0x00004550\` (\`"PE\\0\\0"\`) | Required by Windows PE Loader |
-| \`IMAGE_FILE_HEADER.Machine\` | \`0x8664\` (\`IMAGE_FILE_MACHINE_AMD64\`) | 64-bit x64 CPU target |
-| \`IMAGE_OPTIONAL_HEADER64.Magic\` | \`0x020B\` (\`PE32+\`) | 64-bit address space |
-| \`Subsystem\` | \`2\` (\`IMAGE_SUBSYSTEM_WINDOWS_GUI\`) | Native GUI subsystem (no console flash) |
-| \`MajorSubsystemVersion\` | \`6.0\` | Windows Vista / 7 / 10 / 11 x64 |
-| \`.rsrc\` Manifest | \`level="asInvoker"\` | Prevents UAC Installer Detection elevation blocks |
+| **Certificate Requirement** | Publicly trusted OV/EV Code Signing Certificate or Azure Trusted Signing | Automatic signing by Microsoft Store upon submission (no separate PFX needed for Store downloads) |
+| **SmartScreen Behavior** | Reputation builds over time tied to Publisher Certificate & file hash | Store-signed packages are automatically trusted by Windows SmartScreen immediately |
+| **User Installation UX** | Download \`Local-Desk-Setup-1.0.3-x64.exe\` from website -> 1-click per-user install to \`%LOCALAPPDATA%\\Programs\\LocalDesk\` | Install directly from Microsoft Store app on Windows 10/11 with automatic background updates |
+| **Enterprise / Offline Use** | Ideal for air-gapped networks, USB transfer, and portable ZIP deployment | Requires Microsoft Store access or enterprise \`Add-AppxPackage\` sideloading |
+| **Maintenance Effort** | Low (automated via \`npm run desktop:release:prod\`) | Moderate (requires Partner Center account & Store certification review per release) |
 `;
 
-  const thirdPartyLicensesMd = `# Local Desk — Bundled Dependencies & Third-Party Licenses
+  const architectureAuditMd = `# Local Desk - Windows 11 x64 PE32+, SFX, PowerShell 5.1 BOM & Authenticode Audit Report (v1.0.3)
+
+## 1. Root Cause of Windows PowerShell 5.1 \`Install-Local-Desk-Shortcuts.ps1\` Encoding Failure Fixed in v1.0.3
+
+1. **BOM-less UTF-8 Em Dash (\`0xE2 0x80 0x94\`) Parsed as Windows-1252 Right Double Quote (\`0x94\` = \`”\`):** In \`v1.0.2\`, \`Install-Local-Desk-Shortcuts.ps1\` was packaged as UTF-8 without a Byte Order Mark (\`0xEF 0xBB 0xBF\`) and contained the em dash \`—\` (\`0xE2 0x80 0x94\`) in \`"Local Desk — All-in-One Privacy-First PDF & Document Studio"\`. Windows PowerShell 5.1 defaults to the system ANSI code page (Windows-1252) when a script has no BOM. In Windows-1252, \`0xE2\` = \`â\`, \`0x80\` = \`€\`, and **\`0x94\` = \`”\` (\`U+201D\`, Right Double Quotation Mark)**, which PowerShell's tokenizer treats as a closing string delimiter.
+2. **Permanent Fix in v1.0.3:** All PowerShell scripts (\`Install-Local-Desk-Shortcuts.ps1\`, \`Launch-Local-Desk.ps1\`, \`Uninstall-Local-Desk.ps1\`, \`Verify-Local-Desk-Signatures.ps1\`) are now encoded with an explicit single UTF-8 BOM (\`0xEF 0xBB 0xBF\`) via \`encodePowerShellScriptWithUtf8Bom()\`, use single-quoted ASCII-hyphen strings (\`'Local Desk - All-in-One Privacy-First PDF & Document Studio'\`), and are byte-audited at build time to guarantee zero non-ASCII bytes exist in any script body.
+3. **Win32 \`RT_VERSION\` (\`VS_VERSION_INFO\`) & Authenticode Pipeline:** Embedded \`VS_VERSION_INFO\` (\`0xFEEF04BD\`) in \`.rsrc\` across all generated PE32+ executables with consistent publisher metadata (\`${signingEnv.publisherName}\`) and integrated SHA-256 + RFC 3161 Authenticode signing with strict production gate enforcement (\`FORCE_CODE_SIGNING=true\`).
+`;
+
+  const thirdPartyLicensesMd = `# Local Desk - Bundled Dependencies & Third-Party Licenses
 
 | Package | Version | License | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -454,52 +885,92 @@ ${icoSha256}  icon.ico
 | \`lucide-react\` | 0.546.0 | ISC | Vector interface iconography |
 `;
 
-  await fs.writeFile(path.join(releaseDir, 'SHA256SUMS.txt'), sha256SumsTxt, 'utf-8');
-  await fs.writeFile(path.join(releaseDir, 'RELEASE_NOTES.md'), releaseNotesMd, 'utf-8');
-  await fs.writeFile(path.join(releaseDir, 'WINDOWS_ARCHITECTURE_AND_OFFLINE_AUDIT.md'), architectureAuditMd, 'utf-8');
-  await fs.writeFile(path.join(releaseDir, 'THIRD_PARTY_LICENSES.md'), thirdPartyLicensesMd, 'utf-8');
-
   const manifest = {
-    version: '1.0.1',
+    version: '1.0.3',
     productName: 'Local Desk',
+    buildMode: signingEnv.buildMode,
+    publisherName: signingEnv.publisherName,
     targetPlatform: 'Windows 10 / Windows 11 (64-bit x64 PE32+)',
     buildTimestamp: new Date().toISOString(),
+    signing: {
+      status: signingStatusLabel,
+      buildMode: signingEnv.buildMode,
+      isSigned: sfxVerification.isAuthenticodeSigned,
+      allowUnsignedDevBuilds: signingEnv.allowUnsignedDevBuilds,
+      forceCodeSigning: signingEnv.forceCodeSigning,
+      publisherIdentity: signingEnv.publisherName,
+      hashAlgorithm: sfxVerification.isAuthenticodeSigned ? 'SHA-256' : null,
+      timestampServer: signingEnv.timestampServerUrl,
+      forceCodeSigningEnforcedInProd: true,
+      verificationCommand:
+        'Get-AuthenticodeSignature .\\Local-Desk-Setup-1.0.3-x64.exe | Format-List *',
+      remainingRequirementForSignedRelease: sfxVerification.isAuthenticodeSigned
+        ? null
+        : 'Unsigned development build. For public production distribution, provision a trusted Authenticode certificate via WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD and run `npm run desktop:release:prod`.'
+    },
     artifacts: [
       {
-        fileName: 'Local-Desk-Setup-1.0.1-x64.exe',
+        fileName: 'Local-Desk-Setup-1.0.3-x64.exe',
         label: 'Windows 10 / 11 Setup Installer (x64 PE32+)',
         format: 'PE32+ EXE Installer (0x8664)',
-        sizeBytes: setupExeBytes.byteLength,
-        sizeFormatted: formatBytes(setupExeBytes.byteLength),
+        sizeBytes: diskSetupBytes.byteLength,
+        sizeFormatted: formatBytes(diskSetupBytes.byteLength),
         sha256: setupSha256,
-        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.1-x64.exe',
+        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.3-x64.exe',
         description:
-          'Native 64-bit Windows PE32+ GUI installer (MZ / PE\\0\\0 / 0x8664 AMD64) with embedded Local Desk icon, asInvoker manifest, Desktop & Start Menu shortcuts, and .pdf file association.'
+          'Verified 64-bit Windows 11 PE32+ GUI installer (5-section ASLR PE32+ + VS_VERSION_INFO metadata + DIB icons + relocated SFX ZIP archive + UTF-8 BOM PowerShell 5.1 shortcut registration).'
       },
       {
-        fileName: 'Local-Desk-Portable-1.0.1-win-x64.zip',
+        fileName: 'Local-Desk-Portable-1.0.3-win-x64.zip',
         label: 'Windows Portable Edition (No-Install ZIP)',
         format: 'Portable ZIP (with Local Desk.exe)',
-        sizeBytes: portableBytes.byteLength,
-        sizeFormatted: formatBytes(portableBytes.byteLength),
+        sizeBytes: diskPortableBytes.byteLength,
+        sizeFormatted: formatBytes(diskPortableBytes.byteLength),
         sha256: portableSha256,
-        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.1-win-x64.zip',
+        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.3-win-x64.zip',
         description:
-          'Standalone Windows x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), pre-compiled offline assets, local OCR WASM binaries, and uninstaller.'
+          'Standalone Windows 11 x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), Verify-Local-Desk-Signatures.ps1, pre-compiled offline assets, local OCR WASM binaries, and uninstaller.'
       }
     ]
   };
 
+  await fs.writeFile(path.join(stagingDir, 'SHA256SUMS.txt'), sha256SumsTxt, 'utf-8');
+  await fs.writeFile(path.join(stagingDir, 'RELEASE_NOTES.md'), releaseNotesMd, 'utf-8');
   await fs.writeFile(
-    path.join(releaseDir, 'release-manifest.json'),
+    path.join(stagingDir, 'WINDOWS_AUTHENTICODE_AND_SMARTSCREEN_GUIDE.md'),
+    authenticodeGuideMd,
+    'utf-8'
+  );
+  await fs.writeFile(
+    path.join(stagingDir, 'WINDOWS_ARCHITECTURE_AND_OFFLINE_AUDIT.md'),
+    architectureAuditMd,
+    'utf-8'
+  );
+  await fs.writeFile(
+    path.join(stagingDir, 'THIRD_PARTY_LICENSES.md'),
+    thirdPartyLicensesMd,
+    'utf-8'
+  );
+  await fs.writeFile(
+    path.join(stagingDir, 'release-manifest.json'),
     JSON.stringify(manifest, null, 2),
     'utf-8'
   );
 
-  console.log('=== WINDOWS x64 PE32+ RELEASE ARTIFACTS GENERATED SUCCESSFULLY ===');
-  console.log(`1. Local-Desk-Setup-1.0.1-x64.exe (${formatBytes(setupExeBytes.byteLength)}) — SHA256: ${setupSha256}`);
-  console.log(`2. Local-Desk-Portable-1.0.1-win-x64.zip (${formatBytes(portableBytes.byteLength)}) — SHA256: ${portableSha256}`);
-  console.log(`3. Local Desk.exe (${formatBytes(localDeskExeBytes.byteLength)}) — SHA256: ${appExeSha256}`);
+  // Atomically replace /release/ with stagingDir
+  await fs.rm(releaseDir, { recursive: true, force: true });
+  await fs.rename(stagingDir, releaseDir);
+
+  console.log('=== WINDOWS 11 x64 PE32+ RELEASE ARTIFACTS (v1.0.3) GENERATED SUCCESSFULLY ===');
+  console.log(
+    `1. Local-Desk-Setup-1.0.3-x64.exe (${formatBytes(diskSetupBytes.byteLength)}, ${diskSetupBytes.byteLength} B) - SHA256: ${setupSha256}`
+  );
+  console.log(
+    `2. Local-Desk-Portable-1.0.3-win-x64.zip (${formatBytes(diskPortableBytes.byteLength)}, ${diskPortableBytes.byteLength} B) - SHA256: ${portableSha256}`
+  );
+  console.log(
+    `3. Local Desk.exe (${formatBytes(localDeskExeBytes.byteLength)}, ${localDeskExeBytes.byteLength} B) - SHA256: ${appExeSha256}`
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
