@@ -169,14 +169,14 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h2 className="text-base font-bold text-theme-primary">
-                      Local Desk for Windows (64-bit)
+                      Local Desk for Windows (64-bit x64 PE32+)
                     </h2>
                     <span className="text-[11px] font-mono font-semibold text-theme-accent">
-                      v1.0.0 Production Release
+                      v1.0.1 Production Release
                     </span>
                   </div>
                   <p className="text-xs text-theme-secondary mt-0.5">
-                    Standalone offline desktop installer, portable build, SHA-256 verification &amp; local privacy audit
+                    Native Windows x64 PE32+ GUI installer, portable build, SHA-256 verification &amp; local privacy audit
                   </p>
                 </div>
               </div>
@@ -226,26 +226,26 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {(manifest?.artifacts || [
                       {
-                        fileName: 'Local-Desk-Setup-1.0.0-x64.exe',
-                        label: 'Windows 10 / 11 Setup Installer (x64)',
-                        format: 'EXE Installer',
+                        fileName: 'Local-Desk-Setup-1.0.1-x64.exe',
+                        label: 'Windows 10 / 11 Setup Installer (x64 PE32+)',
+                        format: 'PE32+ EXE Installer (0x8664)',
                         sizeBytes: 0,
                         sizeFormatted: 'Standalone Setup',
                         sha256: 'Computing SHA-256...',
-                        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.0-x64.exe',
+                        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.1-x64.exe',
                         description:
-                          'Standard Windows setup package with Desktop & Start Menu shortcuts, optional custom install directory, .pdf file association, and clean Windows uninstaller.'
+                          'Native 64-bit Windows PE32+ GUI installer (MZ / PE\\0\\0 / 0x8664 AMD64) with embedded Local Desk icon, asInvoker manifest, Desktop & Start Menu shortcuts, and .pdf file association.'
                       },
                       {
-                        fileName: 'Local-Desk-Portable-1.0.0-win-x64.zip',
+                        fileName: 'Local-Desk-Portable-1.0.1-win-x64.zip',
                         label: 'Windows Portable Edition (No-Install ZIP)',
-                        format: 'Portable ZIP',
+                        format: 'Portable ZIP (with Local Desk.exe)',
                         sizeBytes: 0,
                         sizeFormatted: 'Portable Archive',
                         sha256: 'Computing SHA-256...',
-                        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.0-win-x64.zip',
+                        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.1-win-x64.zip',
                         description:
-                          'Self-contained portable Windows bundle including pre-compiled offline assets, Electron main/preload runtime, Windows .ico resources, and one-click launcher.'
+                          'Standalone Windows x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), pre-compiled offline assets, local OCR WASM binaries, and uninstaller.'
                       }
                     ])
                       .slice(0, 2)

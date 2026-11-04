@@ -1283,7 +1283,7 @@ async function main() {
     'DSK-001',
     'Desktop Release',
     'Windows Setup (.exe), Portable (.zip), Multi-Size .ICO & SHA-256 Verification',
-    'Verify build/icon.ico contains 7 ICONDIR entries (16..256px) and verify SHA-256 hashes of Local-Desk-Setup-1.0.0-x64.exe and Local-Desk-Portable-1.0.0-win-x64.zip against SHA256SUMS.txt',
+    'Verify build/icon.ico contains 7 ICONDIR entries (16..256px) and verify SHA-256 hashes of Local-Desk-Setup-1.0.1-x64.exe and Local-Desk-Portable-1.0.1-win-x64.zip against SHA256SUMS.txt',
     'All Windows release artifacts exist, non-empty, and match recorded SHA-256 checksums',
     async () => {
       const fsMod = await import('fs/promises');
@@ -1295,8 +1295,8 @@ async function main() {
       const iconCount = icoBytes.readUInt16LE(4);
       assert(iconCount === 7, `Expected 7 icon resolutions in icon.ico, got ${iconCount}`);
 
-      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.0-x64.exe'));
-      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.0-win-x64.zip'));
+      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.1-x64.exe'));
+      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.1-win-x64.zip'));
       const sumsText = await fsMod.readFile(pathMod.resolve('release/SHA256SUMS.txt'), 'utf-8');
 
       const setupSha = cryptoMod.createHash('sha256').update(setupBytes).digest('hex');
@@ -1305,7 +1305,7 @@ async function main() {
       assert(sumsText.includes(setupSha), 'Setup EXE SHA-256 mismatch in SHA256SUMS.txt');
       assert(sumsText.includes(portableSha), 'Portable ZIP SHA-256 mismatch in SHA256SUMS.txt');
 
-      return `Verified icon.ico (7 layers, ${icoBytes.byteLength}B), Setup EXE (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
+      return `Verified icon.ico (7 layers, ${icoBytes.byteLength}B), Setup EXE v1.0.1 (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP v1.0.1 (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
     }
   );
 
@@ -1335,6 +1335,47 @@ async function main() {
       assert(ocrWorkerStat.size > 1000 && ocrWasmStat.size > 100000, 'Bundled local OCR WASM assets missing');
 
       return `Verified 0 external CDN URLs in dist/index.html, local OCR WASM (${(ocrWasmStat.size / 1024 / 1024).toFixed(2)}MB) bundled, and Electron security hardening active`;
+    }
+  );
+
+  // 24. DSK-003: Windows x64 PE32+ Executable Header, Machine Architecture, Import Table & SFX Payload Verification
+  await runTest(
+    'DSK-003',
+    'Windows x64 PE32+ Verification',
+    'PE32+ Header (MZ / PE\\0\\0 / 0x8664 AMD64 / GUI Subsystem), Import Table & Embedded Local Desk.exe Verification',
+    'Inspect PE headers, section alignment, CheckSum, KERNEL32.dll IAT, .rsrc manifest, and embedded ZIP payload of Local-Desk-Setup-1.0.1-x64.exe and Local Desk.exe',
+    'Valid MZ (0x5A4D), PE\\0\\0 (0x00004550), Machine=0x8664 (AMD64), Magic=0x020B (PE32+), Subsystem=2 (WINDOWS_GUI), valid CheckSum, and valid embedded Local Desk.exe',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const jszipMod = await import('jszip');
+      const { verifyPe64BinaryInvariants, PE64_SETUP_HEADER_SIZE } = await import('./build_windows_release');
+
+      const setupBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.1-x64.exe'));
+      verifyPe64BinaryInvariants(setupBuf, 'Local-Desk-Setup-1.0.1-x64.exe');
+
+      // Verify SFX ZIP payload starts at PE64_SETUP_HEADER_SIZE (65536 = 0x10000) with PK\x03\x04
+      const zipOverlay = setupBuf.subarray(PE64_SETUP_HEADER_SIZE);
+      assert(
+        zipOverlay[0] === 0x50 && zipOverlay[1] === 0x4b && zipOverlay[2] === 0x03 && zipOverlay[3] === 0x04,
+        'SFX ZIP payload missing PK\\x03\\x04 signature at offset 0x10000'
+      );
+
+      // Extract embedded Local Desk.exe and Uninstall Local Desk.exe from SFX payload and verify their PE32+ headers
+      const zip = await jszipMod.default.loadAsync(zipOverlay);
+      const appExeEntry = zip.file('Local Desk.exe');
+      const uninstExeEntry = zip.file('Uninstall Local Desk.exe');
+      assert(Boolean(appExeEntry), 'Local Desk.exe missing inside installer payload');
+      assert(Boolean(uninstExeEntry), 'Uninstall Local Desk.exe missing inside installer payload');
+
+      const appExeBuf = await appExeEntry!.async('nodebuffer');
+      const uninstExeBuf = await uninstExeEntry!.async('nodebuffer');
+      verifyPe64BinaryInvariants(appExeBuf, 'Local Desk.exe');
+      verifyPe64BinaryInvariants(uninstExeBuf, 'Uninstall Local Desk.exe');
+
+      const lfanew = setupBuf.readUInt32LE(0x3c);
+      const peChecksum = setupBuf.readUInt32LE(lfanew + 24 + 0x40);
+      return `Verified PE32+ x64 (MZ=0x5A4D, PE=0x4550, Machine=0x8664 AMD64, Magic=0x020B, Subsystem=2 GUI, CheckSum=0x${peChecksum.toString(16)}) on Setup.exe, Local Desk.exe (${appExeBuf.byteLength}B), and Uninstall Local Desk.exe`;
     }
   );
 

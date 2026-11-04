@@ -139,10 +139,15 @@ async function startServer() {
 
   app.get('/api/releases/download/:artifact', async (req, res) => {
     try {
-      const safeName = path.basename(req.params.artifact || '');
+      const requestedName = path.basename(req.params.artifact || '');
+      const aliasMap: Record<string, string> = {
+        'Local-Desk-Setup-1.0.0-x64.exe': 'Local-Desk-Setup-1.0.1-x64.exe',
+        'Local-Desk-Portable-1.0.0-win-x64.zip': 'Local-Desk-Portable-1.0.1-win-x64.zip'
+      };
+      const safeName = aliasMap[requestedName] || requestedName;
       const allowedFiles = new Set([
-        'Local-Desk-Setup-1.0.0-x64.exe',
-        'Local-Desk-Portable-1.0.0-win-x64.zip',
+        'Local-Desk-Setup-1.0.1-x64.exe',
+        'Local-Desk-Portable-1.0.1-win-x64.zip',
         'SHA256SUMS.txt',
         'RELEASE_NOTES.md',
         'WINDOWS_ARCHITECTURE_AND_OFFLINE_AUDIT.md',

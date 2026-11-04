@@ -1,3 +1,4 @@
-03ea0561609bca6e54f6f9f8fe7cfa816803bfd7f0a0ca3e25912d9d084175b1  Local-Desk-Setup-1.0.0-x64.exe
-b3c3ef041a64a18efa2b2ba542ecbe61884ed09d0c83f8a3defc625075b13b5e  Local-Desk-Portable-1.0.0-win-x64.zip
+30e0e407959567bb616cbd1d0e08ca339d0e63f71b3d0a2a144258cc7d206e0c  Local-Desk-Setup-1.0.1-x64.exe
+4188e6f53c5fbf4d416658f9977740ba44d38e73b70694c9dcc3b773af5fb1ed  Local-Desk-Portable-1.0.1-win-x64.zip
+1eebd905733a5145db9d9aa5797766eb0ab61435c1c38300bf758c93b94a0177  Local Desk.exe
 17f82de7de2d04c94a55da091148f63be484a3e2f0bf45712ed889facc1c58dc  icon.ico
