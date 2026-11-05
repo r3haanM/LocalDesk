@@ -1493,6 +1493,14 @@ async function main() {
       assert(overlaySrc.includes('Rehan Mumtaz'), 'Missing Rehan Mumtaz credit in VibeCodedOverlay.tsx');
       assert(overlaySrc.includes('const [collapsed, setCollapsed] = useState(true)'), 'VibeCodedOverlay must default to minimized state (collapsed = true)');
       assert(overlaySrc.includes('ChevronUp') && overlaySrc.includes('ChevronDown'), 'VibeCodedOverlay must use the expand/collapse signature badge UI');
+      assert(overlaySrc.includes('backdrop-blur-xl'), 'VibeCodedOverlay must use translucent frosted-glass gradient backdrop');
+      assert(overlaySrc.includes('GITHUB_REPO_URL'), 'VibeCodedOverlay must link to the GitHub repository');
+
+      const topNavSrc = await fsMod.readFile(pathMod.resolve('src/components/TopNav.tsx'), 'utf-8');
+      assert(topNavSrc.includes('GITHUB_REPO_URL'), 'TopNav must include the smooth-transition GitHub repository icon link');
+
+      const readmeSrc = await fsMod.readFile(pathMod.resolve('README.md'), 'utf-8');
+      assert(readmeSrc.includes('npm run dev') && readmeSrc.includes('npm run desktop:release:dev'), 'README.md must include local and desktop build instructions');
 
       const cssSrc = await fsMod.readFile(pathMod.resolve('src/index.css'), 'utf-8');
       assert(cssSrc.includes('::-webkit-scrollbar-thumb'), 'Missing custom scrollbar thumb rules in src/index.css');
