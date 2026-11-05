@@ -1004,7 +1004,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
               type="button"
               disabled={queue.length === 0 || isRunningBatch}
               onClick={handleRunBatchQueue}
-              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
               {isRunningBatch ? (
                 <>
@@ -1031,6 +1031,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
         <div className="lg:col-span-8 space-y-6">
           {/* Upload Dropzone */}
           <div
+            onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -1038,7 +1039,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                 addFilesToBatchQueue(Array.from(e.dataTransfer.files));
               }
             }}
-            className="p-6 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/70 hover:border-theme-accent transition-colors flex flex-col sm:flex-row items-center justify-between gap-4"
+            className="p-6 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/70 hover:border-theme-accent transition-colors flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer"
           >
             <input
               ref={fileInputRef}
@@ -1053,7 +1054,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                 e.target.value = '';
               }}
             />
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 pointer-events-none">
               <div className="w-11 h-11 rounded-xl bg-theme-elevated border border-theme-subtle flex items-center justify-center text-theme-accent shrink-0">
                 <Upload className="w-5 h-5" />
               </div>
@@ -1070,7 +1071,10 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
                 className="px-4 py-2 rounded-lg text-xs font-semibold bg-theme-accent text-white hover:opacity-95 cursor-pointer"
               >
                 + Add Files
@@ -1111,7 +1115,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                       type="button"
                       disabled={bundlingZip}
                       onClick={handleDownloadAllAsZip}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors cursor-pointer shadow-xs"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
                     >
                       <FolderArchive className="w-4 h-4" />
                       {bundlingZip
@@ -1124,7 +1128,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                     type="button"
                     disabled={isRunningBatch}
                     onClick={handleResetQueueStatuses}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-40 cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Reset Status
@@ -1134,7 +1138,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                     type="button"
                     disabled={isRunningBatch}
                     onClick={() => setQueue([])}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-rose-400 hover:bg-rose-500/10 disabled:opacity-40 cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-rose-400 hover:bg-rose-500/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Clear All

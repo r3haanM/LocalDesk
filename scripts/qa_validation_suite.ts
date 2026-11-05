@@ -1437,36 +1437,85 @@ async function main() {
     }
   );
 
-  // 26. DSK-005: Windows Desktop Polish (Title Bar, Custom Scrollbars, Smooth Scrolling, Cursor Rules & Taskbar Icon Crispness)
+  // 26. DSK-005: Windows Desktop Polish (Single Native Title Bar, Custom Scrollbars, Context-Aware Cursors, VibeCoded Overlay & Pixel-Locked Taskbar Icons)
   await runTest(
     'DSK-005',
     'Windows Desktop Polish Verification',
-    'DesktopTitleBar, Scrollbar Styling, Smooth Scrolling Toggle, Cursor Rules & Multi-DPI Taskbar Icons',
-    'Verify DesktopTitleBar.tsx caption controls, src/index.css scrollbar and cursor rules, ThemeAndAccountModal.tsx smoothScrolling toggle, and 9-frame PNG/ICO resolutions',
-    'All 4 Windows Desktop Polish areas verified present and spec-compliant',
+    'Native Single Title Bar, Chromium ::-webkit-scrollbar Fix, Context-Aware Cursor Lock, VibeCodedOverlay & Pixel-Locked Multi-DPI Taskbar Icons',
+    'Verify removal of duplicate DesktopTitleBar.tsx, unified title Local Desk — All-in-One PDF & Document Studio, native frame: true, taskbar warning badge elimination, src/index.css ::-webkit-scrollbar & data-active-cursor lock, and 9-frame pixel-locked PNG/ICO resolutions',
+    'Single native Windows title bar, unified Studio title, zero warning badge flags, custom scrollbars, context-aware cursors, and crisp 9-frame icons verified',
     async () => {
       const fsMod = await import('fs/promises');
       const pathMod = await import('path');
+      const jszipMod = await import('jszip');
 
-      const titleBarSrc = await fsMod.readFile(pathMod.resolve('src/components/DesktopTitleBar.tsx'), 'utf-8');
-      assert(titleBarSrc.includes('app-titlebar-drag'), 'Missing app-titlebar-drag in DesktopTitleBar.tsx');
-      assert(titleBarSrc.includes('#E81123'), 'Missing Windows Close red hover state (#E81123) in DesktopTitleBar.tsx');
-      assert(titleBarSrc.includes('Restore Down') && titleBarSrc.includes('Maximize'), 'Missing Maximize/Restore state toggle in DesktopTitleBar.tsx');
+      // 1. Verify redundant DesktopTitleBar.tsx is completely removed and not rendered in App.tsx
+      let duplicateTitleBarExists = false;
+      try {
+        await fsMod.access(pathMod.resolve('src/components/DesktopTitleBar.tsx'));
+        duplicateTitleBarExists = true;
+      } catch {
+        duplicateTitleBarExists = false;
+      }
+      assert(!duplicateTitleBarExists, 'Redundant src/components/DesktopTitleBar.tsx must be removed');
+
+      const appSrc = await fsMod.readFile(pathMod.resolve('src/App.tsx'), 'utf-8');
+      assert(!appSrc.includes('DesktopTitleBar'), 'src/App.tsx must not import or render DesktopTitleBar');
+      assert(
+        appSrc.includes("document.title = 'Local Desk — All-in-One PDF & Document Studio'"),
+        'src/App.tsx must enforce unified document.title'
+      );
+
+      // 2. Verify unified title across index.html, electron/main.cjs, and package.json
+      const indexHtml = await fsMod.readFile(pathMod.resolve('index.html'), 'utf-8');
+      assert(
+        indexHtml.includes('<title>Local Desk — All-in-One PDF &amp; Document Studio</title>') ||
+          indexHtml.includes('<title>Local Desk — All-in-One PDF & Document Studio</title>'),
+        'index.html must use unified title Local Desk — All-in-One PDF & Document Studio'
+      );
+      assert(!indexHtml.includes('Document Workspace'), 'index.html must not contain legacy Document Workspace title');
+
+      const mainCjs = await fsMod.readFile(pathMod.resolve('electron/main.cjs'), 'utf-8');
+      assert(mainCjs.includes('frame: true'), 'electron/main.cjs must use native Windows frame: true');
+      assert(mainCjs.includes("titleBarStyle: 'default'"), "electron/main.cjs must use titleBarStyle: 'default'");
+      assert(mainCjs.includes("nativeTheme.themeSource = 'dark'"), 'electron/main.cjs must set dark nativeTheme');
+      assert(mainCjs.includes('setOverlayIcon(null'), 'electron/main.cjs must clear taskbar overlay badge');
+
+      // 3. Verify packaged Launch-Local-Desk.ps1 eliminates --allow-file-access-from-files warning badge & enforces Win32 icon/DWM dark caption
+      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const zip = await jszipMod.default.loadAsync(portableBuf);
+      const launchPs1 = (await zip.file('Launch-Local-Desk.ps1')!.async('nodebuffer')).subarray(3).toString('utf8');
+      assert(!launchPs1.includes('--allow-file-access-from-files'), 'Launch-Local-Desk.ps1 must not pass --allow-file-access-from-files');
+      assert(launchPs1.includes('DwmSetWindowAttribute'), 'Launch-Local-Desk.ps1 must apply dark caption via DwmSetWindowAttribute');
+      assert(launchPs1.includes('SetOverlayIcon'), 'Launch-Local-Desk.ps1 must clear taskbar overlay badge via ITaskbarList3::SetOverlayIcon');
+
+      const overlaySrc = await fsMod.readFile(pathMod.resolve('src/components/VibeCodedOverlay.tsx'), 'utf-8');
+      assert(overlaySrc.includes('Rehan Mumtaz'), 'Missing Rehan Mumtaz credit in VibeCodedOverlay.tsx');
+      assert(overlaySrc.includes('const [collapsed, setCollapsed] = useState(true)'), 'VibeCodedOverlay must default to minimized state (collapsed = true)');
+      assert(overlaySrc.includes('ChevronUp') && overlaySrc.includes('ChevronDown'), 'VibeCodedOverlay must use the expand/collapse signature badge UI');
 
       const cssSrc = await fsMod.readFile(pathMod.resolve('src/index.css'), 'utf-8');
       assert(cssSrc.includes('::-webkit-scrollbar-thumb'), 'Missing custom scrollbar thumb rules in src/index.css');
-      assert(cssSrc.includes('smooth-scroll-enabled'), 'Missing smooth-scroll-enabled rule in src/index.css');
+      assert(cssSrc.includes('@supports not selector(::-webkit-scrollbar)'), 'scrollbar-width must be scoped inside @supports not selector(::-webkit-scrollbar) so Chromium/Electron renders ::-webkit-scrollbar');
+      assert(cssSrc.includes('html[data-active-cursor="grabbing"]'), 'Missing global active interaction cursor lock in src/index.css');
       assert(cssSrc.includes('cursor-nwse-resize') && cssSrc.includes('cursor-nesw-resize'), 'Missing directional resize cursor rules in src/index.css');
+      assert(cssSrc.includes('prefers-reduced-motion: reduce'), 'Missing prefers-reduced-motion support in src/index.css');
 
-      const prefsSrc = await fsMod.readFile(pathMod.resolve('src/components/ThemeAndAccountModal.tsx'), 'utf-8');
-      assert(prefsSrc.includes('Smooth Scrolling'), 'Missing Smooth Scrolling toggle in ThemeAndAccountModal.tsx');
+      const editorSrc = await fsMod.readFile(pathMod.resolve('src/components/Editor/PdfEditorWorkspace.tsx'), 'utf-8');
+      assert(editorSrc.includes('getResizeCursorForHandle'), 'Missing rotation-aware resize cursor helper in PdfEditorWorkspace.tsx');
+      assert(editorSrc.includes('Pan Canvas'), 'Missing Pan Canvas tool mode in PdfEditorWorkspace.tsx');
+      assert(editorSrc.includes('data-active-cursor'), 'Missing data-active-cursor synchronization in PdfEditorWorkspace.tsx');
 
       for (const sz of [16, 20, 24, 32, 40, 48, 64, 128, 256]) {
         const st = await fsMod.stat(pathMod.resolve(`public/brand/png/local-desk-app-icon-${sz}x${sz}.png`));
         assert(st.size > 150, `Icon PNG ${sz}x${sz} is unexpectedly small (${st.size}B)`);
+        const favSt = await fsMod.stat(pathMod.resolve(`public/favicon-${sz}x${sz}.png`));
+        assert(favSt.size > 150, `Favicon PNG ${sz}x${sz} is unexpectedly small (${favSt.size}B)`);
       }
+      const v103IcoStat = await fsMod.stat(pathMod.resolve('build/local-desk-icon-v103.ico'));
+      assert(v103IcoStat.size > 50000, 'build/local-desk-icon-v103.ico missing or incomplete');
 
-      return 'Verified DesktopTitleBar (Minimize, Maximize/Restore, #E81123 Close), Forest/Emerald custom scrollbars, Smooth Scrolling toggle, directional PDF editor cursors, and 9 crisp icon resolutions (16..256px)';
+      return 'Verified single native Windows title bar (DesktopTitleBar removed), unified Studio title, taskbar warning badge cleared, Chromium ::-webkit-scrollbar fix, active cursor locking, and 9 pixel-locked icon resolutions (16..256px)';
     }
   );
 

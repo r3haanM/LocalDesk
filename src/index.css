@@ -26,9 +26,9 @@
   --accent-contrast: #FFFFFF;
   --accent-soft: rgba(5, 150, 105, 0.11);
 
-  /* Scrollbar Tokens — Light Mode */
+  /* Scrollbar Tokens — Light Mode (Subtle track, Forest/Emerald thumb) */
   --scrollbar-track: rgba(13, 31, 24, 0.04);
-  --scrollbar-thumb: rgba(19, 58, 43, 0.28);
+  --scrollbar-thumb: rgba(19, 58, 43, 0.32);
   --scrollbar-thumb-hover: #059669;
   --scrollbar-thumb-active: #047857;
 }
@@ -50,15 +50,15 @@ html.dark {
   --accent-contrast: #06281E;
   --accent-soft: rgba(16, 185, 129, 0.14);
 
-  /* Scrollbar Tokens — Dark Mode */
-  --scrollbar-track: rgba(9, 13, 22, 0.45);
-  --scrollbar-thumb: rgba(148, 163, 184, 0.26);
+  /* Scrollbar Tokens — Dark Mode (Low-contrast track, Emerald interactive thumb) */
+  --scrollbar-track: rgba(9, 13, 22, 0.42);
+  --scrollbar-thumb: rgba(16, 185, 129, 0.32);
   --scrollbar-thumb-hover: #10B981;
   --scrollbar-thumb-active: #34D399;
 }
 
 /* ==========================================================================
-   BASE DESKTOP TYPOGRAPHY, SMOOTH SCROLLING & CURSOR CONVENTIONS
+   BASE DESKTOP TYPOGRAPHY, SCROLLING & CURSOR CONVENTIONS
    ========================================================================== */
 html {
   background-color: var(--bg-canvas);
@@ -68,21 +68,28 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Only enable smooth anchor scrolling on root document when reduced motion is off.
+   Never apply smooth scroll interpolation to nested scroll containers or canvas viewports
+   so mouse-wheel, trackpad, and scrollbar-thumb dragging remain 100% immediate and lag-free. */
 @media (prefers-reduced-motion: no-preference) {
-  html.smooth-scroll-enabled,
-  html.smooth-scroll-enabled body,
-  html.smooth-scroll-enabled main,
-  html.smooth-scroll-enabled aside,
-  html.smooth-scroll-enabled .overflow-y-auto,
-  html.smooth-scroll-enabled .overflow-auto {
+  html.smooth-scroll-enabled {
     scroll-behavior: smooth;
   }
 }
 
-/* Prevent smooth-scroll lag when actively dragging objects or resizing on the PDF canvas */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prevent any scroll lag when actively dragging objects or resizing on the PDF canvas */
 html.canvas-dragging-active,
 html.canvas-dragging-active * {
   scroll-behavior: auto !important;
+  user-select: none !important;
 }
 
 body {
@@ -107,24 +114,38 @@ body {
 /* ==========================================================================
    WINDOWS DESKTOP CURSOR & POINTER CONVENTIONS
    ========================================================================== */
-/* Interactive controls: pointer */
-a,
+
+/* 1. Disabled controls: always not-allowed (must override .cursor-pointer on buttons) */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+/* 2. Interactive buttons, links, tabs, toggles, selects, and clickable controls: pointer */
+a[href],
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 [role="tab"]:not([aria-disabled="true"]),
 [role="radio"]:not([aria-disabled="true"]),
 [role="menuitem"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
 select:not(:disabled),
 summary,
 label[for],
+label:has(input:not(:disabled)),
 input[type="checkbox"]:not(:disabled),
 input[type="radio"]:not(:disabled),
 input[type="range"]:not(:disabled),
-input[type="color"]:not(:disabled) {
+input[type="color"]:not(:disabled),
+input[type="file"]:not(:disabled) {
   cursor: pointer;
 }
 
-/* Text inputs, search fields, editable text areas: text I-beam */
+/* 3. Text inputs, search fields, number inputs, and editable text areas: text I-beam */
 input[type="text"]:not(:disabled),
 input[type="email"]:not(:disabled),
 input[type="search"]:not(:disabled),
@@ -132,37 +153,47 @@ input[type="password"]:not(:disabled),
 input[type="url"]:not(:disabled),
 input[type="tel"]:not(:disabled),
 input[type="number"]:not(:disabled),
+input:not([type]):not(:disabled),
 textarea:not(:disabled),
 [contenteditable="true"] {
   cursor: text;
 }
 
-/* Disabled controls: not-allowed */
-button:disabled,
-input:disabled,
-select:disabled,
-textarea:disabled,
-[aria-disabled="true"] {
+/* 4. Explicit context-aware cursor utility classes (with child inheritance enforcement) */
+.cursor-default {
+  cursor: default;
+}
+.cursor-pointer {
+  cursor: pointer;
+}
+.cursor-text {
+  cursor: text !important;
+}
+.cursor-not-allowed {
   cursor: not-allowed !important;
 }
-
-/* Explicit directional resize and manipulation cursor helpers */
-.cursor-nwse-resize {
+.cursor-nwse-resize,
+.cursor-nwse-resize * {
   cursor: nwse-resize !important;
 }
-.cursor-nesw-resize {
+.cursor-nesw-resize,
+.cursor-nesw-resize * {
   cursor: nesw-resize !important;
 }
-.cursor-ns-resize {
+.cursor-ns-resize,
+.cursor-ns-resize * {
   cursor: ns-resize !important;
 }
-.cursor-ew-resize {
+.cursor-ew-resize,
+.cursor-ew-resize * {
   cursor: ew-resize !important;
 }
-.cursor-col-resize {
+.cursor-col-resize,
+.cursor-col-resize * {
   cursor: col-resize !important;
 }
-.cursor-row-resize {
+.cursor-row-resize,
+.cursor-row-resize * {
   cursor: row-resize !important;
 }
 .cursor-move {
@@ -175,60 +206,115 @@ textarea:disabled,
 .cursor-grab:active {
   cursor: grabbing !important;
 }
-.cursor-crosshair {
+.cursor-crosshair,
+.cursor-crosshair * {
   cursor: crosshair !important;
 }
 
-/* ==========================================================================
-   CUSTOM WINDOWS DESKTOP SCROLLBAR STYLING (WEBKIT / CHROMIUM / ELECTRON)
-   ========================================================================== */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+/* 5. Global Active Interaction Cursor Lock:
+   Ensures that while dragging, resizing, rotating, panning, or drawing on the canvas,
+   the cursor remains strictly locked throughout the entire mouse gesture without flickering
+   when passing over other objects or outside handle boundaries. */
+html[data-active-cursor="grabbing"],
+html[data-active-cursor="grabbing"] * {
+  cursor: grabbing !important;
+}
+html[data-active-cursor="grab"],
+html[data-active-cursor="grab"] * {
+  cursor: grab !important;
+}
+html[data-active-cursor="move"],
+html[data-active-cursor="move"] * {
+  cursor: move !important;
+}
+html[data-active-cursor="nwse-resize"],
+html[data-active-cursor="nwse-resize"] * {
+  cursor: nwse-resize !important;
+}
+html[data-active-cursor="nesw-resize"],
+html[data-active-cursor="nesw-resize"] * {
+  cursor: nesw-resize !important;
+}
+html[data-active-cursor="ns-resize"],
+html[data-active-cursor="ns-resize"] * {
+  cursor: ns-resize !important;
+}
+html[data-active-cursor="ew-resize"],
+html[data-active-cursor="ew-resize"] * {
+  cursor: ew-resize !important;
+}
+html[data-active-cursor="crosshair"],
+html[data-active-cursor="crosshair"] * {
+  cursor: crosshair !important;
+}
+html[data-active-cursor="text"],
+html[data-active-cursor="text"] * {
+  cursor: text !important;
 }
 
-::-webkit-scrollbar {
+/* ==========================================================================
+   CUSTOM WINDOWS DESKTOP SCROLLBAR STYLING (CHROMIUM / ELECTRON / WEBKIT)
+   IMPORTANT: Do NOT set `scrollbar-width` or `scrollbar-color` in Chromium/Electron,
+   because Chromium 121+ disables `::-webkit-scrollbar` pseudo-elements whenever
+   `scrollbar-width` or `scrollbar-color` is present.
+   ========================================================================== */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+}
+
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-/* Slimmer 8px scrollbar inside sidebars, inspector panels, modals, and dropdowns */
+/* Slim 8px scrollbar inside sidebars, inspector panels, modals, and scrollable panels */
 aside::-webkit-scrollbar,
 nav::-webkit-scrollbar,
+main::-webkit-scrollbar,
 [role="dialog"] ::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar,
-.overflow-x-auto::-webkit-scrollbar {
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
   border-radius: 9999px;
 }
 
-::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
   min-height: 36px;
-  transition: background-color 150ms ease;
+  min-width: 36px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-thumb-hover);
   border: 1.5px solid transparent;
   background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:active {
+::-webkit-scrollbar-thumb:active,
+*::-webkit-scrollbar-thumb:active {
   background-color: var(--scrollbar-thumb-active);
   border: 1.5px solid transparent;
   background-clip: padding-box;
 }
 
-::-webkit-scrollbar-corner {
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
   background: transparent;
 }
 

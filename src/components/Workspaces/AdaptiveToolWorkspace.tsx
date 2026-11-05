@@ -1057,6 +1057,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         <div className="lg:col-span-7 space-y-6">
           {/* Drag and Drop File Zone */}
           <div
+            onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -1064,7 +1065,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                 handleFilesSelected(Array.from(e.dataTransfer.files));
               }
             }}
-            className="p-8 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/60 hover:border-theme-accent transition-colors text-center space-y-4"
+            className="p-8 rounded-xl border-2 border-dashed border-theme-strong bg-theme-surface/60 hover:border-theme-accent transition-colors text-center space-y-4 cursor-pointer"
           >
             <input
               ref={fileInputRef}
@@ -1080,11 +1081,11 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               }}
             />
 
-            <div className="w-12 h-12 rounded-xl bg-theme-elevated border border-theme-subtle flex items-center justify-center mx-auto text-theme-accent">
+            <div className="w-12 h-12 rounded-xl bg-theme-elevated border border-theme-subtle flex items-center justify-center mx-auto text-theme-accent pointer-events-none">
               <Upload className="w-6 h-6" />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 pointer-events-none">
               <h2 className="text-base font-bold text-theme-primary">
                 {tool.multipleFiles
                   ? `Drop one or multiple ${tool.acceptedExtensions.join(', ')} files here`
@@ -1098,14 +1099,20 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
                 className="px-5 py-2.5 rounded-lg text-xs font-semibold bg-theme-accent text-white hover:opacity-95 cursor-pointer"
               >
                 {files.length > 0 && tool.multipleFiles ? '+ Add More Files' : 'Choose File(s)'}
               </button>
               <button
                 type="button"
-                onClick={handleLoadSample}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLoadSample();
+                }}
                 className="px-4 py-2.5 rounded-lg text-xs font-semibold bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent cursor-pointer"
               >
                 Use Sample {tool.acceptedExtensions[0]?.toUpperCase() || 'File'}
@@ -1191,7 +1198,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                                 disabled={idx === 0}
                                 onClick={() => moveUploadedFile(idx, -1)}
                                 title="Move earlier in sequence"
-                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 cursor-pointer"
+                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                               >
                                 <ArrowUp className="w-3.5 h-3.5" />
                               </button>
@@ -1200,7 +1207,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                                 disabled={idx === files.length - 1}
                                 onClick={() => moveUploadedFile(idx, 1)}
                                 title="Move later in sequence"
-                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 cursor-pointer"
+                                className="p-1.5 rounded bg-theme-elevated border border-theme-subtle text-theme-secondary hover:text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                               >
                                 <ArrowDown className="w-3.5 h-3.5" />
                               </button>
@@ -1331,6 +1338,12 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                     <Reorder.Item
                       key={`page-card-${thumb.origIndex}`}
                       value={thumb}
+                      onDragStart={() =>
+                        document.documentElement.setAttribute('data-active-cursor', 'grabbing')
+                      }
+                      onDragEnd={() =>
+                        document.documentElement.removeAttribute('data-active-cursor')
+                      }
                       whileDrag={{
                         scale: 1.06,
                         zIndex: 30,
@@ -1351,16 +1364,21 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                             )
                           )
                         }
-                        className="relative aspect-[3/4] bg-white rounded overflow-hidden flex items-center justify-center cursor-pointer"
+                        className={`relative aspect-[3/4] bg-white rounded overflow-hidden flex items-center justify-center ${
+                          tool.id === 'organize-pages'
+                            ? 'cursor-grab active:cursor-grabbing'
+                            : 'cursor-pointer'
+                        }`}
                       >
                         <img
                           src={thumb.dataUrl}
                           alt={`Page ${thumb.pageNumber}`}
                           referrerPolicy="no-referrer"
+                          draggable={false}
                           style={{ transform: `rotate(${thumb.rotation}deg)` }}
-                          className="max-w-full max-h-full object-contain transition-transform"
+                          className="max-w-full max-h-full object-contain transition-transform pointer-events-none select-none"
                         />
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[10px] font-mono text-white">
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[10px] font-mono text-white pointer-events-none">
                           P.{thumb.pageNumber}
                         </span>
                       </div>
@@ -2189,44 +2207,68 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               </div>
             )}
 
-            {/* Crop Margins Parameters */}
+            {/* Crop Margins Parameters & Interactive Crop Selection Box */}
             {tool.id === 'crop-pdf' && (
-              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                <div>
-                  <label className="block text-theme-secondary mb-1">Top Margin (pt)</label>
-                  <input
-                    type="number"
-                    value={cropMarginTop}
-                    onChange={(e) => setCropMarginTop(Number(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
-                  />
+              <div className="space-y-3.5">
+                <div
+                  title="Crop selection area (crosshair cursor)"
+                  className="relative h-36 rounded-lg bg-theme-elevated border border-theme-subtle overflow-hidden flex items-center justify-center cursor-crosshair select-none"
+                >
+                  <div
+                    style={{
+                      top: `${Math.min(35, Math.max(6, Math.round(cropMarginTop / 3)))}%`,
+                      bottom: `${Math.min(35, Math.max(6, Math.round(cropMarginBottom / 3)))}%`,
+                      left: `${Math.min(35, Math.max(6, Math.round(cropMarginLeft / 3)))}%`,
+                      right: `${Math.min(35, Math.max(6, Math.round(cropMarginRight / 3)))}%`
+                    }}
+                    className="absolute border-2 border-dashed border-emerald-500 bg-emerald-500/10 flex items-center justify-center cursor-move"
+                  >
+                    <span className="text-[10px] font-mono text-emerald-400 pointer-events-none">
+                      Crop Box ({612 - cropMarginLeft - cropMarginRight} × {792 - cropMarginTop - cropMarginBottom} pt)
+                    </span>
+                    <span className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-xs cursor-nwse-resize" />
+                    <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-xs cursor-nesw-resize" />
+                    <span className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-xs cursor-nesw-resize" />
+                    <span className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-xs cursor-nwse-resize" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-theme-secondary mb-1">Bottom Margin (pt)</label>
-                  <input
-                    type="number"
-                    value={cropMarginBottom}
-                    onChange={(e) => setCropMarginBottom(Number(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
-                  />
-                </div>
-                <div>
-                  <label className="block text-theme-secondary mb-1">Left Margin (pt)</label>
-                  <input
-                    type="number"
-                    value={cropMarginLeft}
-                    onChange={(e) => setCropMarginLeft(Number(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
-                  />
-                </div>
-                <div>
-                  <label className="block text-theme-secondary mb-1">Right Margin (pt)</label>
-                  <input
-                    type="number"
-                    value={cropMarginRight}
-                    onChange={(e) => setCropMarginRight(Number(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
-                  />
+                <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                  <div>
+                    <label className="block text-theme-secondary mb-1">Top Margin (pt)</label>
+                    <input
+                      type="number"
+                      value={cropMarginTop}
+                      onChange={(e) => setCropMarginTop(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-theme-secondary mb-1">Bottom Margin (pt)</label>
+                    <input
+                      type="number"
+                      value={cropMarginBottom}
+                      onChange={(e) => setCropMarginBottom(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-theme-secondary mb-1">Left Margin (pt)</label>
+                    <input
+                      type="number"
+                      value={cropMarginLeft}
+                      onChange={(e) => setCropMarginLeft(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-theme-secondary mb-1">Right Margin (pt)</label>
+                    <input
+                      type="number"
+                      value={cropMarginRight}
+                      onChange={(e) => setCropMarginRight(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 rounded bg-theme-elevated border border-theme-subtle"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -2297,7 +2339,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               type="button"
               disabled={processing || (files.length === 0 && tool.id !== 'html-to-pdf')}
               onClick={handleRunTool}
-              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 transition-opacity cursor-pointer shadow-sm"
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity cursor-pointer shadow-sm"
             >
               {processing
                 ? progressStage || 'Processing Document...'

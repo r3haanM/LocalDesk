@@ -58,6 +58,7 @@ async function buildWindowsIcoAndLoadLayers(): Promise<{
   const buildDir = path.join(ROOT_DIR, 'build');
   await fs.mkdir(buildDir, { recursive: true });
   await fs.writeFile(path.join(buildDir, 'icon.ico'), icoBuffer);
+  await fs.writeFile(path.join(buildDir, 'local-desk-icon-v103.ico'), icoBuffer);
   await fs.writeFile(path.join(ROOT_DIR, 'public', 'favicon.ico'), icoBuffer);
 
   console.log(
@@ -424,12 +425,25 @@ async function main() {
   const launchLocalDeskPs1 = `# Local Desk v1.0.3 - Standalone Windows 10/11 x64 Desktop Application Host
 $ErrorActionPreference = "SilentlyContinue"
 $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$IndexFile = Join-Path $AppDir "dist\\index.html"
-$ProfileDir = Join-Path $env:APPDATA "Local Desk\\WindowProfile"
+$DistDir = Join-Path $AppDir "dist"
+$IndexFile = Join-Path $DistDir "index.html"
+$ProfileDir = Join-Path $env:APPDATA "Local Desk\\WindowProfile_v103"
+$DefaultProfDir = Join-Path $ProfileDir "Default"
 $TempDir = Join-Path $env:LOCALAPPDATA "Local Desk\\Temp"
+$IcoPath = Join-Path $AppDir "build\\local-desk-icon-v103.ico"
+if (-not (Test-Path -LiteralPath $IcoPath)) {
+  $IcoPath = Join-Path $AppDir "build\\icon.ico"
+}
 
-New-Item -ItemType Directory -Force -Path $ProfileDir | Out-Null
+New-Item -ItemType Directory -Force -Path $DefaultProfDir | Out-Null
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+
+# Pre-seed clean profile preferences so the browser host never shows a profile or sync warning badge
+$PrefFile = Join-Path $DefaultProfDir "Preferences"
+if (-not (Test-Path -LiteralPath $PrefFile)) {
+  $PrefJson = '{"profile":{"name":"Local Desk","avatar_bubble_tutorial_shown":2},"browser":{"has_seen_welcome_page":true,"check_default_browser":false}}'
+  [System.IO.File]::WriteAllText($PrefFile, $PrefJson, [System.Text.Encoding]::UTF8)
+}
 
 # 1. If a dedicated Electron runtime binary is present, launch Electron Main Process
 $BundledElectron = Join-Path $AppDir "runtime\\electron.exe"
@@ -438,7 +452,190 @@ if (Test-Path -LiteralPath $BundledElectron) {
   exit 0
 }
 
-# 2. Launch Chromeless Windows WebView2 / Edge Application Host Window (100% Offline, Zero Server Required)
+# 2. Compile Native Win32 Window Polisher (WM_SETICON, DWM Dark Title Bar, ITaskbarList3 Overlay Clear) & Loopback Server
+$NativeHostSource = @"
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Runtime.InteropServices;
+
+public static class LocalDeskNativeHost {
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+  [DllImport("user32.dll")]
+  public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+  [DllImport("user32.dll")]
+  public static extern bool IsWindowVisible(IntPtr hWnd);
+
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  public static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  public static extern bool SetWindowTextW(IntPtr hWnd, string lpString);
+
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  public static extern IntPtr LoadImageW(IntPtr hInst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+
+  [DllImport("user32.dll")]
+  public static extern IntPtr SendMessageW(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+  [DllImport("user32.dll", EntryPoint = "SetClassLongPtrW")]
+  public static extern IntPtr SetClassLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+  [DllImport("user32.dll")]
+  public static extern int GetSystemMetrics(int nIndex);
+
+  [DllImport("dwmapi.dll")]
+  public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+  public static extern int SetCurrentProcessExplicitAppUserModelID(string AppID);
+
+  [ComImport]
+  [Guid("EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF")]
+  [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  private interface ITaskbarList3 {
+    [PreserveSig] void HrInit();
+    [PreserveSig] void AddTab(IntPtr hwnd);
+    [PreserveSig] void DeleteTab(IntPtr hwnd);
+    [PreserveSig] void ActivateTab(IntPtr hwnd);
+    [PreserveSig] void SetActiveAlt(IntPtr hwnd);
+    [PreserveSig] void MarkFullscreenWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool fFullscreen);
+    [PreserveSig] void SetProgressValue(IntPtr hwnd, ulong ullCompleted, ulong ullTotal);
+    [PreserveSig] void SetProgressState(IntPtr hwnd, int tbpFlags);
+    [PreserveSig] void RegisterTab(IntPtr hwndTab, IntPtr hwndMDI);
+    [PreserveSig] void UnregisterTab(IntPtr hwndTab);
+    [PreserveSig] void SetTabOrder(IntPtr hwndTab, IntPtr hwndInsertBefore);
+    [PreserveSig] void SetTabActive(IntPtr hwndTab, IntPtr hwndMDI, uint dwReserved);
+    [PreserveSig] void ThumbBarAddButtons(IntPtr hwnd, uint cButtons, IntPtr pButton);
+    [PreserveSig] void ThumbBarUpdateButtons(IntPtr hwnd, uint cButtons, IntPtr pButton);
+    [PreserveSig] void ThumbBarSetImageList(IntPtr hwnd, IntPtr himl);
+    [PreserveSig] void SetOverlayIcon(IntPtr hwnd, IntPtr hIcon, [MarshalAs(UnmanagedType.LPWStr)] string pszDescription);
+  }
+
+  [ComImport]
+  [Guid("56FDF344-FD6D-11d0-958A-006097C9A090")]
+  [ClassInterface(ClassInterfaceType.None)]
+  private class TaskbarList {}
+
+  private static IntPtr _hIconBig = IntPtr.Zero;
+  private static IntPtr _hIconSmall = IntPtr.Zero;
+
+  public static int PolishMatchingWindows(string icoPath) {
+    try { SetCurrentProcessExplicitAppUserModelID("com.localdesk.pdfstudio"); } catch {}
+    if (_hIconBig == IntPtr.Zero && File.Exists(icoPath)) {
+      int cxBig = GetSystemMetrics(11);
+      int cyBig = GetSystemMetrics(12);
+      int cxSm  = GetSystemMetrics(49);
+      int cySm  = GetSystemMetrics(50);
+      _hIconBig   = LoadImageW(IntPtr.Zero, icoPath, 1, cxBig > 0 ? cxBig : 32, cyBig > 0 ? cyBig : 32, 0x0010);
+      _hIconSmall = LoadImageW(IntPtr.Zero, icoPath, 1, cxSm > 0 ? cxSm : 16, cySm > 0 ? cySm : 16, 0x0010);
+    }
+
+    int count = 0;
+    EnumWindows((hWnd, lParam) => {
+      if (!IsWindowVisible(hWnd)) return true;
+      StringBuilder sb = new StringBuilder(512);
+      GetWindowTextW(hWnd, sb, 512);
+      string title = sb.ToString();
+      if (title.IndexOf("Local Desk", StringComparison.OrdinalIgnoreCase) >= 0) {
+        count++;
+        SetWindowTextW(hWnd, "Local Desk - All-in-One PDF & Document Studio");
+        if (_hIconBig != IntPtr.Zero) {
+          SendMessageW(hWnd, 0x0080, new IntPtr(1), _hIconBig);
+          try { SetClassLongPtr64(hWnd, -14, _hIconBig); } catch {}
+        }
+        if (_hIconSmall != IntPtr.Zero) {
+          SendMessageW(hWnd, 0x0080, new IntPtr(0), _hIconSmall);
+          try { SetClassLongPtr64(hWnd, -34, _hIconSmall); } catch {}
+        }
+        try {
+          int dark = 1;
+          DwmSetWindowAttribute(hWnd, 20, ref dark, 4);
+          int captionColor = 0x00181F0D; // #0D1F18 Forest Green in COLORREF (0x00BBGGRR)
+          DwmSetWindowAttribute(hWnd, 35, ref captionColor, 4);
+          int textColor = 0x00F5FDEC; // #ECFDF5 Off-White in COLORREF
+          DwmSetWindowAttribute(hWnd, 36, ref textColor, 4);
+        } catch {}
+        try {
+          ITaskbarList3 tb = (ITaskbarList3)new TaskbarList();
+          tb.HrInit();
+          tb.SetOverlayIcon(hWnd, IntPtr.Zero, null);
+        } catch {}
+      }
+      return true;
+    }, IntPtr.Zero);
+    return count;
+  }
+
+  private static TcpListener _listener;
+  public static int StartLoopbackServer(string rootDir) {
+    _listener = new TcpListener(IPAddress.Loopback, 0);
+    _listener.Start();
+    int port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+    Thread t = new Thread(() => {
+      while (true) {
+        try {
+          TcpClient client = _listener.AcceptTcpClient();
+          ThreadPool.QueueUserWorkItem(_ => HandleClient(client, rootDir));
+        } catch { break; }
+      }
+    });
+    t.IsBackground = true;
+    t.Start();
+    return port;
+  }
+
+  private static void HandleClient(TcpClient client, string rootDir) {
+    try {
+      using (client)
+      using (NetworkStream stream = client.GetStream())
+      using (StreamReader reader = new StreamReader(stream, Encoding.ASCII, false, 1024, true)) {
+        string reqLine = reader.ReadLine();
+        if (string.IsNullOrEmpty(reqLine)) return;
+        string[] parts = reqLine.Split(' ');
+        string rawPath = parts.Length > 1 ? parts[1] : "/";
+        int qIdx = rawPath.IndexOf('?');
+        if (qIdx >= 0) rawPath = rawPath.Substring(0, qIdx);
+        rawPath = Uri.UnescapeDataString(rawPath).TrimStart('/');
+        if (string.IsNullOrEmpty(rawPath)) rawPath = "index.html";
+        string fullPath = Path.GetFullPath(Path.Combine(rootDir, rawPath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!fullPath.StartsWith(Path.GetFullPath(rootDir), StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath)) {
+          fullPath = Path.Combine(rootDir, "index.html");
+        }
+        byte[] body = File.ReadAllBytes(fullPath);
+        string ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        string mime = "application/octet-stream";
+        if (ext == ".html") mime = "text/html; charset=utf-8";
+        else if (ext == ".js" || ext == ".mjs") mime = "application/javascript; charset=utf-8";
+        else if (ext == ".css") mime = "text/css; charset=utf-8";
+        else if (ext == ".json" || ext == ".webmanifest") mime = "application/manifest+json; charset=utf-8";
+        else if (ext == ".svg") mime = "image/svg+xml";
+        else if (ext == ".png") mime = "image/png";
+        else if (ext == ".ico") mime = "image/x-icon";
+        else if (ext == ".wasm") mime = "application/wasm";
+        else if (ext == ".woff2") mime = "font/woff2";
+        else if (ext == ".ttf") mime = "font/ttf";
+
+        string hdr = "HTTP/1.1 200 OK\\r\\nContent-Type: " + mime + "\\r\\nContent-Length: " + body.Length + "\\r\\nCache-Control: no-cache\\r\\nConnection: close\\r\\n\\r\\n";
+        byte[] hdrBytes = Encoding.ASCII.GetBytes(hdr);
+        stream.Write(hdrBytes, 0, hdrBytes.Length);
+        stream.Write(body, 0, body.Length);
+      }
+    } catch {}
+  }
+}
+"@
+
+Add-Type -TypeDefinition $NativeHostSource -ErrorAction SilentlyContinue
+$Port = [LocalDeskNativeHost]::StartLoopbackServer($DistDir)
+$AppUrl = if ($Port -gt 0) { "http://127.0.0.1:$Port/index.html" } else { ([System.Uri]$IndexFile).AbsoluteUri }
+
+# 3. Launch Native Windows App Frame (Clean Loopback Origin, Zero Profile or Warning Badge)
 $EdgeCandidates = @(
   "\${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe",
   "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -447,30 +644,55 @@ $EdgeCandidates = @(
 $RegEdge = (Get-ItemProperty "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe" -ErrorAction SilentlyContinue).'(default)'
 if ($RegEdge) { $EdgeCandidates = @($RegEdge) + $EdgeCandidates }
 
-$IndexUri = ([System.Uri]$IndexFile).AbsoluteUri
+$LaunchedProc = $null
 foreach ($EdgePath in $EdgeCandidates) {
   if ($EdgePath -and (Test-Path -LiteralPath $EdgePath)) {
-    $EdgeArgs = "--app=\`"$IndexUri\`" --user-data-dir=\`"$ProfileDir\`" --window-size=1440,920 --allow-file-access-from-files --disable-background-networking --disable-sync --disable-translate --no-first-run --no-default-browser-check"
-    Start-Process -FilePath $EdgePath -ArgumentList $EdgeArgs -WorkingDirectory $AppDir
-    exit 0
+    $EdgeArgs = "--app=\`"$AppUrl\`" --user-data-dir=\`"$ProfileDir\`" --window-size=1440,920 --disable-background-networking --disable-sync --disable-translate --no-first-run --no-default-browser-check --disable-features=msImplicitSignin,msAccountConsistency,EdgeProfileIconInTaskbar,msProfileIconInTaskbar,msEdgeProfileBadge,Translate"
+    $LaunchedProc = Start-Process -FilePath $EdgePath -ArgumentList $EdgeArgs -WorkingDirectory $AppDir -PassThru
+    break
   }
 }
 
-# 3. Fallback to Chrome App Window or system default HTML handler
-$ChromeCandidates = @(
-  "$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe",
-  "\${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe",
-  "$env:LOCALAPPDATA\\Google\\Chrome\\Application\\chrome.exe"
-)
-foreach ($ChromePath in $ChromeCandidates) {
-  if ($ChromePath -and (Test-Path -LiteralPath $ChromePath)) {
-    $ChromeArgs = "--app=\`"$IndexUri\`" --user-data-dir=\`"$ProfileDir\`" --window-size=1440,920 --allow-file-access-from-files --disable-background-networking --no-first-run"
-    Start-Process -FilePath $ChromePath -ArgumentList $ChromeArgs -WorkingDirectory $AppDir
-    exit 0
+if (-not $LaunchedProc) {
+  $ChromeCandidates = @(
+    "$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe",
+    "\${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe",
+    "$env:LOCALAPPDATA\\Google\\Chrome\\Application\\chrome.exe"
+  )
+  foreach ($ChromePath in $ChromeCandidates) {
+    if ($ChromePath -and (Test-Path -LiteralPath $ChromePath)) {
+      $ChromeArgs = "--app=\`"$AppUrl\`" --user-data-dir=\`"$ProfileDir\`" --window-size=1440,920 --disable-background-networking --disable-sync --no-first-run --no-default-browser-check"
+      $LaunchedProc = Start-Process -FilePath $ChromePath -ArgumentList $ChromeArgs -WorkingDirectory $AppDir -PassThru
+      break
+    }
   }
 }
 
-Start-Process -FilePath $IndexFile
+if (-not $LaunchedProc) {
+  Start-Process -FilePath $IndexFile
+  exit 0
+}
+
+# 4. Apply Native Multi-DPI .ICO (WM_SETICON), Dark Forest Caption (#0D1F18), and Clear Taskbar Overlay Badge
+$FoundWindow = $false
+for ($i = 0; $i -lt 50; $i++) {
+  Start-Sleep -Milliseconds 150
+  $c = [LocalDeskNativeHost]::PolishMatchingWindows($IcoPath)
+  if ($c -gt 0) {
+    $FoundWindow = $true
+    break
+  }
+}
+if ($FoundWindow) {
+  Start-Sleep -Milliseconds 500
+  [LocalDeskNativeHost]::PolishMatchingWindows($IcoPath) | Out-Null
+  Start-Sleep -Milliseconds 1200
+  [LocalDeskNativeHost]::PolishMatchingWindows($IcoPath) | Out-Null
+  # Keep loopback server alive while the Local Desk window remains open
+  while ([LocalDeskNativeHost]::PolishMatchingWindows($IcoPath) -gt 0) {
+    Start-Sleep -Seconds 2
+  }
+}
 `;
 
   const installShortcutsPs1 = `# Local Desk v1.0.3 - Windows 10/11 x64 Installer & Shell Registration
@@ -480,7 +702,10 @@ $AppDataDir = Join-Path $env:APPDATA "Local Desk"
 $TempDir    = Join-Path $env:LOCALAPPDATA "Local Desk\\Temp"
 $ExePath    = Join-Path $InstallDir "Local Desk.exe"
 $UninstPath = Join-Path $InstallDir "Uninstall Local Desk.exe"
-$IcoPath    = Join-Path $InstallDir "build\\icon.ico"
+$IcoPath    = Join-Path $InstallDir "build\\local-desk-icon-v103.ico"
+if (-not (Test-Path -LiteralPath $IcoPath)) {
+  $IcoPath  = Join-Path $InstallDir "build\\icon.ico"
+}
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path $AppDataDir | Out-Null
@@ -490,7 +715,11 @@ New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 $WshShell = New-Object -ComObject WScript.Shell
 $DesktopDir = [Environment]::GetFolderPath('Desktop')
 if ($DesktopDir -and (Test-Path -LiteralPath $DesktopDir)) {
-  $DesktopShortcut = $WshShell.CreateShortcut((Join-Path $DesktopDir "Local Desk.lnk"))
+  $DesktopLnk = Join-Path $DesktopDir "Local Desk.lnk"
+  if (Test-Path -LiteralPath $DesktopLnk) {
+    Remove-Item -LiteralPath $DesktopLnk -Force -ErrorAction SilentlyContinue
+  }
+  $DesktopShortcut = $WshShell.CreateShortcut($DesktopLnk)
   $DesktopShortcut.TargetPath = $ExePath
   $DesktopShortcut.WorkingDirectory = $InstallDir
   $DesktopShortcut.IconLocation = "$IcoPath,0"
@@ -502,7 +731,11 @@ $ProgramsDir = [Environment]::GetFolderPath('Programs')
 if ($ProgramsDir) {
   $StartMenuDir = Join-Path $ProgramsDir "Local Desk"
   New-Item -ItemType Directory -Force -Path $StartMenuDir | Out-Null
-  $StartShortcut = $WshShell.CreateShortcut((Join-Path $StartMenuDir "Local Desk.lnk"))
+  $StartLnk = Join-Path $StartMenuDir "Local Desk.lnk"
+  if (Test-Path -LiteralPath $StartLnk) {
+    Remove-Item -LiteralPath $StartLnk -Force -ErrorAction SilentlyContinue
+  }
+  $StartShortcut = $WshShell.CreateShortcut($StartLnk)
   $StartShortcut.TargetPath = $ExePath
   $StartShortcut.WorkingDirectory = $InstallDir
   $StartShortcut.IconLocation = "$IcoPath,0"
@@ -520,7 +753,7 @@ if ($ProgramsDir) {
 # Register .pdf Open-With File Association in HKCU (No Admin Elevation Required)
 $ClassesKey = "HKCU:\\Software\\Classes\\LocalDesk.PDF"
 New-Item -Path "$ClassesKey\\DefaultIcon" -Force | Out-Null
-Set-ItemProperty -Path "$ClassesKey" -Name "(Default)" -Value "PDF Document (Local Desk)"
+Set-ItemProperty -Path "$ClassesKey" -Name "(Default)" -Value "Local Desk - All-in-One PDF & Document Studio"
 Set-ItemProperty -Path "$ClassesKey\\DefaultIcon" -Name "(Default)" -Value "\`"$IcoPath\`",0"
 New-Item -Path "$ClassesKey\\shell\\open\\command" -Force | Out-Null
 Set-ItemProperty -Path "$ClassesKey\\shell\\open\\command" -Name "(Default)" -Value "\`"$ExePath\`" \`"%1\`""
@@ -528,7 +761,7 @@ Set-ItemProperty -Path "$ClassesKey\\shell\\open\\command" -Name "(Default)" -Va
 # Register in Windows Settings -> Installed Apps (HKCU Uninstall Registry Key)
 $UninstallKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LocalDesk"
 New-Item -Path $UninstallKey -Force | Out-Null
-Set-ItemProperty -Path $UninstallKey -Name "DisplayName" -Value "Local Desk"
+Set-ItemProperty -Path $UninstallKey -Name "DisplayName" -Value "Local Desk - All-in-One PDF & Document Studio"
 Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value "1.0.3"
 Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "${safePublisherAscii}"
 Set-ItemProperty -Path $UninstallKey -Name "DisplayIcon" -Value "\`"$IcoPath\`",0"
@@ -537,7 +770,18 @@ Set-ItemProperty -Path $UninstallKey -Name "UninstallString" -Value "\`"$UninstP
 Set-ItemProperty -Path $UninstallKey -Name "NoModify" -Type DWord -Value 1
 Set-ItemProperty -Path $UninstallKey -Name "NoRepair" -Type DWord -Value 1
 
-# Refresh Windows 10/11 Shell & Taskbar Icon Cache so crisp multi-res icons appear immediately
+# Notify Windows Shell (SHCNE_ASSOCCHANGED) & Refresh Taskbar Icon Cache Immediately
+$ShellNotifyCode = @"
+using System;
+using System.Runtime.InteropServices;
+public static class LocalDeskShellNotify {
+  [DllImport("shell32.dll")]
+  public static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
+}
+"@
+Add-Type -TypeDefinition $ShellNotifyCode -ErrorAction SilentlyContinue
+try { [LocalDeskShellNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero) } catch {}
+Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-ClearIconCache" -WindowStyle Hidden -ErrorAction SilentlyContinue
 Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
 
 # Launch Local Desk.exe immediately after installation completes
@@ -654,6 +898,7 @@ Write-Host "Verification completed."
   portableZip.file('Local Desk.exe', localDeskExeBytes);
   portableZip.file('Uninstall Local Desk.exe', uninstallExeBytes);
   portableZip.file('build/icon.ico', icoBuffer);
+  portableZip.file('build/local-desk-icon-v103.ico', icoBuffer);
   portableZip.file('package.json', await fs.readFile(path.join(ROOT_DIR, 'package.json')));
   portableZip.file(
     'electron-builder.yml',

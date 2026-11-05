@@ -94,13 +94,15 @@ import {
   X,
   ChevronDown,
   Pin,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Hand
 } from 'lucide-react';
 
 gsap.registerPlugin(Flip);
 
 export type EditorToolMode =
   | 'select'
+  | 'pan'
   | 'edit-text'
   | 'add-text'
   | 'add-image'
@@ -152,6 +154,7 @@ const TOOLBAR_CATEGORY_ORDER: Array<{
 
 const TOOL_MODE_LABELS: Record<EditorToolMode, string> = {
   select: 'Select',
+  pan: 'Pan Canvas',
   'edit-text': 'Edit Text',
   'add-text': 'Add Text',
   'add-image': 'Insert Image',
@@ -175,6 +178,7 @@ const TOOL_MODE_LABELS: Record<EditorToolMode, string> = {
 function getCategoryForToolMode(mode: EditorToolMode): ToolbarCategoryId {
   switch (mode) {
     case 'select':
+    case 'pan':
       return 'select';
     case 'edit-text':
     case 'add-text':
@@ -247,6 +251,33 @@ function computePolygonClipPath(sides = 5): string {
     pts.push(`${px.toFixed(1)}% ${py.toFixed(1)}%`);
   }
   return `polygon(${pts.join(', ')})`;
+}
+
+/**
+ * Computes the accurate Windows directional resize cursor ('ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize')
+ * accounting for both object rotation and page rotation.
+ */
+function getResizeCursorForHandle(
+  dir: ResizeHandleDir,
+  objectRotationDeg = 0,
+  pageRotationDeg = 0
+): 'ns-resize' | 'nesw-resize' | 'ew-resize' | 'nwse-resize' {
+  const baseAngles: Record<ResizeHandleDir, number> = {
+    n: 0,
+    ne: 45,
+    e: 90,
+    se: 135,
+    s: 180,
+    sw: 225,
+    w: 270,
+    nw: 315
+  };
+  const totalAngle = (((baseAngles[dir] + objectRotationDeg + pageRotationDeg) % 360) + 360) % 360;
+  const sector = Math.round(totalAngle / 45) % 4;
+  if (sector === 0) return 'ns-resize';
+  if (sector === 1) return 'nesw-resize';
+  if (sector === 2) return 'ew-resize';
+  return 'nwse-resize';
 }
 
 export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
@@ -410,10 +441,11 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
   // Rendered page background image
   const [pageBgUrl, setPageBgUrl] = useState<string>('');
 
-  // Unified Direct Manipulation State: Move, 8-Handle Resize, Rotate, Draw Shape, or Freehand
+  // Unified Direct Manipulation State: Move, 8-Handle Resize, Rotate, Pan, Draw Shape, or Freehand
   const [dragState, setDragState] = useState<{
-    mode: 'move' | 'resize' | 'rotate' | 'freehand' | 'draw-shape';
+    mode: 'move' | 'resize' | 'rotate' | 'pan' | 'freehand' | 'draw-shape';
     resizeDir?: ResizeHandleDir;
+    activeCursor?: string;
     shapeTool?: EditorToolMode;
     objId?: string;
     startX: number;
@@ -427,7 +459,12 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     centerY?: number;
     groupOrigins?: Record<string, { x: number; y: number }>;
     points?: Array<{ x: number; y: number }>;
+    panStartClientX?: number;
+    panStartClientY?: number;
+    panStartScrollLeft?: number;
+    panStartScrollTop?: number;
   } | null>(null);
+  const [spacePanHeld, setSpacePanHeld] = useState<boolean>(false);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objId: string } | null>(
@@ -441,6 +478,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
   const pageRailRef = useRef<HTMLDivElement | null>(null);
   const sorterGridRef = useRef<HTMLDivElement | null>(null);
   const pageCanvasRef = useRef<HTMLDivElement | null>(null);
+  const canvasViewportRef = useRef<HTMLElement | null>(null);
 
   // Signature Modal state
   const [sigModalOpen, setSigModalOpen] = useState<boolean>(false);
@@ -1130,10 +1168,22 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
         setContextMenu(null);
         closeToolbarPanel();
         setToolMode('select');
+      } else if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        setSpacePanHeld(true);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePanHeld(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, [
     selectedIds,
     editingTextObjId,
@@ -1340,10 +1390,31 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     [currentPage?.width, currentPage?.height, currentPage?.pageIndex, docName, updateObjectsWithHistory]
   );
 
-  // Canvas MouseDown: Select, or Interactive Click-and-Drag Creation of Shapes/Text/Redactions
+  // Canvas MouseDown: Select, Pan, or Interactive Click-and-Drag Creation of Shapes/Text/Redactions
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setContextMenu(null);
     if (!currentPage) return;
+
+    // Middle-click or Spacebar + Left-Click or Pan Tool initiates Canvas Panning (grab -> grabbing)
+    if (e.button === 1 || toolMode === 'pan' || spacePanHeld) {
+      e.preventDefault();
+      const viewport = canvasViewportRef.current;
+      setDragState({
+        mode: 'pan',
+        activeCursor: 'grabbing',
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: 0,
+        origY: 0,
+        origW: 0,
+        origH: 0,
+        panStartClientX: e.clientX,
+        panStartClientY: e.clientY,
+        panStartScrollLeft: viewport?.scrollLeft || 0,
+        panStartScrollTop: viewport?.scrollTop || 0
+      });
+      return;
+    }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const { x: clickX, y: clickY } = getCanvasPdfPoint(e.clientX, e.clientY, rect);
@@ -1510,9 +1581,21 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     }
   };
 
-  // Canvas MouseMove: Direct Move, 8-Handle Resize, Rotation, Shape Draw, & Smart Snap Guides
+  // Canvas MouseMove: Direct Move, 8-Handle Resize, Rotation, Pan, Shape Draw, & Smart Snap Guides
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!dragState || !currentPage) return;
+
+    if (dragState.mode === 'pan') {
+      const viewport = canvasViewportRef.current;
+      if (viewport && dragState.panStartClientX !== undefined && dragState.panStartClientY !== undefined) {
+        const deltaX = e.clientX - dragState.panStartClientX;
+        const deltaY = e.clientY - dragState.panStartClientY;
+        viewport.scrollLeft = (dragState.panStartScrollLeft || 0) - deltaX;
+        viewport.scrollTop = (dragState.panStartScrollTop || 0) - deltaY;
+      }
+      return;
+    }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const { x: curX, y: curY } = getCanvasPdfPoint(e.clientX, e.clientY, rect);
     const dx = curX - dragState.startX;
@@ -1681,25 +1764,67 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     }
   };
 
+  // Global cursor lock & window mouseup fallback so cursors remain consistent throughout the entire drag/resize/rotate/pan gesture
   useEffect(() => {
-    document.documentElement.classList.toggle('canvas-dragging-active', Boolean(dragState));
+    const root = document.documentElement;
+    root.classList.toggle('canvas-dragging-active', Boolean(dragState));
+
+    let lockedCursor: string | null = null;
+    if (dragState) {
+      if (dragState.activeCursor) {
+        lockedCursor = dragState.activeCursor;
+      } else if (dragState.mode === 'pan') {
+        lockedCursor = 'grabbing';
+      } else if (dragState.mode === 'rotate') {
+        lockedCursor = 'crosshair';
+      } else if (dragState.mode === 'move') {
+        lockedCursor = 'grabbing';
+      } else if (dragState.mode === 'resize') {
+        const targetObj = objects.find((o) => o.id === dragState.objId);
+        lockedCursor = getResizeCursorForHandle(
+          dragState.resizeDir || 'se',
+          targetObj?.rotation || 0,
+          currentPage?.rotation || 0
+        );
+      } else {
+        lockedCursor = 'crosshair';
+      }
+    } else if (draggedPageIdx !== null) {
+      lockedCursor = 'grabbing';
+    } else if (isDrawingSig) {
+      lockedCursor = 'crosshair';
+    }
+
+    if (lockedCursor) {
+      root.setAttribute('data-active-cursor', lockedCursor);
+    } else {
+      root.removeAttribute('data-active-cursor');
+    }
+
     return () => {
-      document.documentElement.classList.remove('canvas-dragging-active');
+      root.classList.remove('canvas-dragging-active');
+      root.removeAttribute('data-active-cursor');
     };
-  }, [dragState]);
+  }, [dragState, draggedPageIdx, isDrawingSig, objects, currentPage?.rotation]);
 
   const getActiveCanvasCursorClass = (): string => {
     if (dragState) {
-      if (dragState.mode === 'rotate') return 'cursor-grabbing';
-      if (dragState.mode === 'move') return 'cursor-move';
+      if (dragState.mode === 'pan') return 'cursor-grabbing';
+      if (dragState.mode === 'rotate') return 'cursor-crosshair';
+      if (dragState.mode === 'move') return 'cursor-grabbing';
       if (dragState.mode === 'resize') {
-        const dir = dragState.resizeDir || 'se';
-        if (dir === 'nw' || dir === 'se') return 'cursor-nwse-resize';
-        if (dir === 'ne' || dir === 'sw') return 'cursor-nesw-resize';
-        if (dir === 'n' || dir === 's') return 'cursor-ns-resize';
-        return 'cursor-ew-resize';
+        const targetObj = objects.find((o) => o.id === dragState.objId);
+        const c = getResizeCursorForHandle(
+          dragState.resizeDir || 'se',
+          targetObj?.rotation || 0,
+          currentPage?.rotation || 0
+        );
+        return `cursor-${c}`;
       }
       return 'cursor-crosshair';
+    }
+    if (toolMode === 'pan' || spacePanHeld) {
+      return 'cursor-grab';
     }
     if (toolMode === 'edit-text' || toolMode === 'add-text') {
       return 'cursor-text';
@@ -1710,9 +1835,17 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     return 'cursor-default';
   };
 
-  const handleCanvasMouseUp = () => {
+  const handleCanvasMouseUp = useCallback(() => {
     setSnapGuides({ vertical: [], horizontal: [] });
-    if (!dragState || !currentPage) return;
+    if (!dragState || !currentPage) {
+      if (dragState) setDragState(null);
+      return;
+    }
+
+    if (dragState.mode === 'pan') {
+      setDragState(null);
+      return;
+    }
 
     if (dragState.mode === 'freehand' && dragState.points && dragState.points.length > 1) {
       const xs = dragState.points.map((p) => p.x);
@@ -1786,7 +1919,17 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
       );
     }
     setDragState(null);
-  };
+  }, [dragState, currentPage, pages, objects, pushSnapshot, updateObjectsWithHistory]);
+
+  // Ensure mouseup outside the canvas still cleanly terminates active drag/resize/rotate/pan gestures
+  useEffect(() => {
+    if (!dragState) return;
+    const onWindowMouseUp = () => {
+      handleCanvasMouseUp();
+    };
+    window.addEventListener('mouseup', onWindowMouseUp);
+    return () => window.removeEventListener('mouseup', onWindowMouseUp);
+  }, [dragState, handleCanvasMouseUp]);
 
   // Page Management Operations
   const handleAddBlankPage = () => {
@@ -2296,7 +2439,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
   const activeCategoryForCurrentTool = getCategoryForToolMode(toolMode);
 
   return (
-    <div className="min-h-[calc(100vh-65px)] flex flex-col bg-theme-canvas text-theme-primary select-none">
+    <div className="flex-1 flex flex-col min-h-0 lg:h-full lg:overflow-hidden bg-theme-canvas text-theme-primary select-none">
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
@@ -2821,6 +2964,19 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                       >
                         <MousePointer className="w-3.5 h-3.5" />
                         <span>Select &amp; Transform</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => selectToolAndCloseUnpinned('pan')}
+                        title="Pan Canvas (or hold Spacebar + Drag)"
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold border cursor-pointer ${
+                          toolMode === 'pan'
+                            ? 'bg-theme-accent text-white border-theme-accent'
+                            : 'bg-theme-surface border-theme-subtle text-theme-primary hover:border-theme-accent'
+                        }`}
+                      >
+                        <Hand className="w-3.5 h-3.5" />
+                        <span>Pan Canvas (Space)</span>
                       </button>
                       <button
                         type="button"
@@ -4159,12 +4315,12 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
       {/* ========================================================= */}
       {/* MAIN 3-COLUMN EDITOR WORKSPACE                            */}
       {/* ========================================================= */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:overflow-hidden">
         {/* --------------------------------------------------------- */}
         {/* LEFT SIDEBAR: Pages, Object & Layer Manager, Outline, Forms */}
         {/* --------------------------------------------------------- */}
         {!leftSidebarCollapsed && (
-          <aside className="lg:col-span-3 border-r border-theme-subtle bg-theme-surface flex flex-col min-h-[340px] lg:max-h-[calc(100vh-155px)]">
+          <aside className="lg:col-span-3 border-r border-theme-subtle bg-theme-surface flex flex-col min-h-[340px] lg:h-full lg:min-h-0 overflow-hidden">
             {/* Sidebar Navigation Tabs */}
             <div className="grid grid-cols-6 border-b border-theme-subtle bg-theme-elevated text-[11px] font-semibold">
               {(
@@ -4846,13 +5002,55 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
         {/* CENTRAL INTERACTIVE DOCUMENT CANVAS                       */}
         {/* --------------------------------------------------------- */}
         <main
+          ref={canvasViewportRef}
+          onMouseDown={(e) => {
+            if (e.button === 1 || toolMode === 'pan' || spacePanHeld) {
+              e.preventDefault();
+              const viewport = canvasViewportRef.current;
+              setDragState({
+                mode: 'pan',
+                activeCursor: 'grabbing',
+                startX: e.clientX,
+                startY: e.clientY,
+                origX: 0,
+                origY: 0,
+                origW: 0,
+                origH: 0,
+                panStartClientX: e.clientX,
+                panStartClientY: e.clientY,
+                panStartScrollLeft: viewport?.scrollLeft || 0,
+                panStartScrollTop: viewport?.scrollTop || 0
+              });
+            }
+          }}
+          onMouseMove={(e) => {
+            if (dragState?.mode === 'pan') {
+              const viewport = canvasViewportRef.current;
+              if (
+                viewport &&
+                dragState.panStartClientX !== undefined &&
+                dragState.panStartClientY !== undefined
+              ) {
+                const deltaX = e.clientX - dragState.panStartClientX;
+                const deltaY = e.clientY - dragState.panStartClientY;
+                viewport.scrollLeft = (dragState.panStartScrollLeft || 0) - deltaX;
+                viewport.scrollTop = (dragState.panStartScrollTop || 0) - deltaY;
+              }
+            }
+          }}
           className={`${
             leftSidebarCollapsed && rightPanelCollapsed
               ? 'lg:col-span-12'
               : leftSidebarCollapsed || rightPanelCollapsed
               ? 'lg:col-span-9'
               : 'lg:col-span-6'
-          } bg-theme-muted/60 overflow-auto flex flex-col items-center p-6 lg:max-h-[calc(100vh-155px)] relative`}
+          } bg-theme-muted/60 overflow-auto flex flex-col items-center p-6 lg:h-full lg:min-h-0 relative ${
+            dragState?.mode === 'pan'
+              ? 'cursor-grabbing'
+              : toolMode === 'pan' || spacePanHeld
+              ? 'cursor-grab'
+              : ''
+          }`}
         >
           {/* Automatic Scanned Document Detection Offer Banner (Section 4) */}
           {showScannedDetectionPrompt && !ocrRunning && (
@@ -5204,6 +5402,25 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                       e.stopPropagation();
                       setContextMenu(null);
 
+                      if (e.button === 1 || toolMode === 'pan' || spacePanHeld) {
+                        const viewport = canvasViewportRef.current;
+                        setDragState({
+                          mode: 'pan',
+                          activeCursor: 'grabbing',
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          origX: 0,
+                          origY: 0,
+                          origW: 0,
+                          origH: 0,
+                          panStartClientX: e.clientX,
+                          panStartClientY: e.clientY,
+                          panStartScrollLeft: viewport?.scrollLeft || 0,
+                          panStartScrollTop: viewport?.scrollTop || 0
+                        });
+                        return;
+                      }
+
                       // Alt+Click cycles through overlapping objects at this spot!
                       if (e.altKey) {
                         cycleOverlappingObjects(obj);
@@ -5246,6 +5463,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
 
                         setDragState({
                           mode: 'move',
+                          activeCursor: 'grabbing',
                           objId: obj.id,
                           startX,
                           startY,
@@ -5291,7 +5509,9 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                           : 'ring-1 ring-cyan-500/55 hover:ring-2 hover:ring-emerald-500'
                         : 'hover:ring-1 hover:ring-emerald-500/75'
                     } ${
-                      obj.locked
+                      toolMode === 'pan' || spacePanHeld
+                        ? 'cursor-grab active:cursor-grabbing'
+                        : obj.locked
                         ? 'cursor-not-allowed'
                         : isEditingInline ||
                           (toolMode === 'edit-text' &&
@@ -5300,7 +5520,14 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                               obj.type === 'added-text' ||
                               obj.type === 'watermark'))
                         ? 'cursor-text'
-                        : 'cursor-move'
+                        : dragState?.mode === 'move' && dragState?.objId === obj.id
+                        ? 'cursor-grabbing'
+                        : isSelected &&
+                          (obj.type === 'native-text' ||
+                            obj.type === 'ocr-text' ||
+                            obj.type === 'added-text')
+                        ? 'cursor-move'
+                        : 'cursor-grab active:cursor-grabbing'
                     }`}
                   >
                     {/* OCR Confidence, Font Classification & Alignment Badge on Hover or Selection */}
@@ -5714,7 +5941,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                     {/* ========================================================= */}
                     {isSelected && !obj.locked && !isEditingInline && (
                       <>
-                        {/* Top Rotation Handle & Stem */}
+                        {/* Top Rotation Handle & Stem (crosshair rotation cursor) */}
                         <div
                           onMouseDown={(e) => {
                             e.stopPropagation();
@@ -5724,6 +5951,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                             );
                             setDragState({
                               mode: 'rotate',
+                              activeCursor: 'crosshair',
                               objId: obj.id,
                               startX,
                               startY,
@@ -5737,53 +5965,61 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                             });
                           }}
                           title="Drag to Rotate Object (Hold Shift for 15° snap)"
-                          className="absolute left-1/2 -top-7 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing z-30"
+                          className="absolute left-1/2 -top-7 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-crosshair z-30"
                         >
                           <div className="w-px h-3 bg-emerald-600 absolute -bottom-1.5 left-1/2 -translate-x-1/2 pointer-events-none" />
-                          <div className="w-3.5 h-3.5 rounded-full bg-white border-2 border-emerald-600 shadow-sm flex items-center justify-center">
-                            <RotateCw className="w-2 h-2 text-emerald-700" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-white border-2 border-emerald-600 shadow-sm flex items-center justify-center pointer-events-none">
+                            <RotateCw className="w-2 h-2 text-emerald-700 pointer-events-none" />
                           </div>
                         </div>
 
                         {/* 8 Forgiving Resize Handles (4 Corners: NW, NE, SE, SW + 4 Edges: N, E, S, W) */}
                         {(
                           [
-                            { dir: 'nw', pos: '-left-2.5 -top-2.5', cursor: 'cursor-nwse-resize' },
-                            { dir: 'n', pos: 'left-1/2 -translate-x-1/2 -top-2.5', cursor: 'cursor-ns-resize' },
-                            { dir: 'ne', pos: '-right-2.5 -top-2.5', cursor: 'cursor-nesw-resize' },
-                            { dir: 'e', pos: '-right-2.5 top-1/2 -translate-y-1/2', cursor: 'cursor-ew-resize' },
-                            { dir: 'se', pos: '-right-2.5 -bottom-2.5', cursor: 'cursor-nwse-resize' },
-                            { dir: 's', pos: 'left-1/2 -translate-x-1/2 -bottom-2.5', cursor: 'cursor-ns-resize' },
-                            { dir: 'sw', pos: '-left-2.5 -bottom-2.5', cursor: 'cursor-nesw-resize' },
-                            { dir: 'w', pos: '-left-2.5 top-1/2 -translate-y-1/2', cursor: 'cursor-ew-resize' }
-                          ] as Array<{ dir: ResizeHandleDir; pos: string; cursor: string }>
-                        ).map((h) => (
-                          <div
-                            key={h.dir}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const { x: startX, y: startY } = getCanvasPdfPoint(
-                                e.clientX,
-                                e.clientY
-                              );
-                              setDragState({
-                                mode: 'resize',
-                                resizeDir: h.dir,
-                                objId: obj.id,
-                                startX,
-                                startY,
-                                origX: obj.x,
-                                origY: obj.y,
-                                origW: obj.width,
-                                origH: obj.height
-                              });
-                            }}
-                            title={`Resize (${h.dir.toUpperCase()}) — Hold Shift for proportional`}
-                            className={`absolute ${h.pos} w-5 h-5 flex items-center justify-center ${h.cursor} z-30`}
-                          >
-                            <div className="w-2.5 h-2.5 bg-white border-2 border-emerald-600 rounded-[2px] shadow-xs group-hover:scale-110 transition-transform" />
-                          </div>
-                        ))}
+                            { dir: 'nw', pos: '-left-2.5 -top-2.5' },
+                            { dir: 'n', pos: 'left-1/2 -translate-x-1/2 -top-2.5' },
+                            { dir: 'ne', pos: '-right-2.5 -top-2.5' },
+                            { dir: 'e', pos: '-right-2.5 top-1/2 -translate-y-1/2' },
+                            { dir: 'se', pos: '-right-2.5 -bottom-2.5' },
+                            { dir: 's', pos: 'left-1/2 -translate-x-1/2 -bottom-2.5' },
+                            { dir: 'sw', pos: '-left-2.5 -bottom-2.5' },
+                            { dir: 'w', pos: '-left-2.5 top-1/2 -translate-y-1/2' }
+                          ] as Array<{ dir: ResizeHandleDir; pos: string }>
+                        ).map((h) => {
+                          const handleCursor = getResizeCursorForHandle(
+                            h.dir,
+                            obj.rotation || 0,
+                            currentPage.rotation || 0
+                          );
+                          return (
+                            <div
+                              key={h.dir}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const { x: startX, y: startY } = getCanvasPdfPoint(
+                                  e.clientX,
+                                  e.clientY
+                                );
+                                setDragState({
+                                  mode: 'resize',
+                                  resizeDir: h.dir,
+                                  activeCursor: handleCursor,
+                                  objId: obj.id,
+                                  startX,
+                                  startY,
+                                  origX: obj.x,
+                                  origY: obj.y,
+                                  origW: obj.width,
+                                  origH: obj.height
+                                });
+                              }}
+                              title={`Resize (${h.dir.toUpperCase()}) — Hold Shift for proportional`}
+                              className={`absolute ${h.pos} w-5 h-5 flex items-center justify-center cursor-${handleCursor} z-30`}
+                            >
+                              <div className="w-2.5 h-2.5 bg-white border-2 border-emerald-600 rounded-[2px] shadow-xs pointer-events-none" />
+                            </div>
+                          );
+                        })}
                       </>
                     )}
                   </div>
@@ -5919,7 +6155,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
         {/* RIGHT CONTEXTUAL PROPERTIES INSPECTOR (SECTIONS 8, 9, 17) */}
         {/* --------------------------------------------------------- */}
         {!rightPanelCollapsed && (
-          <aside className="lg:col-span-3 border-l border-theme-subtle bg-theme-surface p-4 space-y-5 overflow-y-auto lg:max-h-[calc(100vh-155px)]">
+          <aside className="lg:col-span-3 border-l border-theme-subtle bg-theme-surface p-4 space-y-5 overflow-y-auto lg:h-full lg:min-h-0">
             {!primarySelectedObj ? (
               <div className="space-y-4">
                 <div>

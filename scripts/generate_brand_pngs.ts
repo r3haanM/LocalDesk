@@ -1,29 +1,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { buildSpecCompliantIcoBuffer } from './pe64_builder';
 
 /**
- * Local Desk — Multi-Resolution Pixel-Grid-Aligned Icon & ICO Generator
+ * Local Desk — Pixel-Grid-Locked Multi-Resolution Windows Icon Generator
  *
- * Generates crystal-clear, pixel-grid-aligned RGBA PNG icons at:
- *   16x16, 20x20, 24x24, 32x32, 40x40, 48x48, 64x64, 128x128, 180x180, 256x256, 512x512
- * Plus a multi-resolution Windows .ico container (build/icon.ico & public/favicon.ico)
- * containing all standard and high-DPI Windows 10/11 taskbar & Explorer sizes.
- *
- * Root-Cause Fixes for Windows Taskbar Crispness:
- * 1. Full-bleed Windows 11 Squircle Geometry (8..248 on 256 grid = 93.75% fill)
- *    instead of excessive padding (16..240) that made the taskbar icon appear small.
- * 2. 100% Opaque Outer Perimeter with Crisp Inner Rim Highlight (#10B981 / #0D1F18)
- *    instead of a semi-transparent outer stroke (alpha=96) that produced a blurry halo
- *    against dark and light Windows taskbars.
- * 3. Harmonic 16-Grid Coordinate Alignment:
- *    All vertical and horizontal edges of the Emerald L-Frame and Document Sheet
- *    are aligned to multiples of 8 on the 256-unit grid (48, 88, 104, 160, 208),
- *    guaranteeing razor-sharp integer pixel edges at 16x16, 24x24, 32x32, 40x40,
- *    48x48, 64x64, 128x128, and 256x256.
+ * Root-Cause Fixes for Blurry Taskbar & Window Icons:
+ * 1. Exact Target-Resolution Integer Grid Snapping:
+ *    Previously, icons were sampled from a 256x256 coordinate space. Because 256 is not
+ *    divisible by 20, 24, or 40 (common Windows 100%/125%/150% DPI taskbar & caption sizes),
+ *    every horizontal and vertical straight edge landed on fractional pixels (.33, .67, .4, .8),
+ *    causing severe bilinear blurring across adjacent pixel rows/columns.
+ *    Now, every horizontal and vertical edge of the Squircle Vessel, Grounded Emerald L-Frame,
+ *    Negative-Space Separation Channel, Document Sheet, and Typography Bars is snapped to
+ *    exact integer pixel coordinates on each target size grid (16, 20, 24, 32, 40, 48, 64, 128, 256, 512).
+ * 2. True Negative-Space Architectural Channel (Zero Muddy Overlap):
+ *    Matches LocalDeskLogo.tsx Version B: the Grounded Emerald L-Frame and the Crisp White
+ *    Document Sheet are separated by an integer-pixel dark Forest Green channel rather than
+ *    overlapping with a dark smudge shadow.
+ * 3. Zero Radial Glow or Fuzzy Outer Rim Halo:
+ *    Removed the radial glow and non-integer bright outer stroke that caused a faint smearing
+ *    effect on the Windows 11 taskbar.
  */
 
-// CRC32 Table for PNG chunks
 const crcTable = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
   let c = n;
@@ -57,13 +57,12 @@ function encodePNG(width: number, height: number, rgba: Uint8Array): Buffer {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // 8-bit depth
-  ihdr[9] = 6; // RGBA color type
+  ihdr[8] = 8;
+  ihdr[9] = 6; // RGBA
   ihdr[10] = 0;
   ihdr[11] = 0;
   ihdr[12] = 0;
 
-  // Filter 0 (None) per scanline
   const rawScanlines = Buffer.alloc(height * (1 + width * 4));
   for (let y = 0; y < height; y++) {
     const rowStart = y * (1 + width * 4);
@@ -85,164 +84,318 @@ function encodePNG(width: number, height: number, rgba: Uint8Array): Buffer {
   ]);
 }
 
-/**
- * Signed distance to a rounded rectangle on [x..x+w, y..y+h] with corner radius r.
- * Negative inside, 0 on boundary, positive outside.
- */
-function sdRoundedRect(
+function sdRoundedBox(
   px: number,
   py: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
   r: number
 ): number {
-  const cx = x + w * 0.5;
-  const cy = y + h * 0.5;
-  const hx = w * 0.5 - r;
-  const hy = h * 0.5 - r;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const cx = x0 + w * 0.5;
+  const cy = y0 + h * 0.5;
+  const rad = Math.min(r, w * 0.5, h * 0.5);
+  const hx = w * 0.5 - rad;
+  const hy = h * 0.5 - rad;
   const dx = Math.max(Math.abs(px - cx) - hx, 0);
   const dy = Math.max(Math.abs(py - cy) - hy, 0);
   const outsideDist = Math.hypot(dx, dy);
   const insideDist = Math.min(Math.max(Math.abs(px - cx) - hx, Math.abs(py - cy) - hy), 0);
-  return outsideDist + insideDist - r;
-}
-
-function inRoundedRect(
-  px: number,
-  py: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): boolean {
-  return sdRoundedRect(px, py, x, y, w, h, r) <= 0;
+  return outsideDist + insideDist - rad;
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
+interface GridGeometry {
+  size: number;
+  // Outer squircle vessel bounds (integer pixels)
+  v0: number;
+  v1: number;
+  vRadius: number;
+  // L-Frame outer bounds & thickness (integer pixels)
+  lLeft: number;
+  lTop: number;
+  lRight: number;
+  lBottom: number;
+  lThick: number;
+  lOuterRadius: number;
+  lInnerRadius: number;
+  // Document sheet bounds (integer pixels, separated by integer channel gap from L-Frame)
+  docLeft: number;
+  docTop: number;
+  docRight: number;
+  docBottom: number;
+  docRadius: number;
+  foldSize: number;
+  // Internal document typography bars (integer pixel rows & columns)
+  bars: Array<{ x0: number; y0: number; x1: number; y1: number }>;
+}
+
 /**
- * Samples the Local Desk architectural symbol at normalized 256x256 space (u, v in [0, 256]).
- * Designed with harmonic 16-grid coordinates so small sizes (16, 20, 24, 32, 40, 48)
- * remain razor-sharp on the Windows taskbar, system tray, Alt+Tab, and window title bar.
+ * Computes exact integer-pixel-aligned geometry for each target icon resolution.
+ * Every straight horizontal and vertical edge lies on an exact integer pixel coordinate,
+ * eliminating subpixel blur on Windows 10/11 taskbars at 100%, 125%, 150%, and 200% DPI.
  */
-function sampleLocalDeskIcon(
-  u: number,
-  v: number,
-  variant: 'app-icon' | 'symbol-dark' | 'symbol-light' | 'symbol-mono-white',
-  targetSize = 256
+function computePixelLockedGeometry(size: number): GridGeometry {
+  // Windows 11 icon padding: 1px at 16-24px, 2px at 32-40px, 3px at 48px, proportional above
+  const pad =
+    size <= 20
+      ? 1
+      : size <= 24
+      ? 1
+      : size <= 32
+      ? 2
+      : size <= 40
+      ? 2
+      : size <= 48
+      ? 3
+      : Math.round(size * 0.0625);
+
+  const v0 = pad;
+  const v1 = size - pad;
+  const vRadius = Math.max(3, Math.round((v1 - v0) * 0.24));
+
+  // Inner symbol bounding box [s0 .. s1]
+  const innerMargin =
+    size <= 16
+      ? 2
+      : size <= 20
+      ? 3
+      : size <= 24
+      ? 4
+      : size <= 32
+      ? 5
+      : size <= 40
+      ? 6
+      : size <= 48
+      ? 8
+      : Math.round(size * 0.16);
+
+  const s0 = v0 + innerMargin;
+  const s1 = v1 - innerMargin;
+  const span = s1 - s0;
+
+  // L-frame bar thickness and negative-space channel gap (strictly integer pixels!)
+  const lThick =
+    size <= 16
+      ? 2
+      : size <= 20
+      ? 3
+      : size <= 24
+      ? 3
+      : size <= 32
+      ? 4
+      : size <= 40
+      ? 5
+      : size <= 48
+      ? 6
+      : Math.max(7, Math.round(span * 0.21));
+
+  const gap =
+    size <= 20
+      ? 1
+      : size <= 32
+      ? 2
+      : size <= 48
+      ? 3
+      : Math.max(4, Math.round(span * 0.09));
+
+  const lLeft = s0;
+  const lTop = s0;
+  const lRight = s1;
+  const lBottom = s1;
+
+  // Document sheet sits in the top-right quadrant, separated from the L-frame by `gap` pixels
+  const docLeft = lLeft + lThick + gap;
+  const docTop = s0;
+  const docRight = s1;
+  const docBottom = lBottom - lThick - gap;
+
+  const lOuterRadius = Math.max(1, Math.round(lThick * 0.45));
+  const lInnerRadius = Math.max(1, Math.round(lThick * 0.25));
+  const docRadius = Math.max(1, Math.round(lThick * 0.38));
+
+  const docW = docRight - docLeft;
+  const docH = docBottom - docTop;
+  const foldSize = Math.max(2, Math.round(Math.min(docW, docH) * 0.36));
+
+  // Integer-snapped horizontal document calibration bars inside the white sheet
+  const bars: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
+  if (size >= 20) {
+    const barPadX = Math.max(2, Math.round(docW * 0.2));
+    const barH = size <= 24 ? 1 : size <= 40 ? 2 : Math.max(2, Math.round(docH * 0.11));
+    const barGap = size <= 24 ? 2 : size <= 40 ? 2 : Math.max(2, Math.round(docH * 0.13));
+
+    const firstBarY = docTop + Math.max(foldSize + 1, Math.round(docH * 0.44));
+    const bar1X0 = docLeft + barPadX;
+    const bar1X1 = docRight - barPadX;
+
+    if (firstBarY + barH <= docBottom - 2 && bar1X1 > bar1X0 + 1) {
+      bars.push({
+        x0: bar1X0,
+        y0: firstBarY,
+        x1: bar1X1,
+        y1: firstBarY + barH
+      });
+
+      const secondBarY = firstBarY + barH + barGap;
+      const bar2X1 = bar1X0 + Math.max(2, Math.round((bar1X1 - bar1X0) * 0.68));
+      if (secondBarY + barH <= docBottom - 1 && bar2X1 > bar1X0 + 1) {
+        bars.push({
+          x0: bar1X0,
+          y0: secondBarY,
+          x1: bar2X1,
+          y1: secondBarY + barH
+        });
+      }
+    }
+  }
+
+  return {
+    size,
+    v0,
+    v1,
+    vRadius,
+    lLeft,
+    lTop,
+    lRight,
+    lBottom,
+    lThick,
+    lOuterRadius,
+    lInnerRadius,
+    docLeft,
+    docTop,
+    docRight,
+    docBottom,
+    docRadius,
+    foldSize,
+    bars
+  };
+}
+
+function samplePixelLockedIcon(
+  px: number,
+  py: number,
+  geom: GridGeometry,
+  variant: 'app-icon' | 'symbol-dark' | 'symbol-light' | 'symbol-mono-white'
 ): [number, number, number, number] {
-  const isSmallIcon = targetSize <= 32;
+  const {
+    size,
+    v0,
+    v1,
+    vRadius,
+    lLeft,
+    lTop,
+    lRight,
+    lBottom,
+    lThick,
+    lOuterRadius,
+    lInnerRadius,
+    docLeft,
+    docTop,
+    docRight,
+    docBottom,
+    docRadius,
+    foldSize,
+    bars
+  } = geom;
 
-  // 1. Check Document Sheet (Top-Right):
-  // Aligned to 16-grid: x in [96, 208], y in [48, 160], r = 16
-  // With top-right chamfer corner cut: (u - 168) + (v - 48) >= 0 for u >= 168 && v <= 88
-  const inSheetRect = inRoundedRect(u, v, 96, 48, 112, 112, isSmallIcon ? 14 : 16);
-  const inCornerCutout = u >= 168 && v <= 88 && u - 168 > v - 48;
-  const inDocSheet = inSheetRect && !inCornerCutout;
+  // 1. Active Document Sheet (Top-Right)
+  const inDocBox = sdRoundedBox(px, py, docLeft, docTop, docRight, docBottom, docRadius) <= 0;
+  const foldStartX = docRight - foldSize;
+  const foldEndY = docTop + foldSize;
+  const inFoldCutout = px > foldStartX && py < foldEndY && px - foldStartX > py - docTop;
 
-  if (inDocSheet) {
-    // Check folded corner flap triangle: u >= 168, v <= 88, and inside rounded flap
-    const inFoldFlap =
-      u >= 168 &&
-      v <= 88 &&
-      inRoundedRect(u, v, 168, 48, 40, 40, 8) &&
-      u - 168 <= v - 48 + 2.0;
+  if (inDocBox && !inFoldCutout) {
+    // Check Corner Fold Triangle [foldStartX..docRight, docTop..foldEndY]
+    const inFoldTriangle =
+      px >= foldStartX &&
+      py <= foldEndY &&
+      px - foldStartX <= py - docTop &&
+      sdRoundedBox(px, py, foldStartX, docTop, docRight, foldEndY, Math.max(1, docRadius * 0.5)) <= 0;
 
-    if (inFoldFlap) {
+    if (inFoldTriangle) {
       if (variant === 'symbol-mono-white') {
-        return [255, 255, 255, 195];
+        return [255, 255, 255, 200];
       }
-      // Crisp Emerald Accent Fold Flap (#10B981 -> #34D399)
-      return [22, 196, 138, 255];
+      // Crisp Emerald Fold (#10B981)
+      return [16, 185, 129, 255];
     }
 
-    // Crisp precision document lines inside the sheet (omitted below 20px to prevent subpixel clutter,
-    // drawn with 2-pixel snapped thickness at 24px-32px for unmistakable PDF document recognition)
-    if (targetSize >= 24 && variant !== 'symbol-mono-white') {
-      const lineThickness = isSmallIcon ? 10 : 7;
-      const inLine1 = inRoundedRect(u, v, 116, 104, 68, lineThickness, 3.5);
-      const inLine2 = inRoundedRect(u, v, 116, 126, 48, lineThickness, 3.5);
-      if (inLine1 || inLine2) {
-        // Deep Forest Green document typography bars (#065F46)
-        return [6, 95, 70, 235];
+    // Check integer-snapped internal typography bars
+    if (variant !== 'symbol-mono-white') {
+      for (const b of bars) {
+        if (px >= b.x0 && px <= b.x1 && py >= b.y0 && py <= b.y1) {
+          // High-contrast Deep Forest Green bar (#064E3B)
+          return [6, 78, 59, 255];
+        }
       }
     }
 
-    // Sheet Body Color — high contrast warm alabaster white so the icon pops on both dark & light taskbars
     if (variant === 'symbol-mono-white') {
       return [255, 255, 255, 255];
     }
     if (variant === 'symbol-light') {
-      return [6, 95, 70, 255]; // #065F46
+      return [6, 95, 70, 255];
     }
-    const t = (u - 96 + (v - 48)) / 224;
+    // Crisp high-contrast white document plane (#FFFFFF -> #F0FDF4)
+    const tDoc = (px - docLeft + (py - docTop)) / Math.max(1, docRight - docLeft + (docBottom - docTop));
     return [
-      Math.round(lerp(255, 236, t)),
-      Math.round(lerp(255, 253, t)),
-      Math.round(lerp(255, 245, t)),
+      Math.round(lerp(255, 240, tDoc)),
+      Math.round(lerp(255, 253, tDoc)),
+      Math.round(lerp(255, 246, tDoc)),
       255
     ];
   }
 
-  // 2. Check Architectural Desk L-Frame (Bottom-Left):
-  // Outer rounded rect x in [48, 176], y in [80, 208], r = 20
-  // Minus inner cutout x in [88, 184], y in [72, 168], r = 12
-  const inOuterL = inRoundedRect(u, v, 48, 80, 128, 128, isSmallIcon ? 18 : 22);
-  const inInnerCut = inRoundedRect(u, v, 88, 72, 96, 96, isSmallIcon ? 10 : 12);
-  const inLFrame = inOuterL && !inInnerCut;
+  // 2. Grounded Emerald L-Frame Desk Datum (Bottom-Left)
+  // Separated from the Document Sheet by the exact integer channel gap
+  const inLOuter = sdRoundedBox(px, py, lLeft, lTop, lRight, lBottom, lOuterRadius) <= 0;
+  const inLInnerCut =
+    sdRoundedBox(
+      px,
+      py,
+      lLeft + lThick,
+      lTop - lOuterRadius,
+      lRight + lOuterRadius,
+      lBottom - lThick,
+      lInnerRadius
+    ) <= 0;
 
-  if (inLFrame) {
-    // Subtle overlap depth shadow where Document Sheet casts a shadow onto L-Frame
-    const nearSheetShadow = inRoundedRect(u, v, 90, 44, 118, 122, 18);
+  if (inLOuter && !inLInnerCut) {
     if (variant === 'symbol-mono-white') {
-      return [255, 255, 255, nearSheetShadow ? 175 : 225];
+      return [255, 255, 255, 235];
     }
-    const t = (u - 48 + (v - 80)) / 256;
-    // Vibrant Emerald (#34D399 -> #10B981 -> #059669)
-    let r = lerp(52, 16, t);
-    let g = lerp(211, 185, t);
-    let b = lerp(153, 129, t);
-    if (nearSheetShadow && !isSmallIcon) {
-      r *= 0.82;
-      g *= 0.82;
-      b *= 0.82;
-    }
-    return [Math.round(r), Math.round(g), Math.round(b), 255];
+    const tL = (px - lLeft + (py - lTop)) / Math.max(1, lRight - lLeft + (lBottom - lTop));
+    // Vibrant Emerald gradient (#34D399 -> #10B981 -> #059669)
+    return [
+      Math.round(lerp(52, 5, tL)),
+      Math.round(lerp(211, 150, tL)),
+      Math.round(lerp(153, 105, tL)),
+      255
+    ];
   }
 
-  // 3. Check App Icon Vessel Background (Only for 'app-icon' variant)
+  // 3. Outer Squircle Vessel (Only for 'app-icon')
   if (variant === 'app-icon') {
-    // Full-bleed Windows 11 squircle: [8..248] (240x240 on 256 grid)
-    const dist = sdRoundedRect(u, v, 8, 8, 240, 240, 52);
+    const dist = sdRoundedBox(px, py, v0, v0, v1, v1, vRadius);
     if (dist <= 0) {
-      const t = (u + v) / 512;
-      // Rich Deep Forest Green surface (#0F291E -> #07140F)
-      let r = lerp(17, 7, t);
-      let g = lerp(44, 21, t);
-      let b = lerp(33, 16, t);
+      const tBg = (px + py) / Math.max(1, size * 2);
+      // Rich Deep Forest Green background (#102A20 -> #07140F) — high contrast for white sheet & emerald L-frame
+      let r = lerp(16, 7, tBg);
+      let g = lerp(42, 20, tBg);
+      let b = lerp(32, 15, tBg);
 
-      // Subtle inner emerald ambient glow near top-left
-      const radial = Math.hypot(u - 72, v - 64) / 220;
-      if (radial < 1) {
-        const glow = (1 - radial) * 0.22;
-        r = lerp(r, 16, glow);
-        g = lerp(g, 185, glow);
-        b = lerp(b, 129, glow);
-      }
-
-      // 100% Opaque Crisp Outer Border Rim (blended into the solid background, NEVER translucent)
-      // At small sizes (<=32px), a 1px solid emerald-tinted rim gives sharp contrast against dark taskbars
-      const rimThickness = isSmallIcon ? 10.0 : 5.5;
-      if (dist >= -rimThickness) {
-        const rimMix = isSmallIcon ? 0.55 : 0.42;
-        r = lerp(r, 52, rimMix);
-        g = lerp(g, 211, rimMix);
-        b = lerp(b, 153, rimMix);
+      // Clean 1px subtle dark-emerald border definition only on >= 32px icons (no blurry glow!)
+      if (size >= 32 && dist >= -1.0) {
+        r = lerp(r, 24, 0.35);
+        g = lerp(g, 92, 0.35);
+        b = lerp(b, 67, 0.35);
       }
 
       return [Math.round(r), Math.round(g), Math.round(b), 255];
@@ -257,9 +410,9 @@ function renderPNG(
   variant: 'app-icon' | 'symbol-dark' | 'symbol-light' | 'symbol-mono-white'
 ): Buffer {
   const rgba = new Uint8Array(size * size * 4);
-  // 4x4 subpixel supersampling for crisp anti-aliased curves while keeping grid-aligned straight edges sharp
+  const geom = computePixelLockedGeometry(size);
+  // 4x4 supersampling for smooth corner arcs while integer-snapped straight edges stay 100% sharp
   const samples = 4;
-  const scale = 256 / size;
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -270,9 +423,9 @@ function renderPNG(
 
       for (let sy = 0; sy < samples; sy++) {
         for (let sx = 0; sx < samples; sx++) {
-          const u = (x + (sx + 0.5) / samples) * scale;
-          const v = (y + (sy + 0.5) / samples) * scale;
-          const [r, g, b, a] = sampleLocalDeskIcon(u, v, variant, size);
+          const px = x + (sx + 0.5) / samples;
+          const py = y + (sy + 0.5) / samples;
+          const [r, g, b, a] = samplePixelLockedIcon(px, py, geom, variant);
           const alphaNorm = a / 255;
           rSum += r * alphaNorm;
           gSum += g * alphaNorm;
@@ -298,33 +451,6 @@ function renderPNG(
   return encodePNG(size, size, rgba);
 }
 
-function buildMultiResICO(pngBuffers: { size: number; buf: Buffer }[]): Buffer {
-  const count = pngBuffers.length;
-  const header = Buffer.alloc(6);
-  header.writeUInt16LE(0, 0); // Reserved
-  header.writeUInt16LE(1, 2); // Type 1 = ICO
-  header.writeUInt16LE(count, 4);
-
-  const dirEntries = Buffer.alloc(count * 16);
-  let dataOffset = 6 + count * 16;
-
-  for (let i = 0; i < count; i++) {
-    const { size, buf } = pngBuffers[i];
-    const entryOffset = i * 16;
-    dirEntries[entryOffset] = size >= 256 ? 0 : size;
-    dirEntries[entryOffset + 1] = size >= 256 ? 0 : size;
-    dirEntries[entryOffset + 2] = 0;
-    dirEntries[entryOffset + 3] = 0;
-    dirEntries.writeUInt16LE(1, entryOffset + 4); // Color planes
-    dirEntries.writeUInt16LE(32, entryOffset + 6); // 32 bpp
-    dirEntries.writeUInt32LE(buf.length, entryOffset + 8);
-    dirEntries.writeUInt32LE(dataOffset, entryOffset + 12);
-    dataOffset += buf.length;
-  }
-
-  return Buffer.concat([header, dirEntries, ...pngBuffers.map((p) => p.buf)]);
-}
-
 const outDir = path.resolve(process.cwd(), 'public/brand/png');
 const publicDir = path.resolve(process.cwd(), 'public');
 const buildDir = path.resolve(process.cwd(), 'build');
@@ -333,17 +459,27 @@ fs.mkdirSync(outDir, { recursive: true });
 fs.mkdirSync(buildDir, { recursive: true });
 
 const sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256, 512];
-const icoFrames: { size: number; buf: Buffer }[] = [];
+const icoLayers: Array<{ size: number; pngData: Buffer }> = [];
 
 for (const sz of sizes) {
   const appIconBuf = renderPNG(sz, 'app-icon');
   fs.writeFileSync(path.join(outDir, `local-desk-app-icon-${sz}x${sz}.png`), appIconBuf);
 
   if ([16, 20, 24, 32, 40, 48, 64, 128, 256].includes(sz)) {
-    icoFrames.push({ size: sz, buf: appIconBuf });
+    icoLayers.push({ size: sz, pngData: appIconBuf });
   }
 
-  if (sz === 16 || sz === 24 || sz === 32 || sz === 48 || sz === 64 || sz === 128 || sz === 256) {
+  if (
+    sz === 16 ||
+    sz === 20 ||
+    sz === 24 ||
+    sz === 32 ||
+    sz === 40 ||
+    sz === 48 ||
+    sz === 64 ||
+    sz === 128 ||
+    sz === 256
+  ) {
     fs.writeFileSync(path.join(publicDir, `favicon-${sz}x${sz}.png`), appIconBuf);
   }
 }
@@ -351,7 +487,7 @@ for (const sz of sizes) {
 // Apple Touch Icon (180x180)
 fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), renderPNG(180, 'app-icon'));
 
-// Transparent Symbol Variants (256x256 and 512x512)
+// Transparent Symbol Variants (128, 256, 512)
 for (const sz of [128, 256, 512]) {
   fs.writeFileSync(
     path.join(outDir, `local-desk-symbol-dark-${sz}x${sz}.png`),
@@ -367,14 +503,13 @@ for (const sz of [128, 256, 512]) {
   );
 }
 
-// Multi-resolution favicon.ico (16, 20, 24, 32, 40, 48, 64, 128, 256)
-const icoBuffer = buildMultiResICO(icoFrames);
-fs.writeFileSync(path.join(publicDir, 'favicon.ico'), icoBuffer);
-
-// Windows Desktop Build Icons (build/icon.ico & build/icon.png) for Electron Builder & PE Resource Table
-fs.writeFileSync(path.join(buildDir, 'icon.ico'), icoBuffer);
+// Generate spec-compliant Windows .ico (16..128px 32-bit BGRA BITMAPINFOHEADER DIBs + 256px PNG)
+const specCompliantIcoBuffer = buildSpecCompliantIcoBuffer(icoLayers);
+fs.writeFileSync(path.join(publicDir, 'favicon.ico'), specCompliantIcoBuffer);
+fs.writeFileSync(path.join(buildDir, 'icon.ico'), specCompliantIcoBuffer);
+fs.writeFileSync(path.join(buildDir, 'local-desk-icon-v103.ico'), specCompliantIcoBuffer);
 fs.writeFileSync(path.join(buildDir, 'icon.png'), renderPNG(512, 'app-icon'));
 
 console.log(
-  `Generated Local Desk PNG & Multi-Resolution ICO assets (${icoFrames.map((f) => `${f.size}x${f.size}`).join(', ')}) in public/brand/png and build/.`
+  `Generated pixel-locked Local Desk PNG & 9-layer DIB+PNG ICO assets (${icoLayers.map((f) => `${f.size}x${f.size}`).join(', ')}) in public/brand/png, public/favicon.ico, and build/icon.ico (${specCompliantIcoBuffer.byteLength} bytes).`
 );

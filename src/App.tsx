@@ -11,7 +11,6 @@ import {
 } from './types/pdf';
 import { findToolById } from './data/toolsCatalog';
 import { TopNav } from './components/TopNav';
-import { DesktopTitleBar } from './components/DesktopTitleBar';
 import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
 import { CommandPalette } from './components/CommandPalette';
 import { LegalModal } from './components/LegalModal';
@@ -75,8 +74,9 @@ export default function App() {
     };
   });
 
-  // Apply appearance mode & smooth scrolling preference to <html> element
+  // Apply appearance mode, smooth scrolling preference & unified window title
   useEffect(() => {
+    document.title = 'Local Desk — All-in-One PDF & Document Studio';
     const root = document.documentElement;
     root.removeAttribute('data-theme');
     root.style.removeProperty('--accent-primary');
@@ -272,26 +272,19 @@ export default function App() {
     return 'select';
   };
 
-  return (
-    <div id="top" className="min-h-screen flex flex-col bg-theme-canvas text-theme-primary">
-      {/* Refined Windows Desktop Title Bar & Native Window Controls */}
-      <DesktopTitleBar
-        activeDocumentTitle={
-          activeView === 'workspace' && selectedTool
-            ? preloadedFiles[0]?.name
-              ? `${preloadedFiles[0].name} · ${selectedTool.name}`
-              : selectedTool.name
-            : 'All-in-One PDF & Document Studio'
-        }
-        onOpenPreferences={() => setPreferencesOpen(true)}
-        onNavigateHome={() => {
-          setActiveView('home');
-          setSelectedTool(null);
-          window.scrollTo({ top: 0, behavior: theme.smoothScrolling !== false ? 'smooth' : 'auto' });
-        }}
-      />
+  const isFullScreenEditor =
+    activeView === 'workspace' &&
+    selectedTool?.workspaceType === 'editor' &&
+    !studioLaunching;
 
-      {/* Top Bar Navigation */}
+  return (
+    <div
+      id="top"
+      className={`min-h-screen flex flex-col bg-theme-canvas text-theme-primary ${
+        isFullScreenEditor ? 'lg:h-screen lg:max-h-screen lg:overflow-hidden' : ''
+      }`}
+    >
+      {/* Top Bar Navigation (Single Native Windows Title Bar sits above; no duplicate in-app title bar) */}
       <TopNav
         activeView={activeView === 'workspace' ? 'workspace' : 'home'}
         onNavigateHome={() => {
@@ -311,7 +304,7 @@ export default function App() {
       />
 
       {/* Main Content Viewport */}
-      <div className="flex-1">
+      <div className={`flex-1 ${isFullScreenEditor ? 'flex flex-col min-h-0 overflow-hidden' : ''}`}>
         <AnimatePresence mode="wait">
           {activeView === 'home' || !selectedTool ? (
             <motion.div
@@ -355,6 +348,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.18 }}
+              className={isFullScreenEditor ? 'flex-1 flex flex-col min-h-0 overflow-hidden' : ''}
             >
               <Suspense
                 fallback={
@@ -425,7 +419,7 @@ export default function App() {
             <div className="space-y-1.5">
               <LocalDeskLogo size="sm" />
               <p className="text-theme-muted">
-                Privacy-First Desktop PDF &amp; Document Workspace · 100% Local Execution · Zero Cloud Telemetry
+                Local Desk — All-in-One PDF &amp; Document Studio · 100% Local Execution · Zero Cloud Telemetry
               </p>
             </div>
 

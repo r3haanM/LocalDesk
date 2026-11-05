@@ -6,7 +6,8 @@ const {
   shell,
   Menu,
   session,
-  nativeImage
+  nativeImage,
+  nativeTheme
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -17,6 +18,7 @@ const crypto = require('node:crypto');
 // 1. WINDOWS APP USER MODEL ID & SINGLE-INSTANCE LOCK
 // ---------------------------------------------------------------------------
 const APP_ID = 'com.localdesk.pdfstudio';
+const UNIFIED_WINDOW_TITLE = 'Local Desk — All-in-One PDF & Document Studio';
 if (process.platform === 'win32') {
   app.setAppUserModelId(APP_ID);
 }
@@ -161,14 +163,15 @@ function installOfflineSecurityPolicy() {
 }
 
 // ---------------------------------------------------------------------------
-// 4. RESOLVE CRISP MULTI-RESOLUTION APPLICATION ICON
+// 4. RESOLVE CRISP MULTI-RESOLUTION APPLICATION ICON (.ICO)
 // ---------------------------------------------------------------------------
 function resolveWindowIcon() {
   const candidates = [
+    path.join(__dirname, '../build/local-desk-icon-v103.ico'),
     path.join(__dirname, '../build/icon.ico'),
+    path.join(__dirname, '../dist/favicon.ico'),
     path.join(__dirname, '../public/favicon.ico'),
     path.join(__dirname, '../public/brand/png/local-desk-app-icon-256x256.png'),
-    path.join(__dirname, '../dist/favicon.ico'),
     path.join(__dirname, '../dist/brand/png/local-desk-app-icon-256x256.png')
   ];
   for (const candidate of candidates) {
@@ -183,7 +186,7 @@ function resolveWindowIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// 5. MAIN DESKTOP WINDOW & NATIVE MENU
+// 5. MAIN DESKTOP WINDOW & NATIVE MENU (SINGLE NATIVE WINDOWS TITLE BAR)
 // ---------------------------------------------------------------------------
 function broadcastWindowState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -196,6 +199,12 @@ function broadcastWindowState() {
 }
 
 function createMainWindow() {
+  try {
+    nativeTheme.themeSource = 'dark';
+  } catch {
+    // Non-fatal
+  }
+
   const iconImage = resolveWindowIcon();
 
   mainWindow = new BrowserWindow({
@@ -203,12 +212,12 @@ function createMainWindow() {
     height: 920,
     minWidth: 1024,
     minHeight: 680,
-    title: 'Local Desk — All-in-One PDF & Document Studio',
-    backgroundColor: '#0A1612',
+    title: UNIFIED_WINDOW_TITLE,
+    backgroundColor: '#0A1712',
     icon: iconImage,
     show: false,
-    frame: process.platform !== 'win32',
-    titleBarStyle: process.platform === 'win32' ? 'hidden' : 'default',
+    frame: true,
+    titleBarStyle: 'default',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -221,11 +230,34 @@ function createMainWindow() {
     }
   });
 
-  if (iconImage && process.platform === 'win32') {
-    mainWindow.setIcon(iconImage);
+  if (process.platform === 'win32') {
+    if (iconImage) {
+      mainWindow.setIcon(iconImage);
+    }
+    try {
+      mainWindow.setOverlayIcon(null, '');
+    } catch {
+      // Non-fatal
+    }
   }
 
+  // Keep a single consistent window title across all views
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(UNIFIED_WINDOW_TITLE);
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
+    mainWindow.setTitle(UNIFIED_WINDOW_TITLE);
+    if (process.platform === 'win32') {
+      try {
+        mainWindow.setOverlayIcon(null, '');
+      } catch {
+        // Non-fatal
+      }
+    }
     mainWindow.show();
     broadcastWindowState();
     if (pendingFilePathToOpen) {

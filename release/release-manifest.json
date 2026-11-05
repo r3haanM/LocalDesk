@@ -4,7 +4,7 @@
   "buildMode": "development-unsigned",
   "publisherName": null,
   "targetPlatform": "Windows 10 / Windows 11 (64-bit x64 PE32+)",
-  "buildTimestamp": "2026-11-04T11:11:11.832Z",
+  "buildTimestamp": "2026-11-04T18:06:41.148Z",
   "signing": {
     "status": "UNSIGNED_DEVELOPMENT_BUILD",
     "buildMode": "development-unsigned",
@@ -23,9 +23,9 @@
       "fileName": "Local-Desk-Setup-1.0.3-x64.exe",
       "label": "Windows 10 / 11 Setup Installer (x64 PE32+)",
       "format": "PE32+ EXE Installer (0x8664)",
-      "sizeBytes": 7949721,
-      "sizeFormatted": "7.58 MB",
-      "sha256": "9b505cc1fab275e2f8cad31139457b02d180e62ca3f3c30e00fc904e5bce3d79",
+      "sizeBytes": 7882265,
+      "sizeFormatted": "7.52 MB",
+      "sha256": "8fafc9ec6c49cb907109d4e88e0b83db60946c2b9a8574992beaec43868d1f4f",
       "downloadUrl": "/api/releases/download/Local-Desk-Setup-1.0.3-x64.exe",
       "description": "Verified 64-bit Windows 11 PE32+ GUI installer (5-section ASLR PE32+ + VS_VERSION_INFO metadata + DIB icons + relocated SFX ZIP archive + UTF-8 BOM PowerShell 5.1 shortcut registration)."
     },
@@ -33,9 +33,9 @@
       "fileName": "Local-Desk-Portable-1.0.3-win-x64.zip",
       "label": "Windows Portable Edition (No-Install ZIP)",
       "format": "Portable ZIP (with Local Desk.exe)",
-      "sizeBytes": 7806873,
-      "sizeFormatted": "7.45 MB",
-      "sha256": "c2b0f2e3fa320d3fb3ca8cf3c9d952e259fb60d0c096b202d09dba919209f6fc",
+      "sizeBytes": 7743513,
+      "sizeFormatted": "7.38 MB",
+      "sha256": "38eee2e4ca7e625dac9042a9eee191fbc7c7e25b9a4dd8587e0239e8e74e4a1f",
       "downloadUrl": "/api/releases/download/Local-Desk-Portable-1.0.3-win-x64.zip",
       "description": "Standalone Windows 11 x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), Verify-Local-Desk-Signatures.ps1, pre-compiled offline assets, local OCR WASM binaries, and uninstaller."
     }

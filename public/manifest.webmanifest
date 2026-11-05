@@ -1,50 +1,60 @@
 {
   "name": "Local Desk — All-in-One PDF & Document Studio",
   "short_name": "Local Desk",
-  "description": "Privacy-first Windows desktop PDF and document workspace with direct 2D object manipulation, OCR reconstruction, and 13-format local conversion.",
-  "start_url": "/",
+  "description": "Local Desk — All-in-One PDF & Document Studio with direct 2D object manipulation, OCR reconstruction, and 13-format local conversion.",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#090D16",
+  "background_color": "#0A1712",
   "theme_color": "#0D1F18",
   "icons": [
     {
-      "src": "/favicon-16x16.png",
+      "src": "./favicon-16x16.png",
       "sizes": "16x16",
       "type": "image/png"
     },
     {
-      "src": "/favicon-24x24.png",
+      "src": "./favicon-20x20.png",
+      "sizes": "20x20",
+      "type": "image/png"
+    },
+    {
+      "src": "./favicon-24x24.png",
       "sizes": "24x24",
       "type": "image/png"
     },
     {
-      "src": "/favicon-32x32.png",
+      "src": "./favicon-32x32.png",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/favicon-48x48.png",
+      "src": "./favicon-40x40.png",
+      "sizes": "40x40",
+      "type": "image/png"
+    },
+    {
+      "src": "./favicon-48x48.png",
       "sizes": "48x48",
       "type": "image/png"
     },
     {
-      "src": "/favicon-64x64.png",
+      "src": "./favicon-64x64.png",
       "sizes": "64x64",
       "type": "image/png"
     },
     {
-      "src": "/favicon-128x128.png",
+      "src": "./favicon-128x128.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "/favicon-256x256.png",
+      "src": "./favicon-256x256.png",
       "sizes": "256x256",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/png/local-desk-app-icon-512x512.png",
+      "src": "./brand/png/local-desk-app-icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

@@ -23,12 +23,16 @@ directories:
 
 files:
   - dist/**/*
+  - build/icon.ico
+  - build/local-desk-icon-v103.ico
   - electron/main.cjs
   - electron/preload.cjs
   - package.json
 
 asarUnpack:
   - dist/ocr/**/*
+  - build/icon.ico
+  - build/local-desk-icon-v103.ico
 
 win:
   icon: build/icon.ico
@@ -46,7 +50,7 @@ win:
   fileAssociations:
     - ext: pdf
       name: PDF Document
-      description: Portable Document Format (Local Desk)
+      description: Local Desk — All-in-One PDF & Document Studio
       role: Editor
       icon: build/icon.ico
 
@@ -55,10 +59,13 @@ nsis:
   perMachine: false
   allowElevation: true
   allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Local Desk
-  uninstallDisplayName: Local Desk - PDF & Document Studio
+  uninstallDisplayName: Local Desk — All-in-One PDF & Document Studio
   deleteAppDataOnUninstall: false
   artifactName: "Local-Desk-Setup-${version}-${arch}.${ext}"
 
