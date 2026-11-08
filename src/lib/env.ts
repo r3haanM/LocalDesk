@@ -14,3 +14,7 @@ export function isDesktopShell(): boolean {
     /electron/i.test(navigator.userAgent) // fallback only
   );
 }
+
+export function isRestrictedRuntime(): boolean {
+  return typeof window !== 'undefined' && Boolean((window as any).__LOCAL_DESK_RESTRICTED__);
+}

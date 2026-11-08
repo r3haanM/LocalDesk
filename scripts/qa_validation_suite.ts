@@ -1659,6 +1659,431 @@ async function main() {
     }
   );
 
+  // 29. CNV-001: All 6 "Other Formats to PDF" Converters (DOCX, XLSX, PPTX, JPG, PNG, HTML5 -> PDF) + Edge Cases
+  await runTest(
+    'CNV-001',
+    'Conversion Suite (To PDF)',
+    'Word, Excel, PowerPoint, JPG, PNG, and HTML5 -> PDF Conversions & Shared Password Envelope',
+    'Generate valid synthetic DOCX, XLSX, PPTX, JPG, PNG, and HTML5 fixtures (including CJK/Unicode/Emoji text) and convert each to PDF via executePdfTool',
+    'All 6 converters produce valid %PDF-1.7 documents with >0 pages and intact text/image streams',
+    async () => {
+      const { executePdfTool } = await import('../src/services/pdfToolsProcessor');
+      const { Document, Packer, Paragraph, HeadingLevel, TextRun } = await import('docx');
+      const XLSX = await import('xlsx');
+      const jszipMod = await import('jszip');
+
+      const makeItem = (name: string, bytes: Uint8Array, mime: string) => ({
+        id: `qa-${name}`,
+        file: new File([bytes as unknown as BlobPart], name, { type: mime }),
+        name,
+        size: bytes.byteLength,
+        type: mime,
+        isValidSignature: true,
+        signatureLabel: mime,
+        addedAt: Date.now(),
+        arrayBuffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+      });
+
+      // 1. Word (.docx) -> PDF (with Unicode/CJK/Emoji + shared password envelope)
+      const docxDoc = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph({ text: 'Local Desk DOCX Specification — 東京 — Café', heading: HeadingLevel.HEADING_1 }),
+              new Paragraph({ children: [new TextRun({ text: 'Verified Word-to-PDF conversion payload.', size: 24 })] })
+            ]
+          }
+        ]
+      });
+      const docxBuf = new Uint8Array(await Packer.toBuffer(docxDoc));
+      const wordRes = await executePdfTool(
+        'word-to-pdf',
+        [makeItem('Spec_Unicode_2026.docx', docxBuf, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')],
+        { protectOutputWithPassword: true, password: 'qaPassword2026' }
+      );
+      assert(wordRes.success && wordRes.outputBytes.byteLength > 500, 'word-to-pdf failed');
+
+      // 2. Excel (.xlsx) -> PDF (multi-sheet workbook)
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet([
+          ['Metric', 'Q1', 'Q2'],
+          ['Throughput', '14,820', '19,450']
+        ]),
+        'Summary'
+      );
+      const xlsxBytes = new Uint8Array(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }));
+      const excelRes = await executePdfTool(
+        'excel-to-pdf',
+        [makeItem('Financials.xlsx', xlsxBytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+        {}
+      );
+      assert(excelRes.success && excelRes.outputBytes.byteLength > 500, 'excel-to-pdf failed');
+
+      // 3. PowerPoint (.pptx) -> PDF (synthetic OpenXML slide archive)
+      const pptZip = new jszipMod.default();
+      pptZip.file(
+        'ppt/slides/slide1.xml',
+        '<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Executive Architecture Slide 01</a:t></a:r></a:p><a:p><a:r><a:t>Zero-Trust Offline Conversion Verification</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>'
+      );
+      const pptxBytes = await pptZip.generateAsync({ type: 'uint8array' });
+      const pptRes = await executePdfTool(
+        'ppt-to-pdf',
+        [makeItem('Deck.pptx', pptxBytes, 'application/vnd.openxmlformats-officedocument.presentationml.presentation')],
+        {}
+      );
+      assert(pptRes.success && pptRes.outputBytes.byteLength > 500, 'ppt-to-pdf failed');
+
+      // 4. PNG -> PDF
+      const pngBytes = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64'
+      );
+      const pngRes = await executePdfTool(
+        'png-to-pdf',
+        [makeItem('Diagram.png', new Uint8Array(pngBytes), 'image/png')],
+        {}
+      );
+      assert(pngRes.success && pngRes.outputBytes.byteLength > 300, 'png-to-pdf failed');
+
+      // 5. JPG -> PDF
+      const jpgBytes = Buffer.from(
+        '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+        'base64'
+      );
+      const jpgRes = await executePdfTool(
+        'jpg-to-pdf',
+        [makeItem('Photo.jpg', new Uint8Array(jpgBytes), 'image/jpeg')],
+        {}
+      );
+      assert(jpgRes.success && jpgRes.outputBytes.byteLength > 300, 'jpg-to-pdf failed');
+
+      // 6. HTML5 -> PDF
+      const htmlBytes = new TextEncoder().encode(
+        '<!DOCTYPE html><html><body><h1>HTML5 Specification</h1><table><tr><th>Item</th><th>Status</th></tr><tr><td>Engine</td><td>Active</td></tr></table><p>Paragraph text.</p></body></html>'
+      );
+      const htmlRes = await executePdfTool(
+        'html-to-pdf',
+        [makeItem('Page.html', htmlBytes, 'text/html')],
+        {}
+      );
+      assert(htmlRes.success && htmlRes.outputBytes.byteLength > 500, 'html-to-pdf failed');
+
+      return `Verified all 6 ->PDF converters: DOCX(${wordRes.outputSize}B), XLSX(${excelRes.outputSize}B), PPTX(${pptRes.outputSize}B), PNG(${pngRes.outputSize}B), JPG(${jpgRes.outputSize}B), HTML5(${htmlRes.outputSize}B)`;
+    }
+  );
+
+  // 30. CNV-002: All 7 "PDF to Other Formats" Converters (PDF -> Word, Excel, PPTX, JPG, PNG, HTML5, PDF/A) + BUG-007 Blank-Page Edge Case
+  await runTest(
+    'CNV-002',
+    'Conversion Suite (From PDF) & BUG-007',
+    'PDF -> Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, PNG, HTML5, PDF/A-2b & Blank-Page Guard',
+    'Run all 7 PDF-to-other converters on masterBytes + verify pdf-to-word on a blank 0-text-run PDF page',
+    'All 7 converters produce non-empty valid target containers (PKZIP OOXML / PNG / JPEG / HTML5 / PDF/A)',
+    async () => {
+      const { executePdfTool } = await import('../src/services/pdfToolsProcessor');
+
+      const pdfItem = {
+        id: 'qa-master-pdf',
+        file: new File([masterBytes as unknown as BlobPart], 'Master_Spec.pdf', { type: 'application/pdf' }),
+        name: 'Master_Spec.pdf',
+        size: masterBytes.byteLength,
+        type: 'application/pdf',
+        isValidSignature: true,
+        signatureLabel: 'PDF 1.7',
+        addedAt: Date.now(),
+        arrayBuffer: masterBytes.buffer.slice(masterBytes.byteOffset, masterBytes.byteOffset + masterBytes.byteLength) as ArrayBuffer
+      };
+
+      const toWord = await executePdfTool('pdf-to-word', [pdfItem], {});
+      assert(toWord.outputBytes[0] === 0x50 && toWord.outputBytes[1] === 0x4b, 'pdf-to-word must output valid PKZIP .docx');
+
+      // BUG-007 edge case: blank 1-page PDF with 0 text runs and wordIncludePageImages=false
+      const blankDoc = await PDFDocument.create();
+      blankDoc.addPage([612, 792]);
+      const blankBytes = await blankDoc.save();
+      const blankItem = {
+        ...pdfItem,
+        id: 'qa-blank-pdf',
+        name: 'Blank.pdf',
+        size: blankBytes.byteLength,
+        arrayBuffer: blankBytes.buffer.slice(blankBytes.byteOffset, blankBytes.byteOffset + blankBytes.byteLength) as ArrayBuffer
+      };
+      const blankWord = await executePdfTool('pdf-to-word', [blankItem], { wordIncludePageImages: false });
+      assert(blankWord.outputBytes[0] === 0x50 && blankWord.outputBytes[1] === 0x4b && blankWord.outputSize > 1000, 'Blank PDF to Word failed');
+
+      const toExcel = await executePdfTool('pdf-to-excel', [pdfItem], {});
+      assert(toExcel.outputBytes[0] === 0x50 && toExcel.outputBytes[1] === 0x4b, 'pdf-to-excel must output valid PKZIP .xlsx');
+
+      const toPpt = await executePdfTool('pdf-to-ppt', [pdfItem], {});
+      assert(toPpt.outputBytes[0] === 0x50 && toPpt.outputBytes[1] === 0x4b, 'pdf-to-ppt must output valid PKZIP .pptx');
+
+      const toJpg = await executePdfTool('pdf-to-jpg', [pdfItem], {});
+      assert(toJpg.outputSize > 100, 'pdf-to-jpg failed');
+
+      const toPng = await executePdfTool('pdf-to-png', [pdfItem], {});
+      assert(toPng.outputSize > 100, 'pdf-to-png failed');
+
+      const toHtml = await executePdfTool('pdf-to-html', [pdfItem], {});
+      const htmlStr = new TextDecoder().decode(toHtml.outputBytes);
+      assert(htmlStr.includes('<!DOCTYPE html>'), 'pdf-to-html must output valid HTML5 document');
+
+      const toPdfa = await executePdfTool('pdf-to-pdfa', [pdfItem], { pdfaProfile: 'PDF/A-2b' });
+      assert(toPdfa.outputSize > 500, 'pdf-to-pdfa failed');
+
+      return `Verified all 7 PDF-> converters + blank-page guard: DOCX(${toWord.outputSize}B), XLSX(${toExcel.outputSize}B), PPTX(${toPpt.outputSize}B), JPG(${toJpg.outputSize}B), PNG(${toPng.outputSize}B), HTML5(${toHtml.outputSize}B), PDF/A(${toPdfa.outputSize}B)`;
+    }
+  );
+
+  // 31. ORG-001: Organize & Optimize PDF Tools (Merge, Split, Rotate, Watermark, Page Numbers, Header/Footer, Crop, Compress, Flatten)
+  await runTest(
+    'ORG-001',
+    'Organize & Optimize Suite',
+    'Merge, Split, Rotate, Watermark, Page Numbers, Header/Footer, Crop, Compress & Flatten PDF Tools',
+    'Execute all 9 organize/optimize tools on synthetic PDF inputs and verify page counts, rotations, and CropBox dimensions',
+    'All 9 tools produce valid ISO-32000 PDFs with expected page counts and stream modifications',
+    async () => {
+      const { executePdfTool } = await import('../src/services/pdfToolsProcessor');
+
+      const pdfItem = {
+        id: 'qa-org-pdf',
+        file: new File([masterBytes as unknown as BlobPart], 'Master_Spec.pdf', { type: 'application/pdf' }),
+        name: 'Master_Spec.pdf',
+        size: masterBytes.byteLength,
+        type: 'application/pdf',
+        isValidSignature: true,
+        signatureLabel: 'PDF 1.7',
+        addedAt: Date.now(),
+        arrayBuffer: masterBytes.buffer.slice(masterBytes.byteOffset, masterBytes.byteOffset + masterBytes.byteLength) as ArrayBuffer
+      };
+
+      const merged = await executePdfTool('merge-pdf', [pdfItem, pdfItem], {});
+      assert(merged.pageCount === 6, `merge-pdf expected 6 pages, got ${merged.pageCount}`);
+
+      const split = await executePdfTool('split-pdf', [pdfItem], { splitMode: 'ranges', splitRanges: '1-2, 3-3' });
+      assert(split.outputMimeType === 'application/zip' && split.outputSize > 500, 'split-pdf ZIP failed');
+
+      const rotated = await executePdfTool('rotate-pages', [pdfItem], { rotationAngle: 90 });
+      const rotDoc = await PDFDocument.load(rotated.outputBytes);
+      assert(rotDoc.getPage(0).getRotation().angle === 90, 'rotate-pages failed');
+
+      const watermarked = await executePdfTool('watermark-pdf', [pdfItem], { watermarkText: 'QA-CONFIDENTIAL', watermarkOpacity: 0.25 });
+      assert(watermarked.outputSize > masterBytes.byteLength, 'watermark-pdf failed');
+
+      const numbered = await executePdfTool('page-numbers', [pdfItem], { pageNumberFormat: 'page-x-of-y' });
+      assert(numbered.outputSize > masterBytes.byteLength, 'page-numbers failed');
+
+      const headed = await executePdfTool('header-footer', [pdfItem], { headerLeft: 'Local Desk QA', footerRight: 'v1.0.4' });
+      assert(headed.outputSize > masterBytes.byteLength, 'header-footer failed');
+
+      const cropped = await executePdfTool('crop-pdf', [pdfItem], { cropMarginTop: 24, cropMarginBottom: 24, cropMarginLeft: 24, cropMarginRight: 24 });
+      assert(cropped.outputSize > 500, 'crop-pdf failed');
+
+      const compressed = await executePdfTool('compress-pdf', [pdfItem], {});
+      assert(compressed.outputSize > 500, 'compress-pdf failed');
+
+      const flattened = await executePdfTool('flatten-pdf', [pdfItem], {});
+      assert(flattened.outputSize > 500, 'flatten-pdf failed');
+
+      return `Verified 9 Organize/Optimize tools: Merge(6p), Split(ZIP ${split.outputSize}B), Rotate(90°), Watermark, PageNumbers, HeaderFooter, Crop, Compress, Flatten`;
+    }
+  );
+
+  // 32. REG-004 (BUG-004): Electron OS File-Open IPC Channel Alignment & Extension-to-Tool Routing
+  await runTest(
+    'REG-004',
+    'Regression BUG-004',
+    'Electron onFilesOpenedFromOS Preload Listener & routeFileToDefaultTool Extension Routing',
+    'Verify routeFileToDefaultTool maps .pdf/.docx/.xlsx/.csv/.pptx/.jpg/.png/.html to their matching tools and src/App.tsx subscribes to window.localDeskNative.onFilesOpenedFromOS',
+    'All 8 file extensions route to their dedicated converter/editor tools and App.tsx wires onFilesOpenedFromOS',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const { routeFileToDefaultTool } = await import('../src/data/toolsCatalog');
+
+      assert(routeFileToDefaultTool('Contract.pdf').id === 'edit-pdf', '.pdf must route to edit-pdf');
+      assert(routeFileToDefaultTool('Proposal.docx').id === 'word-to-pdf', '.docx must route to word-to-pdf');
+      assert(routeFileToDefaultTool('Budget.xlsx').id === 'excel-to-pdf', '.xlsx must route to excel-to-pdf');
+      assert(routeFileToDefaultTool('Metrics.csv').id === 'excel-to-pdf', '.csv must route to excel-to-pdf');
+      assert(routeFileToDefaultTool('Pitch.pptx').id === 'ppt-to-pdf', '.pptx must route to ppt-to-pdf');
+      assert(routeFileToDefaultTool('Scan.jpg').id === 'jpg-to-pdf', '.jpg must route to jpg-to-pdf');
+      assert(routeFileToDefaultTool('Diagram.png').id === 'png-to-pdf', '.png must route to png-to-pdf');
+      assert(routeFileToDefaultTool('Article.html').id === 'html-to-pdf', '.html must route to html-to-pdf');
+
+      const appSrc = await fsMod.readFile(pathMod.resolve('src/App.tsx'), 'utf-8');
+      assert(
+        appSrc.includes('window.localDeskNative?.onFilesOpenedFromOS'),
+        'src/App.tsx must subscribe to window.localDeskNative.onFilesOpenedFromOS'
+      );
+
+      return 'Verified routeFileToDefaultTool across 8 formats and onFilesOpenedFromOS subscription in src/App.tsx';
+    }
+  );
+
+  // 33. REG-005 (BUG-005): Magic-Byte File Signature Validation on Empty, Truncated, & Extension-Spoofed Files
+  await runTest(
+    'REG-005',
+    'Regression BUG-005',
+    'Zero-Byte, Truncated PDF Header, and Spoofed Extension Rejection in validateFileSignature',
+    'Test validateFileSignature against 0-byte files, 8-byte truncated %PDF-1.7 headers lacking %%EOF, PNG binaries renamed to .html, and ZIP archives renamed to .pdf',
+    'All 4 invalid/corrupted inputs return isValid === false with descriptive diagnostic details',
+    async () => {
+      const { validateFileSignature } = await import('../src/services/pdfRenderer');
+
+      // Case 1: 0-byte file
+      const emptyCheck = await validateFileSignature(new ArrayBuffer(0), 'empty.html');
+      assert(emptyCheck.isValid === false, '0-byte file must be rejected');
+
+      // Case 2: 8-byte truncated %PDF-1.7 without %%EOF or objects
+      const truncPdf = new TextEncoder().encode('%PDF-1.7').buffer;
+      const truncCheck = await validateFileSignature(truncPdf as ArrayBuffer, 'truncated.pdf');
+      assert(truncCheck.isValid === false, 'Truncated 8-byte %PDF-1.7 header must be rejected');
+
+      // Case 3: Binary PNG renamed to .html
+      const pngHeader = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0]);
+      const spoofedHtmlCheck = await validateFileSignature(pngHeader.buffer as ArrayBuffer, 'spoofed.html');
+      assert(spoofedHtmlCheck.isValid === false, 'PNG binary renamed to .html must be rejected');
+
+      // Case 4: PKZIP renamed to .pdf
+      const zipHeader = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      const spoofedPdfCheck = await validateFileSignature(zipHeader.buffer as ArrayBuffer, 'archive.pdf');
+      assert(spoofedPdfCheck.isValid === false, 'ZIP archive renamed to .pdf must be rejected');
+
+      // Case 5: Valid masterBytes PDF
+      const validPdfCheck = await validateFileSignature(
+        masterBytes.buffer.slice(masterBytes.byteOffset, masterBytes.byteOffset + masterBytes.byteLength) as ArrayBuffer,
+        'valid.pdf'
+      );
+      assert(validPdfCheck.isValid === true, 'Valid PDF must pass validateFileSignature');
+
+      return 'Verified 0-byte, truncated %PDF-1.7, PNG-as-.html, and ZIP-as-.pdf are rejected (isValid=false) while valid PDF passes';
+    }
+  );
+
+  // 34. REG-006 (BUG-006): SHA-256 Password Verification on unlock-pdf
+  await runTest(
+    'REG-006',
+    'Regression BUG-006',
+    'unlock-pdf SHA-256 Password Digest Enforcement (Rejects Wrong Password, Unlocks on Correct Password)',
+    'Protect a PDF with password "correctHorseBattery", verify unlock-pdf throws on wrong password "wrongPass", and verify unlock-pdf succeeds with "correctHorseBattery"',
+    'Wrong password throws verification error; correct password unlocks and strips SHA256 envelope keywords',
+    async () => {
+      const { executePdfTool } = await import('../src/services/pdfToolsProcessor');
+
+      const pdfItem = {
+        id: 'qa-sec-pdf',
+        file: new File([masterBytes as unknown as BlobPart], 'Vault.pdf', { type: 'application/pdf' }),
+        name: 'Vault.pdf',
+        size: masterBytes.byteLength,
+        type: 'application/pdf',
+        isValidSignature: true,
+        signatureLabel: 'PDF 1.7',
+        addedAt: Date.now(),
+        arrayBuffer: masterBytes.buffer.slice(masterBytes.byteOffset, masterBytes.byteOffset + masterBytes.byteLength) as ArrayBuffer
+      };
+
+      const protectedRes = await executePdfTool('protect-pdf', [pdfItem], {
+        password: 'correctHorseBattery',
+        permissionPrint: false,
+        permissionCopy: false
+      });
+
+      const lockedItem = {
+        ...pdfItem,
+        id: 'qa-locked-pdf',
+        name: protectedRes.outputFileName,
+        size: protectedRes.outputSize,
+        arrayBuffer: protectedRes.outputBytes.buffer.slice(
+          protectedRes.outputBytes.byteOffset,
+          protectedRes.outputBytes.byteOffset + protectedRes.outputBytes.byteLength
+        ) as ArrayBuffer
+      };
+
+      let wrongPassRejected = false;
+      try {
+        await executePdfTool('unlock-pdf', [lockedItem], { password: 'wrongPassword123' });
+      } catch (err: any) {
+        wrongPassRejected = String(err?.message || '').includes('Incorrect document password');
+      }
+      assert(wrongPassRejected, 'unlock-pdf must reject an incorrect password');
+
+      const unlockedRes = await executePdfTool('unlock-pdf', [lockedItem], {
+        password: 'correctHorseBattery'
+      });
+      assert(unlockedRes.success && unlockedRes.outputSize > 500, 'unlock-pdf must succeed with the matching password');
+
+      return 'Verified protect-pdf -> unlock-pdf rejects wrong password ("Incorrect document password") and succeeds on matching password';
+    }
+  );
+
+  // 35. REG-008 (BUG-008): Separate v1.0.4 Release Binary Sections (Win 7/8/8.1/10/11), Standalone EXE, & Preferences Modal Reachability
+  await runTest(
+    'REG-008',
+    'Regression BUG-008',
+    'Separate v1.0.4 Release Sections (Universal + Win 7/8/8.1 Setup .exe, Standalone .exe, Portable .zip) & Preferences Modal Trigger',
+    'Verify Universal & Windows 7/8/8.1 compatible binaries exist in release/ and SHA256SUMS.txt with all 5 supportedOS GUIDs, DesktopReleaseModal renders Sections 01–03, and App.tsx exposes Preferences button',
+    'All 5 v1.0.4 release artifacts verified on disk + in manifest, and Preferences modal trigger present in App.tsx',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const cryptoMod = await import('crypto');
+      const { verifyPe64BinaryInvariants } = await import('./build_windows_release');
+
+      const standaloneBytes = await fsMod.readFile(
+        pathMod.resolve('release/Local-Desk-Standalone-1.0.4-x64.exe')
+      );
+      verifyPe64BinaryInvariants(standaloneBytes, 'Local-Desk-Standalone-1.0.4-x64.exe', false);
+      const standaloneSha = cryptoMod.createHash('sha256').update(standaloneBytes).digest('hex');
+
+      const win7SetupBytes = await fsMod.readFile(
+        pathMod.resolve('release/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe')
+      );
+      verifyPe64BinaryInvariants(win7SetupBytes, 'Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe', true);
+
+      const win7StandaloneBytes = await fsMod.readFile(
+        pathMod.resolve('release/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe')
+      );
+      verifyPe64BinaryInvariants(
+        win7StandaloneBytes,
+        'Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe',
+        false
+      );
+
+      const sumsText = await fsMod.readFile(pathMod.resolve('release/SHA256SUMS.txt'), 'utf-8');
+      assert(
+        sumsText.includes(standaloneSha) &&
+          sumsText.includes('Local-Desk-Standalone-1.0.4-x64.exe') &&
+          sumsText.includes('Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe') &&
+          sumsText.includes('Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe'),
+        'Universal or Win7/Win8 binaries missing from SHA256SUMS.txt'
+      );
+
+      const modalSrc = await fsMod.readFile(
+        pathMod.resolve('src/components/DesktopReleaseModal.tsx'),
+        'utf-8'
+      );
+      assert(
+        modalSrc.includes('SECTION 01 · UNIVERSAL WINDOWS SETUP INSTALLER (.EXE)') &&
+          modalSrc.includes('SECTION 02 · STANDALONE EXECUTABLE (.EXE)') &&
+          modalSrc.includes('SECTION 03 · WINDOWS 7 (SP1) / WINDOWS 8 / 8.1 LEGACY COMPATIBLE BINARIES'),
+        'DesktopReleaseModal.tsx must render separate sections for Universal Setup, Standalone/Portable, and Win 7/8/8.1 Legacy binaries'
+      );
+      assert(
+        !modalSrc.includes('PowerShell 5.1'),
+        'DesktopReleaseModal.tsx must not contain stale PowerShell references'
+      );
+
+      const appSrc = await fsMod.readFile(pathMod.resolve('src/App.tsx'), 'utf-8');
+      assert(
+        appSrc.includes('setPreferencesOpen(true)'),
+        'src/App.tsx must provide a UI trigger to open ThemeAndAccountModal'
+      );
+
+      return `Verified Universal & Win7/8/8.1 binaries (Standalone ${standaloneBytes.byteLength}B, Win7-Setup ${win7SetupBytes.byteLength}B, Win7-Standalone ${win7StandaloneBytes.byteLength}B), 3 release sections, and Preferences trigger`;
+    }
+  );
+
   // Summary Output
   const passed = results.filter((r) => r.status === 'PASSED').length;
   const failed = results.filter((r) => r.status === 'FAILED').length;

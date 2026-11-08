@@ -7,6 +7,7 @@ import net from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import JSZip from 'jszip';
+import { mountShowcasePreview } from './showcase/config/preview_middleware.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,6 +146,7 @@ async function startServer() {
         'Local-Desk-Setup-1.0.1-x64.exe': 'Local-Desk-Setup-1.0.4-x64.exe',
         'Local-Desk-Setup-1.0.2-x64.exe': 'Local-Desk-Setup-1.0.4-x64.exe',
         'Local-Desk-Setup-1.0.3-x64.exe': 'Local-Desk-Setup-1.0.4-x64.exe',
+        'Local-Desk-Standalone-1.0.3-x64.exe': 'Local-Desk-Standalone-1.0.4-x64.exe',
         'Local-Desk-Portable-1.0.0-win-x64.zip': 'Local-Desk-Portable-1.0.4-win-x64.zip',
         'Local-Desk-Portable-1.0.1-win-x64.zip': 'Local-Desk-Portable-1.0.4-win-x64.zip',
         'Local-Desk-Portable-1.0.2-win-x64.zip': 'Local-Desk-Portable-1.0.4-win-x64.zip',
@@ -153,6 +155,9 @@ async function startServer() {
       const safeName = aliasMap[requestedName] || requestedName;
       const allowedFiles = new Set([
         'Local-Desk-Setup-1.0.4-x64.exe',
+        'Local-Desk-Standalone-1.0.4-x64.exe',
+        'Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe',
+        'Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe',
         'Local-Desk-Portable-1.0.4-win-x64.zip',
         'SHA256SUMS.txt',
         'RELEASE_NOTES.md',
@@ -398,8 +403,10 @@ async function startServer() {
       },
       appType: 'spa'
     });
+    mountShowcasePreview(app, __dirname, vite);
     app.use(vite.middlewares);
   } else {
+    mountShowcasePreview(app, __dirname);
     const distPath = path.join(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {

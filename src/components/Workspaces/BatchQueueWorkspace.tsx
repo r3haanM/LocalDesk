@@ -18,6 +18,7 @@ import {
   executePdfTool,
   ToolExecutionOptions
 } from '../../services/pdfToolsProcessor';
+import { saveProcessedDocumentSafe } from '../../services/desktopBridge';
 import { ToolIcon } from '../IconMapper';
 import {
   ArrowLeft,
@@ -113,6 +114,25 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
   const [permissionCopy, setPermissionCopy] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cancelBatchRef = useRef<boolean>(false);
+
+  const handleCancelBatch = () => {
+    cancelBatchRef.current = true;
+    setIsRunningBatch(false);
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.status === 'processing'
+          ? {
+              ...q,
+              status: 'queued',
+              progress: 0,
+              stageLabel: 'Cancelled by user'
+            }
+          : q
+      )
+    );
+    setErrorBanner('Batch operation cancelled by user.');
+  };
 
   const activeTool: PdfToolDefinition =
     findToolById(selectedToolId) || findToolById('compress-pdf')!;
@@ -147,12 +167,20 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
     const newQueueItems: BatchQueueItem[] = [];
 
     for (const f of rawFiles) {
+      if (f.size === 0) {
+        setErrorBanner(`Skipped "${f.name}": file is empty (0 bytes).`);
+        continue;
+      }
       if (f.size > 50 * 1024 * 1024) {
         setErrorBanner(`Skipped "${f.name}": exceeds 50 MB operational safety limit.`);
         continue;
       }
       const ab = await f.arrayBuffer();
       const sig = await validateFileSignature(ab, f.name);
+      if (!sig.isValid) {
+        setErrorBanner(`Rejected "${f.name}" (${sig.detectedFormat}): ${sig.details}.`);
+        continue;
+      }
       let pageCount: number | undefined;
       if (sig.detectedFormat.startsWith('PDF')) {
         try {
@@ -454,6 +482,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
       return;
     }
 
+    cancelBatchRef.current = false;
     setIsRunningBatch(true);
     setErrorBanner('');
 
@@ -473,9 +502,15 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
 
     try {
       if (concurrencyMode === 'parallel') {
-        await Promise.all(itemsToProcess.map((item) => processSingleQueueItem(item)));
+        await Promise.all(
+          itemsToProcess.map(async (item) => {
+            if (cancelBatchRef.current) return;
+            await processSingleQueueItem(item);
+          })
+        );
       } else {
         for (const item of itemsToProcess) {
+          if (cancelBatchRef.current) break;
           await processSingleQueueItem(item);
         }
       }
@@ -497,19 +532,14 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
     );
   };
 
-  const triggerDownloadSingle = (item: BatchQueueItem) => {
+  const triggerDownloadSingle = async (item: BatchQueueItem) => {
     if (!item.result) return;
-    const blob = new Blob([item.result.outputBytes as unknown as BlobPart], {
-      type: item.result.outputMimeType
+    await saveProcessedDocumentSafe({
+      bytes: item.result.outputBytes,
+      suggestedFileName: item.result.outputFileName,
+      mimeType: item.result.outputMimeType,
+      originalFileName: item.fileItem.name
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = item.result.outputFileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
   const handleDownloadAllAsZip = async () => {
@@ -535,15 +565,11 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
       }
 
       const zipBytes = await zip.generateAsync({ type: 'uint8array' });
-      const blob = new Blob([zipBytes as unknown as BlobPart], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `LocalDesk_Batch_${selectedToolId}_${completed.length}_files.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await saveProcessedDocumentSafe({
+        bytes: zipBytes,
+        suggestedFileName: `LocalDesk_Batch_${selectedToolId}_${completed.length}_files.zip`,
+        mimeType: 'application/zip'
+      });
     } finally {
       setBundlingZip(false);
     }
@@ -999,31 +1025,42 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
               )}
             </div>
 
-            {/* Primary Batch Action Button */}
-            <button
-              type="button"
-              disabled={queue.length === 0 || isRunningBatch}
-              onClick={handleRunBatchQueue}
-              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-            >
-              {isRunningBatch ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Processing Batch ({completedCount}/{totalCount})...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  <span>
-                    {CONVERT_TO_PDF_IDS.includes(selectedToolId) && protectOutputWithPassword
-                      ? `Convert & Password-Protect All (${queue.length})`
-                      : selectedToolId === 'unlock-pdf'
-                      ? `Unlock All PDFs in One Go (${queue.length})`
-                      : `Apply ${activeTool.shortName} to All (${queue.length})`}
-                  </span>
-                </>
+            {/* Primary Batch Action Button + Cancel Button */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={queue.length === 0 || isRunningBatch}
+                onClick={handleRunBatchQueue}
+                className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-theme-accent text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isRunningBatch ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing Batch ({completedCount}/{totalCount})...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    <span>
+                      {CONVERT_TO_PDF_IDS.includes(selectedToolId) && protectOutputWithPassword
+                        ? `Convert & Password-Protect All (${queue.length})`
+                        : selectedToolId === 'unlock-pdf'
+                        ? `Unlock All PDFs in One Go (${queue.length})`
+                        : `Apply ${activeTool.shortName} to All (${queue.length})`}
+                    </span>
+                  </>
+                )}
+              </button>
+              {isRunningBatch && (
+                <button
+                  type="button"
+                  onClick={handleCancelBatch}
+                  className="w-full py-2 px-3 rounded-lg text-xs font-semibold bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25 cursor-pointer"
+                >
+                  Cancel Batch Operation
+                </button>
               )}
-            </button>
+            </div>
           </div>
         </div>
 

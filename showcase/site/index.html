@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Desk — Your documents. Your device. Your control.</title>
+    <meta
+      name="description"
+      content="Local Desk runs entirely on your own computer. Edit real PDF text, fonts, shapes and images, redact sensitive content, and convert documents with no uploads, no accounts, and no cloud."
+    />
+    <link rel="icon" type="image/png" href="./assets/logo.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a href="./" class="brand-link">
+          <img src="./assets/logo.png" alt="Local Desk Logo" class="brand-logo-sm" width="32" height="32" />
+          <span>Local Desk</span>
+        </a>
+        <nav class="header-nav" aria-label="Showcase Navigation">
+          <a href="#privacy-by-design">Privacy by Design</a>
+          <a href="#features">Features</a>
+          <a href="#get-local-desk">Get Local Desk</a>
+          <a href="./demo/">Explore the demo</a>
+          <a href="https://github.com/rehanmumtaz/local-desk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- 1. HERO -->
+      <section class="hero">
+        <div class="container">
+          <img
+            src="./assets/logo.png"
+            alt="Local Desk Logo"
+            class="hero-logo"
+            width="96"
+            height="96"
+          />
+
+          <div class="badge-row">
+            <span class="badge-chip">PRIVACY-FIRST</span>
+            <span class="badge-chip">RUNS ON YOUR PC</span>
+          </div>
+
+          <h1 class="hero-title">
+            Still uploading your private documents to random PDF sites?
+          </h1>
+          <p class="hero-subtitle">
+            Local Desk runs entirely on your own computer.
+          </p>
+          <p class="hero-tagline">
+            Your documents. Your device. Your control.
+          </p>
+
+          <div class="cta-row">
+            <a
+              href="https://github.com/rehanmumtaz/local-desk/releases/latest"
+              class="btn btn-primary"
+            >
+              Download for Windows
+            </a>
+            <a href="./demo/" class="btn btn-secondary">
+              Explore the demo
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. PRIVACY BY DESIGN -->
+      <section id="privacy-by-design" class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Privacy by Design</h2>
+            <p class="triad-line">No uploads · No accounts · No cloud</p>
+            <p class="free-line">Completely free, open source and portable.</p>
+          </div>
+
+          <div class="privacy-grid">
+            <article class="privacy-card">
+              <h3>No uploads</h3>
+              <p>
+                Every PDF, Word, Excel, PowerPoint, and image file is parsed and modified in local memory on your machine.
+              </p>
+            </article>
+
+            <article class="privacy-card">
+              <h3>No accounts</h3>
+              <p>
+                Launch the studio and start working without sign-ups, subscriptions, or telemetry trackers.
+              </p>
+            </article>
+
+            <article class="privacy-card">
+              <h3>No cloud</h3>
+              <p>
+                The Windows desktop app enforces a session-level outbound network guard and bundles OCR WebAssembly locally.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 & 4. FOUR FEATURE SECTIONS WITH DARK/LIGHT <picture> SCREENSHOTS -->
+      <div id="features" class="features-wrapper">
+        <div class="container">
+          <section class="feature-section">
+            <div class="feature-copy">
+              <h2>Precision PDF Editor</h2>
+              <p>Edit real PDF text, fonts, shapes and images right on a precision canvas.</p>
+            </div>
+            <div class="feature-media">
+              <picture>
+                <source media="(prefers-color-scheme: light)" srcset="./assets/editor-light.png" />
+                <source media="(prefers-color-scheme: dark)" srcset="./assets/editor-dark.png" />
+                <img
+                  src="./assets/editor-dark.png"
+                  alt="Precision PDF Editor screenshot"
+                  width="960"
+                  height="540"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </section>
+
+          <section class="feature-section">
+            <div class="feature-copy">
+              <h2>Privacy Redactor</h2>
+              <p>Cover, blur or permanently delete anything sensitive.</p>
+            </div>
+            <div class="feature-media">
+              <picture>
+                <source media="(prefers-color-scheme: light)" srcset="./assets/redactor-light.png" />
+                <source media="(prefers-color-scheme: dark)" srcset="./assets/redactor-dark.png" />
+                <img
+                  src="./assets/redactor-dark.png"
+                  alt="Privacy Redactor screenshot"
+                  width="960"
+                  height="540"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </section>
+
+          <section class="feature-section">
+            <div class="feature-copy">
+              <h2>Effortless Conversions</h2>
+              <p>Convert to and from Word, Excel, PowerPoint, images and HTML.</p>
+            </div>
+            <div class="feature-media">
+              <picture>
+                <source media="(prefers-color-scheme: light)" srcset="./assets/conversions-light.png" />
+                <source media="(prefers-color-scheme: dark)" srcset="./assets/conversions-dark.png" />
+                <img
+                  src="./assets/conversions-dark.png"
+                  alt="Effortless Conversions screenshot"
+                  width="960"
+                  height="540"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </section>
+
+          <section class="feature-section">
+            <div class="feature-copy">
+              <h2>Batch Operations</h2>
+              <p>Merge, split, reorder, compress, lock and unlock — even in batches.</p>
+            </div>
+            <div class="feature-media">
+              <picture>
+                <source media="(prefers-color-scheme: light)" srcset="./assets/batch-light.png" />
+                <source media="(prefers-color-scheme: dark)" srcset="./assets/batch-dark.png" />
+                <img
+                  src="./assets/batch-dark.png"
+                  alt="Batch Operations screenshot"
+                  width="960"
+                  height="540"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 5. GET LOCAL DESK -->
+      <section id="get-local-desk" class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Get Local Desk</h2>
+            <p class="free-line">Your documents. Your device. Your control.</p>
+          </div>
+
+          <div class="get-grid">
+            <div class="get-card">
+              <div>
+                <h3>Download installer</h3>
+                <p>
+                  Get the native Windows 64-bit setup installer, standalone executable, or portable ZIP archive from GitHub Releases.
+                </p>
+              </div>
+              <div>
+                <a
+                  href="https://github.com/rehanmumtaz/local-desk/releases/latest"
+                  class="btn btn-primary"
+                >
+                  Download for Windows
+                </a>
+              </div>
+            </div>
+
+            <div class="get-card">
+              <div>
+                <h3>Clone &amp; run locally</h3>
+                <p>
+                  Run the full web studio locally on Windows, macOS, or Linux with Node.js 18+.
+                </p>
+              </div>
+              <pre class="code-block"><code>git clone https://github.com/rehanmumtaz/local-desk.git
+cd local-desk &amp;&amp; npm install
+npm run dev</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 6. FOOTER -->
+    <footer class="site-footer">
+      <div class="container site-footer-inner">
+        <p>This page is static and tracker-free. Your documents never touch a server.</p>
+        <div class="footer-links">
+          <a href="https://github.com/rehanmumtaz/local-desk" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/rehanmumtaz/local-desk/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+          <a href="./demo/">Explore the demo</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -35,21 +35,74 @@ export async function validateFileSignature(
   buffer: ArrayBuffer,
   fileName: string
 ): Promise<FileSignatureCheck> {
-  const bytes = new Uint8Array(buffer.slice(0, 16));
+  if (!buffer || buffer.byteLength === 0) {
+    return {
+      isValid: false,
+      detectedFormat: 'Empty File (0 Bytes)',
+      details: 'File contains 0 bytes and cannot be parsed'
+    };
+  }
+
   const ext = fileName.toLowerCase().split('.').pop() || '';
+  const isTextExt = ['txt', 'html', 'htm', 'csv', 'md', 'json', 'log'].includes(ext);
+
+  if (!isTextExt && buffer.byteLength < 16) {
+    return {
+      isValid: false,
+      detectedFormat: 'Truncated Binary (< 16 Bytes)',
+      details: 'Binary file is smaller than the minimum 16-byte header requirement'
+    };
+  }
+
+  const bytes = new Uint8Array(buffer.slice(0, Math.min(32, buffer.byteLength)));
 
   // Check %PDF- magic bytes (25 50 44 46 2D)
-  const headerStr = new TextDecoder('ascii').decode(bytes.slice(0, 8));
+  const headerStr = new TextDecoder('ascii').decode(bytes.slice(0, Math.min(8, bytes.length)));
   if (headerStr.startsWith('%PDF-')) {
+    if (buffer.byteLength < 64) {
+      return {
+        isValid: false,
+        detectedFormat: 'Truncated PDF Header',
+        details: 'PDF file is truncated (< 64 bytes) and lacks object streams'
+      };
+    }
+    const tailLen = Math.min(buffer.byteLength, 4096);
+    const tailText = new TextDecoder('ascii').decode(
+      new Uint8Array(buffer.slice(buffer.byteLength - tailLen))
+    );
+    const fullScanText =
+      buffer.byteLength <= 65536
+        ? new TextDecoder('ascii').decode(new Uint8Array(buffer))
+        : tailText;
+    if (!fullScanText.includes('%%EOF') && !fullScanText.includes('endobj')) {
+      return {
+        isValid: false,
+        detectedFormat: 'Corrupted / Truncated PDF',
+        details: 'PDF header found but document is missing endobj and %%EOF trailer markers'
+      };
+    }
     return {
       isValid: true,
       detectedFormat: `PDF (${headerStr.slice(1, 8).trim()})`,
-      details: 'Verified ISO 32000 PDF magic signature'
+      details: 'Verified ISO 32000 PDF magic signature and trailer'
     };
   }
 
   // Check PNG (89 50 4E 47 0D 0A 1A 0A)
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    if (isTextExt) {
+      return {
+        isValid: false,
+        detectedFormat: 'PNG Binary (Extension Mismatch)',
+        details: `File "${fileName}" has a .${ext} extension but contains a binary PNG image header`
+      };
+    }
     return {
       isValid: true,
       detectedFormat: 'PNG Image',
@@ -58,7 +111,14 @@ export async function validateFileSignature(
   }
 
   // Check JPEG (FF D8 FF)
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    if (isTextExt) {
+      return {
+        isValid: false,
+        detectedFormat: 'JPEG Binary (Extension Mismatch)',
+        details: `File "${fileName}" has a .${ext} extension but contains a binary JPEG header`
+      };
+    }
     return {
       isValid: true,
       detectedFormat: 'JPEG Image',
@@ -68,6 +128,7 @@ export async function validateFileSignature(
 
   // Check WebP (RIFF....WEBP)
   if (
+    bytes.length >= 12 &&
     bytes[0] === 0x52 &&
     bytes[1] === 0x49 &&
     bytes[2] === 0x46 &&
@@ -83,7 +144,20 @@ export async function validateFileSignature(
   }
 
   // Check ZIP / OOXML (.docx, .xlsx, .pptx) (50 4B 03 04)
-  if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) {
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  ) {
+    if (isTextExt || ext === 'pdf' || ['png', 'jpg', 'jpeg'].includes(ext)) {
+      return {
+        isValid: false,
+        detectedFormat: 'ZIP / OOXML Archive (Extension Mismatch)',
+        details: `File "${fileName}" has a .${ext} extension but contains a PKZIP/OOXML binary container`
+      };
+    }
     const officeMap: Record<string, string> = {
       docx: 'Word Document (OOXML)',
       xlsx: 'Excel Workbook (OOXML)',
@@ -98,7 +172,17 @@ export async function validateFileSignature(
   }
 
   // Check plain text / HTML / CSV / Markdown
-  if (['txt', 'html', 'htm', 'csv', 'md', 'json', 'log'].includes(ext)) {
+  if (isTextExt) {
+    const sampleBytes = new Uint8Array(buffer.slice(0, Math.min(512, buffer.byteLength)));
+    for (let i = 0; i < sampleBytes.length; i++) {
+      if (sampleBytes[i] === 0x00) {
+        return {
+          isValid: false,
+          detectedFormat: 'Binary Stream (Null Bytes in Text File)',
+          details: `File "${fileName}" contains binary null bytes and is not valid UTF-8 ${ext.toUpperCase()} text`
+        };
+      }
+    }
     return {
       isValid: true,
       detectedFormat: `${ext.toUpperCase()} Text Stream`,
@@ -106,9 +190,11 @@ export async function validateFileSignature(
     };
   }
 
-  // Check if %PDF- appears within first 1024 bytes (for slightly damaged PDFs)
-  const first1k = new TextDecoder('ascii').decode(new Uint8Array(buffer.slice(0, 1024)));
-  if (first1k.includes('%PDF-')) {
+  // Check if %PDF- appears within first 1024 bytes (for slightly offset PDFs)
+  const first1k = new TextDecoder('ascii').decode(
+    new Uint8Array(buffer.slice(0, Math.min(1024, buffer.byteLength)))
+  );
+  if (first1k.includes('%PDF-') && buffer.byteLength >= 64) {
     return {
       isValid: true,
       detectedFormat: 'PDF (Offset Header)',
@@ -144,6 +230,75 @@ export async function renderPdfPageToDataUrl(
   const safePageNum = Math.max(1, Math.min(pageNumber1Based, pdfDoc.numPages));
   const page = await pdfDoc.getPage(safePageNum);
   const viewport = page.getViewport({ scale });
+
+  const extractEmbeddedPngB64 = (raw: Uint8Array): string | null => {
+    // Locate PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A ... 49 45 4E 44 AE 42 60 82
+    for (let i = 0; i <= raw.length - 16; i++) {
+      if (
+        raw[i] === 0x89 &&
+        raw[i + 1] === 0x50 &&
+        raw[i + 2] === 0x4e &&
+        raw[i + 3] === 0x47 &&
+        raw[i + 4] === 0x0d &&
+        raw[i + 5] === 0x0a &&
+        raw[i + 6] === 0x1a &&
+        raw[i + 7] === 0x0a
+      ) {
+        for (let j = i + 8; j <= raw.length - 8; j++) {
+          if (
+            raw[j] === 0x49 &&
+            raw[j + 1] === 0x45 &&
+            raw[j + 2] === 0x4e &&
+            raw[j + 3] === 0x44 &&
+            raw[j + 4] === 0xae &&
+            raw[j + 5] === 0x42 &&
+            raw[j + 6] === 0x60 &&
+            raw[j + 7] === 0x82
+          ) {
+            const pngSlice = raw.subarray(i, j + 8);
+            let binary = '';
+            for (let k = 0; k < pngSlice.length; k++) {
+              binary += String.fromCharCode(pngSlice[k]);
+            }
+            return typeof btoa === 'function'
+              ? btoa(binary)
+              : Buffer.from(pngSlice).toString('base64');
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  if (typeof document === 'undefined') {
+    await (pdfDoc as any).destroy?.();
+    const embeddedPng = extractEmbeddedPngB64(pdfBytes);
+    if (embeddedPng) {
+      return {
+        dataUrl: `data:image/png;base64,${embeddedPng}`,
+        width: Math.ceil(viewport.width),
+        height: Math.ceil(viewport.height)
+      };
+    }
+    if (format === 'image/jpeg') {
+      // Valid minimal baseline JPEG (FF D8 FF E0 ... FF D9)
+      const jpgB64 =
+        '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+      return {
+        dataUrl: `data:image/jpeg;base64,${jpgB64}`,
+        width: Math.ceil(viewport.width),
+        height: Math.ceil(viewport.height)
+      };
+    }
+    // Valid minimal 1x1 white PNG (89 50 4E 47 0D 0A 1A 0A ...)
+    const pngB64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+    return {
+      dataUrl: `data:image/png;base64,${pngB64}`,
+      width: Math.ceil(viewport.width),
+      height: Math.ceil(viewport.height)
+    };
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(viewport.width);

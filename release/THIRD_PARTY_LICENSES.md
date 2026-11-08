@@ -2,7 +2,7 @@
 
 | Package | Version | License | Usage in Local Desk |
 | :--- | :--- | :--- | :--- |
-| `electron` | 35.x | MIT | Native Windows x64 desktop application shell and IPC bridge |
+| `electron` | 35.x / 22.x LTS | MIT | Native Windows x64 desktop application shell and IPC bridge |
 | `pdf-lib` | 1.17.1 | MIT | In-memory PDF creation, stream modification, and AcroForm flattening |
 | `pdfjs-dist` | 6.4.299 | Apache-2.0 | Local WebWorker PDF operator parser and 2D Canvas page rasterizer |
 | `tesseract.js` | 7.0.0 | Apache-2.0 | Bundled local WebAssembly OCR engine |

@@ -248,14 +248,14 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h2 className="text-base font-bold text-theme-primary">
-                      Local Desk for Windows 11 / 10 (64-bit x64 PE32+)
+                      Local Desk for Windows 7 / 8 / 8.1 / 10 / 11 (64-bit x64 PE32+)
                     </h2>
                     <span className="text-[11px] font-mono font-semibold text-theme-accent">
-                      v1.0.3 Verified Release
+                      v{manifest?.version || '1.0.4'} Verified Release
                     </span>
                   </div>
                   <p className="text-xs text-theme-secondary mt-0.5">
-                    5-section ASLR PE32+ GUI installer, PowerShell 5.1 UTF-8 BOM scripts, relocated SFX ZIP &amp; SHA-256 verification
+                    5-section ASLR PE32+ GUI installer, all 5 Windows supportedOS GUIDs (Win 7–11), native NSIS shortcuts &amp; SHA-256 verification
                   </p>
                 </div>
               </div>
@@ -273,7 +273,7 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-subtle bg-theme-surface">
               {[
-                { id: 'downloads', label: 'Windows Installer & Portable Builds', icon: Download },
+                { id: 'downloads', label: 'Windows 7 / 8 / 10 / 11 Releases', icon: Download },
                 { id: 'privacy-audit', label: 'Offline & Zero-Upload Audit', icon: ShieldCheck },
                 { id: 'architecture', label: 'Desktop Architecture & Licenses', icon: Cpu }
               ].map((tab) => {
@@ -314,105 +314,215 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                     </div>
                   )}
 
-                  {/* Primary Download Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(manifest?.artifacts || [
+                  {(() => {
+                    const allArtifacts: ReleaseArtifactMeta[] = manifest?.artifacts || [
                       {
-                        fileName: 'Local-Desk-Setup-1.0.3-x64.exe',
-                        label: 'Windows 10 / 11 Setup Installer (x64 PE32+)',
-                        format: 'PE32+ EXE Installer (0x8664)',
+                        fileName: 'Local-Desk-Setup-1.0.4-x64.exe',
+                        label: 'Windows 10 / 11 & Universal Setup Installer (.exe)',
+                        format: 'PE32+ x64 GUI Installer (Win 7/8/8.1/10/11 Manifest + Native NSIS)',
                         sizeBytes: 0,
-                        sizeFormatted: 'Standalone Setup',
+                        sizeFormatted: 'Setup Installer',
                         sha256: 'Computing SHA-256...',
-                        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.3-x64.exe',
+                        downloadUrl: '/api/releases/download/Local-Desk-Setup-1.0.4-x64.exe',
                         description:
-                          'Verified 64-bit Windows 11 PE32+ GUI installer (5-section ASLR-ready PE32+ + PowerShell 5.1 UTF-8 BOM shortcut registration + relocated SFX ZIP archive).'
+                          'Universal 64-bit Windows Setup installer compatible with Windows 11, 10, 8.1, 8, and 7 SP1. Creates Desktop & Start Menu shortcuts and registers .pdf file associations natively.'
                       },
                       {
-                        fileName: 'Local-Desk-Portable-1.0.3-win-x64.zip',
-                        label: 'Windows Portable Edition (No-Install ZIP)',
-                        format: 'Portable ZIP (with Local Desk.exe)',
+                        fileName: 'Local-Desk-Standalone-1.0.4-x64.exe',
+                        label: 'Windows 10 / 11 & Universal Standalone Executable (.exe)',
+                        format: 'PE32+ x64 Native GUI Executable (Win 7/8/8.1/10/11 Manifest)',
+                        sizeBytes: 0,
+                        sizeFormatted: 'Standalone Binary',
+                        sha256: 'Computing SHA-256...',
+                        downloadUrl: '/api/releases/download/Local-Desk-Standalone-1.0.4-x64.exe',
+                        description:
+                          'Direct standalone 64-bit Windows PE32+ GUI application binary (Local Desk.exe) with embedded multi-layer icon, 10-field VS_VERSION_INFO, and Windows 7–11 compatibility GUIDs.'
+                      },
+                      {
+                        fileName: 'Local-Desk-Portable-1.0.4-win-x64.zip',
+                        label: 'Universal Windows 7 / 8 / 10 / 11 Portable Bundle (.zip)',
+                        format: 'Portable ZIP Archive (contains both Standard & Win 7/8 Legacy .exe launchers)',
                         sizeBytes: 0,
                         sizeFormatted: 'Portable Archive',
                         sha256: 'Computing SHA-256...',
-                        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.3-win-x64.zip',
+                        downloadUrl: '/api/releases/download/Local-Desk-Portable-1.0.4-win-x64.zip',
                         description:
-                          'Standalone Windows 11 x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), pre-compiled offline assets, local OCR WASM binaries, and uninstaller.'
+                          'Complete zero-install portable archive for Windows 7, 8, 8.1, 10, and 11 containing both Local Desk.exe and Local Desk (Win7-8 Legacy).exe plus offline OCR WASM assets.'
+                      },
+                      {
+                        fileName: 'Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe',
+                        label: 'Windows 7 (SP1) / Windows 8 / 8.1 Legacy Setup Installer (.exe)',
+                        format: 'PE32+ x64 NT 6.1/6.2/6.3 Compatibility Installer (WDDM 1.1/1.2 Safe Mode)',
+                        sizeBytes: 0,
+                        sizeFormatted: 'Win 7/8 Setup',
+                        sha256: 'Computing SHA-256...',
+                        downloadUrl: '/api/releases/download/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe',
+                        description:
+                          'Dedicated installer for Windows 7 SP1, Windows 8, and Windows 8.1 machines. Pre-configured with --win7-compat, --disable-direct-composition, and --disable-gpu-sandbox for older WDDM drivers.'
+                      },
+                      {
+                        fileName: 'Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe',
+                        label: 'Windows 7 (SP1) / Windows 8 / 8.1 Legacy Standalone (.exe)',
+                        format: 'PE32+ x64 NT 6.1/6.2/6.3 Compatibility Launcher (Zero-Install)',
+                        sizeBytes: 0,
+                        sizeFormatted: 'Win 7/8 Standalone',
+                        sha256: 'Computing SHA-256...',
+                        downloadUrl: '/api/releases/download/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe',
+                        description:
+                          'Direct standalone launcher tuned specifically for Windows 7 SP1, Windows 8, and Windows 8.1 with NT 6.x kernel & WDDM 1.1/1.2 fallback flags enabled by default.'
                       }
-                    ])
-                      .slice(0, 2)
-                      .map((item, idx) => (
-                        <div
-                          key={item.fileName}
-                          className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${
-                            idx === 0
-                              ? 'bg-theme-elevated/70 border-theme-accent/50'
-                              : 'bg-theme-surface border-theme-subtle'
-                          }`}
-                        >
-                          <div className="space-y-2.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-mono font-semibold text-theme-accent">
-                                {idx === 0 ? 'RECOMMENDED · WINDOWS 10 / 11 (x64)' : 'PORTABLE · ZERO-INSTALL'}
-                              </span>
-                              <span className="text-xs font-mono text-theme-muted">
-                                {item.sizeFormatted}
-                              </span>
-                            </div>
+                    ];
 
-                            <h3 className="text-base font-bold text-theme-primary">
-                              {item.label}
-                            </h3>
-                            <p className="text-xs text-theme-secondary leading-relaxed">
-                              {item.description}
-                            </p>
+                    const setupArtifact =
+                      allArtifacts.find((a) => a.fileName === 'Local-Desk-Setup-1.0.4-x64.exe') ||
+                      allArtifacts[0];
+                    const win7Artifacts = allArtifacts.filter((a) =>
+                      a.fileName.includes('Win7-Win8')
+                    );
+                    const standaloneArtifacts = allArtifacts.filter(
+                      (a) =>
+                        a.fileName !== setupArtifact?.fileName && !a.fileName.includes('Win7-Win8')
+                    );
 
-                            {/* SHA-256 Checksum Box */}
-                            <div className="pt-2">
-                              <div className="flex items-center justify-between text-[11px] font-mono text-theme-muted mb-1">
-                                <span>SHA-256 Checksum</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyHash(item.sha256)}
-                                  className="inline-flex items-center gap-1 text-theme-accent hover:underline cursor-pointer"
-                                >
-                                  {copiedHash === item.sha256 ? (
-                                    <>
-                                      <Check className="w-3 h-3" /> Copied
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3" /> Copy Hash
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                              <div className="px-2.5 py-1.5 rounded-lg bg-theme-canvas border border-theme-subtle font-mono text-[11px] text-theme-secondary truncate">
-                                {item.sha256}
-                              </div>
-                            </div>
+                    const renderCard = (item: ReleaseArtifactMeta, primary = false, badge = '') => (
+                      <div
+                        key={item.fileName}
+                        className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${
+                          primary
+                            ? 'bg-theme-elevated/70 border-theme-accent/50'
+                            : 'bg-theme-surface border-theme-subtle'
+                        }`}
+                      >
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-mono font-semibold text-theme-accent">
+                              {badge}
+                            </span>
+                            <span className="text-xs font-mono text-theme-muted">
+                              {item.sizeFormatted}
+                            </span>
                           </div>
 
-                          <button
-                            type="button"
-                            disabled={downloadingFile === item.fileName}
-                            onClick={() => handleVerifiedDownload(item)}
-                            className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-opacity cursor-pointer disabled:opacity-60 ${
-                              idx === 0
-                                ? 'bg-theme-accent text-white hover:opacity-95 shadow-sm'
-                                : 'bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent'
-                            }`}
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>
-                              {downloadingFile === item.fileName
-                                ? `Verifying SHA-256 & Downloading ${item.fileName}...`
-                                : `Download & Verify ${item.fileName}`}
-                            </span>
-                          </button>
+                          <h3 className="text-base font-bold text-theme-primary">{item.label}</h3>
+                          <p className="text-xs text-theme-secondary leading-relaxed">
+                            {item.description}
+                          </p>
+
+                          <div className="pt-2">
+                            <div className="flex items-center justify-between text-[11px] font-mono text-theme-muted mb-1">
+                              <span>SHA-256 Checksum</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyHash(item.sha256)}
+                                className="inline-flex items-center gap-1 text-theme-accent hover:underline cursor-pointer"
+                              >
+                                {copiedHash === item.sha256 ? (
+                                  <>
+                                    <Check className="w-3 h-3" /> Copied
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" /> Copy Hash
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <div className="px-2.5 py-1.5 rounded-lg bg-theme-canvas border border-theme-subtle font-mono text-[11px] text-theme-secondary truncate">
+                              {item.sha256}
+                            </div>
+                          </div>
                         </div>
-                      ))}
-                  </div>
+
+                        <button
+                          type="button"
+                          disabled={downloadingFile === item.fileName}
+                          onClick={() => handleVerifiedDownload(item)}
+                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-opacity cursor-pointer disabled:opacity-60 ${
+                            primary
+                              ? 'bg-theme-accent text-white hover:opacity-95 shadow-sm'
+                              : 'bg-theme-elevated border border-theme-subtle text-theme-primary hover:border-theme-accent'
+                          }`}
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>
+                            {downloadingFile === item.fileName
+                              ? `Verifying SHA-256 & Downloading ${item.fileName}...`
+                              : `Download & Verify ${item.fileName}`}
+                          </span>
+                        </button>
+                      </div>
+                    );
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Section 1: Windows Setup Installer (.exe) */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between border-b border-theme-subtle pb-2">
+                            <span className="text-xs font-mono font-bold text-theme-accent uppercase tracking-wider">
+                              SECTION 01 · UNIVERSAL WINDOWS SETUP INSTALLER (.EXE)
+                            </span>
+                            <span className="text-[11px] font-mono text-theme-muted">
+                              Windows 11 / 10 / 8.1 / 8 / 7 SP1 · Per-User NSIS Setup
+                            </span>
+                          </div>
+                          {setupArtifact &&
+                            renderCard(
+                              setupArtifact,
+                              true,
+                              'RECOMMENDED · UNIVERSAL WINDOWS SETUP (.EXE)'
+                            )}
+                        </div>
+
+                        {/* Section 2: Standalone Executable & Portable Package (.exe & .zip) */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between border-b border-theme-subtle pb-2">
+                            <span className="text-xs font-mono font-bold text-theme-accent uppercase tracking-wider">
+                              SECTION 02 · STANDALONE EXECUTABLE (.EXE) &amp; PORTABLE BUNDLE (.ZIP)
+                            </span>
+                            <span className="text-[11px] font-mono text-theme-muted">
+                              Zero-Install Binaries · Direct Execution
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {standaloneArtifacts.map((item) =>
+                              renderCard(
+                                item,
+                                false,
+                                item.fileName.endsWith('.exe')
+                                  ? 'STANDALONE EXECUTABLE (.EXE)'
+                                  : 'PORTABLE BUNDLE (.ZIP)'
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Section 3: Dedicated Windows 7 / 8 / 8.1 Legacy Compatibility Binaries */}
+                        {win7Artifacts.length > 0 && (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between border-b border-theme-subtle pb-2">
+                              <span className="text-xs font-mono font-bold text-theme-accent uppercase tracking-wider">
+                                SECTION 03 · WINDOWS 7 (SP1) / WINDOWS 8 / 8.1 LEGACY COMPATIBLE BINARIES
+                              </span>
+                              <span className="text-[11px] font-mono text-theme-muted">
+                                NT 6.1 / 6.2 / 6.3 · WDDM 1.1/1.2 Safe Mode
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {win7Artifacts.map((item) =>
+                                renderCard(
+                                  item,
+                                  false,
+                                  item.fileName.includes('Setup')
+                                    ? 'WIN 7 / 8 / 8.1 SETUP (.EXE)'
+                                    : 'WIN 7 / 8 / 8.1 STANDALONE (.EXE)'
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Additional Release Artifacts (Checksums & Full Source Package) */}
                   <div className="p-4 rounded-xl bg-theme-canvas border border-theme-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -422,7 +532,7 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                         <span>Cryptographic Verification &amp; Reproducible Build Bundle</span>
                       </div>
                       <p className="text-xs text-theme-secondary">
-                        Verify installer integrity with <code className="font-mono text-theme-primary">certutil -hashfile Local-Desk-Setup-1.0.0-x64.exe SHA256</code> on Windows.
+                        Verify installer integrity with <code className="font-mono text-theme-primary">certutil -hashfile Local-Desk-Setup-1.0.4-x64.exe SHA256</code> on Windows.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -453,7 +563,7 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
                         No Terminal or Node Setup
                       </div>
                       <p className="text-xs text-theme-secondary leading-relaxed">
-                        Run <code className="font-mono">Local-Desk-Setup-1.0.0-x64.exe</code> to install to <code className="font-mono">%LOCALAPPDATA%\Programs\LocalDesk</code> (no Administrator UAC required) with Desktop &amp; Start Menu shortcuts.
+                        Run <code className="font-mono">Local-Desk-Setup-1.0.4-x64.exe</code> to install to <code className="font-mono">%LOCALAPPDATA%\Programs\LocalDesk</code> (no Administrator UAC required) with Desktop &amp; Start Menu shortcuts.
                       </p>
                     </div>
 

@@ -3081,66 +3081,36 @@ export async function runScannedPageOcr(options: {
   onProgress?.(`Applying ${preprocessMode} image enhancement...`, 22);
   const processedCanvas = preprocessCanvasForOcr(rawCanvas, preprocessMode);
 
-  // Fast path for built-in English Scanned Test Presets
-  if (isSampleEnglishDoc && pageIndex === 0) {
-    onProgress?.('Analyzing English text & matching original typography styles...', 75);
-    const sampleObjects = fallback2DConnectedComponentRecognition(
-      rawCanvas,
-      pageIndex,
-      pageWidthPt,
-      pageHeightPt,
-      pageRotationDeg,
-      true,
-      samplePreset
-    );
-    await (pdfDoc as any).destroy?.();
-    onProgress?.('OCR & Font Matching complete', 100);
-    const avgConfidence =
-      sampleObjects.length > 0
-        ? Math.round(
-            sampleObjects.reduce((acc, r) => acc + (r.ocrConfidence || 95), 0) /
-              sampleObjects.length
-          )
-        : 0;
-    return {
-      regions: sampleObjects,
-      avgConfidence,
-      sourceCanvas: rawCanvas
-    };
-  }
-
   let recognizedObjects: PdfEditableObject[] = [];
 
-  const isOfflineOrAirGapped =
-    (typeof navigator !== 'undefined' && navigator.onLine === false) ||
-    (typeof window !== 'undefined' && Boolean((window as any).localDeskNative));
+  try {
+    onProgress?.('Initializing local English (eng) OCR worker...', 32);
 
-  if (!isOfflineOrAirGapped) {
-    try {
-      onProgress?.('Initializing local English (eng) OCR worker...', 32);
-
-      const workerPromise = Tesseract.createWorker('eng', 1, {
-        workerPath: './ocr/worker.min.js',
-        corePath: './ocr',
-        langPath: './ocr',
-        gzip: false,
-        logger: (m: any) => {
-          if (m && typeof m.progress === 'number') {
-            const pct = Math.min(88, Math.round(35 + m.progress * 50));
-            onProgress?.(`Recognizing English text (${Math.round(m.progress * 100)}%)...`, pct);
-          }
+    const workerPromise = Tesseract.createWorker('eng', 1, {
+      workerPath: './ocr/worker.min.js',
+      corePath: './ocr',
+      langPath: './ocr',
+      logger: (m: any) => {
+        if (m && typeof m.progress === 'number') {
+          const pct = Math.min(88, Math.round(35 + m.progress * 50));
+          onProgress?.(`Recognizing English text (${Math.round(m.progress * 100)}%)...`, pct);
         }
-      });
+      }
+    });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('OCR worker initialization timeout — using local 2D engine')), 3500)
-      );
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('OCR worker initialization timeout — using local 2D engine')), 3500)
+    );
 
-      const worker = await Promise.race([workerPromise, timeoutPromise]);
+    const worker = await Promise.race([workerPromise, timeoutPromise]);
 
       try {
+        const imageSource =
+          typeof (processedCanvas as any)?.toDataURL === 'function'
+            ? (processedCanvas as any).toDataURL('image/png')
+            : processedCanvas;
         const result = await worker.recognize(
-          processedCanvas,
+          imageSource,
           {},
           {
             text: true,
@@ -3297,9 +3267,8 @@ export async function runScannedPageOcr(options: {
       } finally {
         await worker.terminate();
       }
-    } catch {
-      // Fallback to 2D connected-component segmentation if worker fails
-    }
+  } catch {
+    // Fallback to 2D connected-component segmentation if worker fails
   }
 
   if (recognizedObjects.length === 0 && !shouldCancel?.()) {

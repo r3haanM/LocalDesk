@@ -7,9 +7,13 @@
   <p>
     <a href="https://github.com/rehanmumtaz/local-desk/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.4-0FA575?style=flat-square" alt="Release v1.0.4" /></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0FA575?style=flat-square" alt="MIT License" /></a>
-    <a href="https://github.com/rehanmumtaz/local-desk/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64)-090D16?style=flat-square&logo=windows&logoColor=0FA575" alt="Platform Windows" /></a>
+    <a href="https://github.com/rehanmumtaz/local-desk/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%207%2F8%2F10%2F11%20(x64)-090D16?style=flat-square&logo=windows&logoColor=0FA575" alt="Platform Windows 7/8/10/11" /></a>
     <a href="#-install"><img src="https://img.shields.io/badge/web-runs%20in%20browser-0FA575?style=flat-square" alt="Runs in browser" /></a>
+    <a href="https://rehanmumtaz.github.io/local-desk/"><img src="https://img.shields.io/badge/showcase-live%20site%20%2B%20demo-0FA575?style=flat-square" alt="Live Showcase & Demo" /></a>
     <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0FA575?style=flat-square" alt="PRs Welcome" /></a>
+  </p>
+  <p>
+    🌐 <a href="https://rehanmumtaz.github.io/local-desk/"><strong>Live Showcase</strong></a> · 🎮 <a href="https://rehanmumtaz.github.io/local-desk/demo/"><strong>Try Restricted Browser Demo</strong></a> · ⬇️ <a href="https://github.com/rehanmumtaz/local-desk/releases/latest"><strong>Download Desktop App</strong></a>
   </p>
 </div>
 
@@ -62,10 +66,20 @@ npm run dev</code></pre>
   </tbody>
 </table>
 
-## 🔗 Links & Releases
+## 🚀 Releases (v1.0.4 — Windows 7, 8, 8.1, 10 & 11 Binaries)
 
-- 📦 [**Windows Setup Installer (`.exe`)**](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe) · [**Standalone Portable (`.zip`)**](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip) · [**`SHA256SUMS.txt`**](./release/SHA256SUMS.txt) ([All Releases](https://github.com/rehanmumtaz/local-desk/releases))
-- 🤝 [**Contributing**](./CONTRIBUTING.md) — Local setup, automated 28-case QA validation suite, and pull request workflow.
+| Release Section | Binary Artifact | Target OS / Format | Direct Links |
+| :--- | :--- | :--- | :--- |
+| **1. Universal Setup Installer (`.exe`)** | `Local-Desk-Setup-1.0.4-x64.exe` | Windows 10, 11 & Universal (7–11) NSIS | [GitHub Release](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Setup-1.0.4-x64.exe) |
+| **2. Universal Standalone (`.exe`)** | `Local-Desk-Standalone-1.0.4-x64.exe` | Windows 10, 11 & Universal (7–11) Direct | [GitHub Release](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Standalone-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Standalone-1.0.4-x64.exe) |
+| **3. Windows 7 / 8 / 8.1 Setup (`.exe`)** | `Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe` | Windows 7 SP1, 8 & 8.1 (WDDM Safe Mode) | [GitHub Release](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe) |
+| **4. Windows 7 / 8 / 8.1 Standalone (`.exe`)** | `Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe` | Windows 7 SP1, 8 & 8.1 Direct Binary | [GitHub Release](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe) |
+| **5. Universal Portable Bundle (`.zip`)** | `Local-Desk-Portable-1.0.4-win-x64.zip` | Zero-Install ZIP (All Win 7–11 Launchers) | [GitHub Release](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip) · [Repo Binary](./release/Local-Desk-Portable-1.0.4-win-x64.zip) |
+
+## 🔗 Links
+
+- 🔐 [**SHA-256 Checksums (`SHA256SUMS.txt`)**](./release/SHA256SUMS.txt) · [**Release Notes**](./release/RELEASE_NOTES.md) · [**All Releases**](https://github.com/rehanmumtaz/local-desk/releases)
+- 🤝 [**Contributing**](./CONTRIBUTING.md) — Local setup, automated QA validation suite, and pull request workflow.
 - 🛡️ [**Security Policy**](./SECURITY.md) — Air-gapped execution guarantees, vulnerability reporting, and [AV False-Positive Guide](./docs/AV-FALSE-POSITIVE.md).
 - 📄 [**License**](./LICENSE) — Released under the MIT License.
 

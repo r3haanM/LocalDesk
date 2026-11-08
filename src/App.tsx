@@ -9,7 +9,7 @@ import {
   ActivityHistoryItem,
   UserAccountProfile
 } from './types/pdf';
-import { findToolById } from './data/toolsCatalog';
+import { findToolById, routeFileToDefaultTool } from './data/toolsCatalog';
 import { TopNav } from './components/TopNav';
 import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
 import { CommandPalette } from './components/CommandPalette';
@@ -209,42 +209,76 @@ export default function App() {
     []
   );
 
-  // Global Ctrl+K / Cmd+K and Ctrl+O / Cmd+O Listeners + Native File Association Listener
+  // Global Ctrl+K / Cmd+K, Ctrl+, / Cmd+,, and Ctrl+O / Cmd+O Listeners + Native File Association Listener
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdPaletteOpen((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setPreferencesOpen((prev) => !prev);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         const nativeFiles = await openNativeFileDialogIfAvailable({ multiple: true });
         if (nativeFiles && nativeFiles.length > 0) {
           e.preventDefault();
-          const edTool = findToolById('edit-pdf')!;
-          handleSelectTool(edTool, nativeFiles);
+          const targetTool =
+            nativeFiles.length > 1 && nativeFiles.every((f) => f.name.toLowerCase().endsWith('.pdf'))
+              ? findToolById('merge-pdf')!
+              : routeFileToDefaultTool(nativeFiles[0].name);
+          handleSelectTool(targetTool, nativeFiles);
         }
       }
     };
     window.addEventListener('keydown', onKeyDown);
 
-    // Subscribe to Windows native file-association or drag-onto-exe launches
-    let unsubscribeNativeOpen: (() => void) | undefined;
-    if (typeof window !== 'undefined' && window.localDeskNative?.onOsOpenFile) {
-      unsubscribeNativeOpen = window.localDeskNative.onOsOpenFile(async (filePath: string) => {
+    // Subscribe to Windows native file-association, File -> Open Document menu, or drag-onto-exe launches
+    const cleanups: Array<() => void> = [];
+    if (typeof window !== 'undefined' && window.localDeskNative?.onFilesOpenedFromOS) {
+      const unsub = window.localDeskNative.onFilesOpenedFromOS(async (payloads) => {
         try {
-          const readRes = await window.localDeskNative?.openRecentPath(filePath);
+          if (!Array.isArray(payloads) || payloads.length === 0) return;
+          const items: UploadedFileItem[] = [];
+          for (const entry of payloads) {
+            if (entry?.bytes && entry?.name) {
+              const item = await createUploadedFileItemFromBytes(
+                entry.bytes,
+                entry.name,
+                entry.filePath || (entry as any).path
+              );
+              items.push(item);
+            }
+          }
+          if (items.length > 0) {
+            const targetTool =
+              items.length > 1 && items.every((f) => f.name.toLowerCase().endsWith('.pdf'))
+                ? findToolById('merge-pdf')!
+                : routeFileToDefaultTool(items[0].name);
+            handleSelectTool(targetTool, items);
+          }
+        } catch {
+          // Ignore malformed external payload
+        }
+      });
+      if (typeof unsub === 'function') cleanups.push(unsub);
+    } else if (typeof window !== 'undefined' && window.localDeskNative?.onOsOpenFile) {
+      const unsub = window.localDeskNative.onOsOpenFile(async (filePath: string) => {
+        try {
+          const readRes = await window.localDeskNative?.openRecentPath?.(filePath);
           if (readRes?.bytes && readRes.name) {
             const item = await createUploadedFileItemFromBytes(
               readRes.bytes,
               readRes.name,
               readRes.path
             );
-            const edTool = findToolById('edit-pdf')!;
-            handleSelectTool(edTool, [item]);
+            const targetTool = routeFileToDefaultTool(item.name);
+            handleSelectTool(targetTool, [item]);
           }
         } catch {
           // Ignore malformed external payload
         }
       });
+      if (typeof unsub === 'function') cleanups.push(unsub);
     }
 
     const onBeforeUnload = () => {
@@ -255,7 +289,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('beforeunload', onBeforeUnload);
-      if (unsubscribeNativeOpen) unsubscribeNativeOpen();
+      cleanups.forEach((fn) => fn());
     };
   }, [handleSelectTool]);
 
@@ -444,6 +478,13 @@ export default function App() {
                 className="hover:text-theme-primary transition-colors cursor-pointer"
               >
                 Tool Directory
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreferencesOpen(true)}
+                className="hover:text-theme-primary transition-colors cursor-pointer"
+              >
+                Preferences
               </button>
               <button
                 type="button"

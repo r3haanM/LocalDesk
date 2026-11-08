@@ -1,24 +1,29 @@
-# Local Desk v1.0.4 - Windows 11 64-bit (x64) Desktop Release Notes
+# Local Desk v1.0.4 - Windows 7 / 8 / 8.1 / 10 / 11 (x64) Desktop Release Notes
 
 **Release Date:** 2026-11-08  
 **Build Mode:** `development-unsigned` (`FORCE_CODE_SIGNING=false`, `ALLOW_UNSIGNED_DEV_BUILDS=true`)  
-**Target Platform:** Windows 10 & Windows 11 (64-bit / x64, `IMAGE_FILE_MACHINE_AMD64 = 0x8664`)  
-**Binary Format:** 5-Section PE32+ (`.text`, `.rdata`, `.data`, `.rsrc` with 10-field `RT_VERSION`, `.reloc`, `DllCharacteristics = 0x8160`) + Native NSIS (`build/installer.nsh`)  
+**Target Platforms:** Windows 7 SP1, Windows 8, Windows 8.1, Windows 10 & Windows 11 (64-bit / x64, `IMAGE_FILE_MACHINE_AMD64 = 0x8664`, `Subsystem = 6.0+`)  
+**Binary Format:** 5-Section PE32+ (`.text`, `.rdata`, `.data`, `.rsrc` with 10-field `RT_VERSION` & all 5 Windows `supportedOS` GUIDs, `.reloc`, `DllCharacteristics = 0x8160`) + Native NSIS (`build/installer.nsh`)  
 **Company / Publisher Metadata:** `Local Desk Studio`  
 **Authenticode Signing Status:** `UNSIGNED_DEVELOPMENT_BUILD`  
 
 ## 1. Release Artifacts & SHA-256 Checksums
 
-| Artifact File | Format | Architecture | Authenticode Status | Size | SHA-256 Checksum |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `Local-Desk-Setup-1.0.4-x64.exe` | PE32+ GUI Installer | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 7.72 MB (8092980 B) | `2caebecbcd6bf47b7b13f3d8aefef49be821dd8ea653283388bc083bcc44df79` |
-| `Local-Desk-Portable-1.0.4-win-x64.zip` | Portable ZIP (contains `Local Desk.exe`) | Windows x64 (`0x8664`) | Contains `Local Desk.exe` | 7.59 MB (7954228 B) | `0e26a778e9e474c091df082072af28089c89e9970b2c70dae12ec1634e906e4a` |
-| `Local Desk.exe` | PE32+ GUI Application | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 135.5 KB (138752 B) | `f9002f6fc94a98dfa617503175ce541f83825753e619af33607297f1890ad133` |
-| `Uninstall Local Desk.exe` | PE32+ GUI Uninstaller | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 135.5 KB (138752 B) | `1115730c063272e7db9eb445348b0c6f4c997ca950f4eed59cbf8d0df36be9c9` |
-| `build/icon.ico` | Multi-Resolution Windows Icon | 16, 20, 24, 32, 40, 48, 64, 128px DIB + 256px PNG | N/A | 114.3 KB (117032 B) | `726b0e890d1bec8fe5a38295e8c861998a81c3e3bb5f6d3e1991327c3355e233` |
+| Artifact File | Target Windows Versions | Format | Size | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- | :--- |
+| `Local-Desk-Setup-1.0.4-x64.exe` | Windows 10, 11 & Universal (7/8/8.1/10/11) | PE32+ GUI Installer | 14.44 MB (15138878 B) | `44bbd6b503a0055d08e5cb1d5a4a03ecef91a6d5c2cd70c654438abae016a26b` |
+| `Local-Desk-Standalone-1.0.4-x64.exe` | Windows 10, 11 & Universal (7/8/8.1/10/11) | PE32+ Standalone Launcher | 136.5 KB (139776 B) | `be688c648f4cb597d90fb144ef7bff48a0508b16605e919bd3c02bce6fa67c74` |
+| `Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe` | Windows 7 SP1, Windows 8 & Windows 8.1 | PE32+ Legacy WDDM Setup Installer | 14.44 MB (15138878 B) | `b5d495d265b214b9d170fa5fd5b5feb15bad06a5f90ea7c93870cc14cbbab086` |
+| `Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe` | Windows 7 SP1, Windows 8 & Windows 8.1 | PE32+ Legacy WDDM Standalone | 137.0 KB (140288 B) | `b4a4abd155edd22dafcf1af8adbfab430cc98a858039e98c0927ac8ca21c5d94` |
+| `Local-Desk-Portable-1.0.4-win-x64.zip` | All Windows 7 / 8 / 8.1 / 10 / 11 (x64) | Portable ZIP (both launchers included) | 14.30 MB (14998590 B) | `23fcccb0e52f75647358b052673a679b62935eb60bab7dffee4f8d6aabc9cc3e` |
 
-## 2. AV False-Positive Hygiene in v1.0.4
+## 2. Windows 7, 8, 8.1, 10 & 11 Multi-OS Compatibility
 
-1. **Zero PowerShell in Install or Launch Paths:** All `.ps1` files (`Launch-Local-Desk.ps1`, `Install-Local-Desk-Shortcuts.ps1`, `Uninstall-Local-Desk.ps1`) have been removed. Shortcut creation, `FileDescription`, and file associations are handled 100% natively in `build/installer.nsh` via `CreateShortCut` and `WriteRegStr`.
-2. **Complete 10-Field PE `VS_VERSION_INFO` Metadata:** Every binary embeds `CompanyName` (`Local Desk Studio`), `ProductName` (`Local Desk`), `FileDescription`, `LegalCopyright`, `LegalTrademarks`, `FileVersion` (`1.0.4.0`), `ProductVersion` (`1.0.4.0`), `InternalName`, `OriginalFilename`, and `Comments`.
-3. **Zero Silent Runtime Downloads:** All OCR WASM binaries and assets are bundled offline in `dist/ocr/` with `langPath: './ocr'`.
+1. **All 5 Official Microsoft `supportedOS` GUIDs Embedded in `RT_MANIFEST`:**
+   - Windows 10 & Windows 11 (`{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}`)
+   - Windows 8.1 / Server 2012 R2 (`{1f676c76-80e1-4239-95bb-83d0f6d0da78}`)
+   - Windows 8 / Server 2012 (`{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}`)
+   - Windows 7 SP1 / Server 2008 R2 (`{35138b9a-5d96-4fbd-8e2d-a2440225f93a}`)
+   - Windows Vista / Server 2008 (`{e2011457-1546-43c5-a5fe-008deee3d3f0}`)
+2. **NT 6.x Kernel & WDDM 1.1/1.2 Compatibility Mode:** Automatically detects Windows 7 (`6.1`), Windows 8 (`6.2`), and Windows 8.1 (`6.3`) in `electron/main.cjs` (or via the dedicated `Local-Desk-Win7-Win8-*` binaries) and enables `--disable-gpu-sandbox`, `--disable-direct-composition`, and `--no-sandbox` so older graphics drivers render without black screens.
+3. **Dual DPI Awareness:** Declares both legacy `<dpiAware>true/pm</dpiAware>` (Windows 7/8/8.1) and `<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>` (Windows 10/11).

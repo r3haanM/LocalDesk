@@ -24,6 +24,7 @@ directories:
 
 files:
   - dist/**/*
+  - dist/ocr/eng.traineddata.gz
   - build/icon.ico
   - build/local-desk-icon-v103.ico
   - electron/main.cjs
@@ -34,6 +35,10 @@ asarUnpack:
   - dist/ocr/**/*
   - build/icon.ico
   - build/local-desk-icon-v103.ico
+
+extraResources:
+  - from: public/ocr/eng.traineddata.gz
+    to: ocr/eng.traineddata.gz
 
 win:
   icon: build/icon.ico

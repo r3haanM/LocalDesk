@@ -13,14 +13,30 @@ const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
+const os = require('node:os');
 
 // ---------------------------------------------------------------------------
-// 1. WINDOWS APP USER MODEL ID & SINGLE-INSTANCE LOCK
+// 1. WINDOWS 7 / 8 / 8.1 / 10 / 11 COMPATIBILITY & APP USER MODEL ID
 // ---------------------------------------------------------------------------
 const APP_ID = 'com.localdesk.pdfstudio';
 const UNIFIED_WINDOW_TITLE = 'Local Desk — All-in-One PDF & Document Studio';
+const WIN_NT_RELEASE = process.platform === 'win32' ? os.release() : '';
+const IS_LEGACY_WIN_NT6 =
+  (process.platform === 'win32' && /^6\.(1|2|3)\b/.test(WIN_NT_RELEASE)) ||
+  process.argv.includes('--win7-compat');
+
 if (process.platform === 'win32') {
-  app.setAppUserModelId(APP_ID);
+  try {
+    app.setAppUserModelId(APP_ID);
+  } catch {
+    // Fallback for early Windows 7 builds without Shell32 AUMID API
+  }
+  if (IS_LEGACY_WIN_NT6) {
+    // Windows 7 SP1 (6.1), Windows 8 (6.2), and Windows 8.1 (6.3) WDDM 1.1/1.2 & kernel compatibility switches
+    app.commandLine.appendSwitch('disable-gpu-sandbox');
+    app.commandLine.appendSwitch('disable-direct-composition');
+    app.commandLine.appendSwitch('no-sandbox');
+  }
 }
 
 let mainWindow = null;
@@ -350,7 +366,7 @@ function buildNativeApplicationMenu() {
       label: 'Help',
       submenu: [
         {
-          label: 'Local Desk v1.0.3 — 100% Offline Privacy Guarantee',
+          label: `Local Desk v${app.getVersion()} — 100% Offline Privacy Guarantee`,
           enabled: false
         },
         {

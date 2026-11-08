@@ -8,4 +8,9 @@ if (typeof (Promise as any).try !== 'function') {
   };
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+const mountApp = () => createRoot(document.getElementById('root')!).render(<App />);
+if ((import.meta as any).env?.VITE_SHOWCASE_BUILD === 'true') {
+  import('../showcase/demo/patch').then((m) => m.bootstrapDemoMode()).finally(mountApp);
+} else {
+  mountApp();
+}

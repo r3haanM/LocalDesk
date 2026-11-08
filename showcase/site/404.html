@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Desk — Showcase</title>
+    <link rel="stylesheet" href="/local-desk/styles.css" />
+    <script>
+      (function () {
+        var path = window.location.pathname || '';
+        if (path.indexOf('/demo') !== -1) {
+          var base = path.slice(0, path.indexOf('/demo') + 5) + '/';
+          window.location.replace(base);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="hero">
+      <div class="container">
+        <h1 class="hero-title">Local Desk</h1>
+        <p class="hero-subtitle">Your documents. Your device. Your control.</p>
+        <div class="cta-row">
+          <a href="/local-desk/" class="btn btn-primary">Back to Landing Page</a>
+          <a href="/local-desk/demo/" class="btn btn-secondary">Explore the demo</a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

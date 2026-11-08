@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Desk — Interactive Showcase Demo (Sample Document Only)</title>
+    <meta
+      name="description"
+      content="Explore Local Desk in your browser tab with a bundled sample PDF. Nothing is uploaded, nothing is stored, and closing the tab resets everything."
+    />
+    <link rel="icon" type="image/png" href="/showcase/assets/logo.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import '/showcase/demo/patch.ts';
+      import '/src/main.tsx';
+    </script>
+  </body>
+</html>

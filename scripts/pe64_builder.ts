@@ -437,7 +437,7 @@ function buildResourceSection(
   // Build VS_VERSION_INFO (RT_VERSION = 16)
   const versionInfoBuf = buildVersionInfoResource(versionMeta);
 
-  // Canonical Windows 10/11 asInvoker Application Manifest
+  // Canonical Windows 7 / 8 / 8.1 / 10 / 11 Application Manifest with all 5 supportedOS GUIDs & dual DPI awareness
   const manifestXml = Buffer.from(
     [
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
@@ -449,6 +449,26 @@ function buildResourceSection(
       '      </requestedPrivileges>',
       '    </security>',
       '  </trustInfo>',
+      '  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">',
+      '    <application>',
+      '      <!-- Windows 10 and Windows 11 (NT 10.0) -->',
+      '      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>',
+      '      <!-- Windows 8.1 / Server 2012 R2 (NT 6.3) -->',
+      '      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>',
+      '      <!-- Windows 8 / Server 2012 (NT 6.2) -->',
+      '      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>',
+      '      <!-- Windows 7 SP1 / Server 2008 R2 (NT 6.1) -->',
+      '      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>',
+      '      <!-- Windows Vista / Server 2008 (NT 6.0) -->',
+      '      <supportedOS Id="{e2011457-1546-43c5-a5fe-008deee3d3f0}"/>',
+      '    </application>',
+      '  </compatibility>',
+      '  <application xmlns="urn:schemas-microsoft-com:asm.v3">',
+      '    <windowsSettings>',
+      '      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>',
+      '      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>',
+      '    </windowsSettings>',
+      '  </application>',
       '</assembly>'
     ].join('\r\n'),
     'utf-8'

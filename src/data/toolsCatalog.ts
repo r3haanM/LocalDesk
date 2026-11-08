@@ -543,3 +543,18 @@ export function getToolsByConversionSubcategory(
 export function findToolById(id: string): PdfToolDefinition | undefined {
   return PDF_TOOLS_CATALOG.find((t) => t.id === id);
 }
+
+/**
+ * Deterministic file-extension router used by Hero drop-zone, Ctrl+O, and Electron OS file-open IPC.
+ */
+export function routeFileToDefaultTool(fileName: string): PdfToolDefinition {
+  const lower = (fileName || '').toLowerCase().trim();
+  if (lower.endsWith('.docx')) return findToolById('word-to-pdf')!;
+  if (lower.endsWith('.xlsx') || lower.endsWith('.csv')) return findToolById('excel-to-pdf')!;
+  if (lower.endsWith('.pptx')) return findToolById('ppt-to-pdf')!;
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return findToolById('jpg-to-pdf')!;
+  if (lower.endsWith('.png')) return findToolById('png-to-pdf')!;
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return findToolById('html-to-pdf')!;
+  return findToolById('edit-pdf')!;
+}
+

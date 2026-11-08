@@ -291,12 +291,23 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
     const validated: UploadedFileItem[] = [];
 
     for (const f of rawFiles) {
+      if (f.size === 0) {
+        setErrorMsg(`File "${f.name}" is empty (0 bytes) and cannot be processed.`);
+        continue;
+      }
       if (f.size > 50 * 1024 * 1024) {
         setErrorMsg(`File "${f.name}" exceeds the 50 MB client operational limit.`);
         continue;
       }
       const ab = await f.arrayBuffer();
       const sig = await validateFileSignature(ab, f.name);
+
+      if (!sig.isValid) {
+        setErrorMsg(
+          `Invalid or corrupted file "${f.name}" (${sig.detectedFormat}): ${sig.details}.`
+        );
+        continue;
+      }
 
       // Validate file extension/signature compatibility with active tool
       const ext = `.${(f.name.split('.').pop() || '').toLowerCase()}`;
@@ -665,6 +676,15 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
     });
   };
 
+  const cancelOpRef = useRef<boolean>(false);
+
+  const handleCancelOperation = () => {
+    cancelOpRef.current = true;
+    setProcessing(false);
+    setProgressStage('Operation cancelled');
+    setErrorMsg('Operation cancelled by user.');
+  };
+
   const handleRunTool = async () => {
     if (
       CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) &&
@@ -686,6 +706,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       return;
     }
 
+    cancelOpRef.current = false;
     setProcessing(true);
     setErrorMsg('');
     setResult(null);
@@ -765,74 +786,109 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
         const zip = new JSZip();
         const usedNames = new Set<string>();
         let totalOutBytes = 0;
+        let succeededCount = 0;
+        const failedMessages: string[] = [];
 
         await Promise.all(
           files.map(async (fileItem, idx) => {
-            const singleRes = await executePdfTool(
-              tool.id,
-              [fileItem],
-              buildOptions((stage, pct) => {
-                setPerFileStates((prev) => ({
-                  ...prev,
-                  [fileItem.id]: {
-                    ...prev[fileItem.id],
-                    status: 'processing',
-                    progress: Math.max(10, Math.min(99, pct)),
-                    stage
+            if (cancelOpRef.current) return;
+            try {
+              const singleRes = await executePdfTool(
+                tool.id,
+                [fileItem],
+                buildOptions((stage, pct) => {
+                  if (cancelOpRef.current) return;
+                  setPerFileStates((prev) => ({
+                    ...prev,
+                    [fileItem.id]: {
+                      ...prev[fileItem.id],
+                      status: 'processing',
+                      progress: Math.max(10, Math.min(99, pct)),
+                      stage
+                    }
+                  }));
+                  if (idx === 0) {
+                    setProgressStage(`Processing ${files.length} files (${stage})...`);
+                    setProgressPercent(pct);
                   }
-                }));
-                if (idx === 0) {
-                  setProgressStage(`Processing ${files.length} files (${stage})...`);
-                  setProgressPercent(pct);
+                })
+              );
+
+              if (cancelOpRef.current) return;
+
+              setPerFileStates((prev) => ({
+                ...prev,
+                [fileItem.id]: {
+                  status: 'completed',
+                  progress: 100,
+                  stage: 'Completed & Verified',
+                  result: singleRes
                 }
-              })
-            );
+              }));
 
-            setPerFileStates((prev) => ({
-              ...prev,
-              [fileItem.id]: {
-                status: 'completed',
-                progress: 100,
-                stage: 'Completed & Verified',
-                result: singleRes
+              let outName = singleRes.outputFileName;
+              if (usedNames.has(outName)) {
+                const dot = outName.lastIndexOf('.');
+                outName =
+                  dot > 0
+                    ? `${outName.slice(0, dot)}_${idx + 1}${outName.slice(dot)}`
+                    : `${outName}_${idx + 1}`;
               }
-            }));
-
-            let outName = singleRes.outputFileName;
-            if (usedNames.has(outName)) {
-              const dot = outName.lastIndexOf('.');
-              outName =
-                dot > 0
-                  ? `${outName.slice(0, dot)}_${idx + 1}${outName.slice(dot)}`
-                  : `${outName}_${idx + 1}`;
+              usedNames.add(outName);
+              zip.file(outName, singleRes.outputBytes);
+              totalOutBytes += singleRes.outputSize;
+              succeededCount++;
+            } catch (fileErr: any) {
+              const errMsg = fileErr?.message || 'Failed to process file';
+              failedMessages.push(`${fileItem.name}: ${errMsg}`);
+              setPerFileStates((prev) => ({
+                ...prev,
+                [fileItem.id]: {
+                  status: 'error',
+                  progress: 100,
+                  stage: 'Failed',
+                  error: errMsg
+                }
+              }));
             }
-            usedNames.add(outName);
-            zip.file(outName, singleRes.outputBytes);
-            totalOutBytes += singleRes.outputSize;
           })
         );
 
-        setProgressStage('Packaging all processed files into ZIP archive...');
+        if (cancelOpRef.current) return;
+
+        if (succeededCount === 0) {
+          throw new Error(
+            failedMessages[0] || 'All files in the batch failed verification.'
+          );
+        }
+
+        if (failedMessages.length > 0) {
+          setErrorMsg(
+            `${failedMessages.length} of ${files.length} file(s) failed (${failedMessages.join('; ')}). ${succeededCount} valid file(s) were packaged.`
+          );
+        }
+
+        setProgressStage('Packaging processed files into ZIP archive...');
         setProgressPercent(95);
         const zipBytes = await zip.generateAsync({ type: 'uint8array' });
 
         const combinedResult: ProcessingResult = {
           success: true,
           toolId: tool.id,
-          outputFileName: `LocalDesk_${tool.id}_${files.length}_files.zip`,
+          outputFileName: `LocalDesk_${tool.id}_${succeededCount}_files.zip`,
           outputMimeType: 'application/zip',
           outputBytes: zipBytes,
           originalSize: files.reduce((a, b) => a + b.size, 0),
           outputSize: zipBytes.byteLength,
-          pageCount: files.length,
+          pageCount: succeededCount,
           summary:
             CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-              ? `Converted and password-protected all ${files.length} files in one go (packaged as ZIP + individual downloads).`
+              ? `Converted and password-protected ${succeededCount} of ${files.length} file(s) in one go (packaged as ZIP + individual downloads).`
               : tool.id === 'unlock-pdf'
-              ? `Unlocked and removed password restrictions from all ${files.length} PDFs in one go.`
-              : `Processed all ${files.length} files with ${tool.name} in one go.`,
+              ? `Unlocked and removed password restrictions from ${succeededCount} of ${files.length} PDF(s) in one go.`
+              : `Processed ${succeededCount} of ${files.length} file(s) with ${tool.name} in one go.`,
           details: {
-            'Files Processed in One Go': files.length,
+            'Files Succeeded': `${succeededCount} / ${files.length}`,
             'Combined Output Payload': `${(totalOutBytes / 1024).toFixed(1)} KB`,
             ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
               ? { 'Shared Password Protection': 'Applied to All Output PDFs (SHA-256)' }
@@ -840,7 +896,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
           },
           validationPassed: zipBytes.byteLength > 64,
           validationNotes: [
-            `Verified all ${files.length} output files in batch archive`,
+            `Verified ${succeededCount} output file(s) in batch archive`,
             ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
               ? ['Verified SHA-256 password protection envelope on every converted PDF']
               : [])
@@ -853,8 +909,8 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
         onRecordHistory(
           tool.id,
-          `${tool.name} (${files.length} Files)`,
-          `${files.length} files`,
+          `${tool.name} (${succeededCount} Files)`,
+          `${succeededCount} files`,
           combinedResult.outputFileName,
           combinedResult.outputSize,
           combinedResult.summary
@@ -2352,9 +2408,9 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                 : `Run ${tool.shortName}`}
             </button>
 
-            {/* Real Processing Progress Bar */}
+            {/* Real Processing Progress Bar + Cancel Control */}
             {processing && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex justify-between text-xs font-mono text-theme-secondary">
                   <span>{progressStage}</span>
                   <span>{progressPercent}%</span>
@@ -2365,6 +2421,13 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                     className="h-full bg-theme-accent transition-all duration-150"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCancelOperation}
+                  className="w-full py-2 px-3 rounded-lg text-xs font-semibold bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25 cursor-pointer"
+                >
+                  Cancel Operation
+                </button>
               </div>
             )}
           </div>

@@ -2,8 +2,8 @@
   "version": "1.0.4",
   "productName": "Local Desk",
   "companyName": "Local Desk Studio",
-  "targetPlatform": "Windows 10 / Windows 11 (64-bit x64)",
-  "peArchitecture": "PE32+ (AMD64 / 0x8664, 5 Sections, ASLR 0x8160, 10-Field RT_VERSION)",
+  "targetPlatform": "Windows 7 SP1, Windows 8, Windows 8.1, Windows 10 & Windows 11 (64-bit x64)",
+  "peArchitecture": "PE32+ (AMD64 / 0x8664, Subsystem 6.0+, 5 Sections, ASLR 0x8160, 10-Field RT_VERSION, 5 supportedOS GUIDs)",
   "buildMode": "development-unsigned",
   "forceCodeSigning": false,
   "allowUnsignedDevBuilds": true,
@@ -12,31 +12,67 @@
   "publisherName": null,
   "publisherDisplayName": "Local Desk Studio",
   "timestampServer": null,
-  "buildTimestamp": "2026-11-08T08:03:31.201Z",
+  "buildTimestamp": "2026-11-08T18:50:45.757Z",
   "artifacts": [
     {
       "fileName": "Local-Desk-Setup-1.0.4-x64.exe",
-      "label": "Windows 10/11 64-bit Installer (.exe)",
-      "format": "PE32+ x64 GUI Installer (0x8664 + 10-Field RT_VERSION + Native NSIS)",
-      "sizeBytes": 8092980,
-      "sizeFormatted": "7.72 MB",
-      "sha256": "2caebecbcd6bf47b7b13f3d8aefef49be821dd8ea653283388bc083bcc44df79",
+      "label": "Windows 10 / 11 & Universal Setup Installer (.exe)",
+      "format": "PE32+ x64 GUI Installer (Win 7/8/8.1/10/11 Manifest + Native NSIS)",
+      "sizeBytes": 15138878,
+      "sizeFormatted": "14.44 MB",
+      "sha256": "44bbd6b503a0055d08e5cb1d5a4a03ecef91a6d5c2cd70c654438abae016a26b",
       "authenticodeSigned": false,
       "authenticodeSummary": "NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)",
       "downloadUrl": "/api/releases/download/Local-Desk-Setup-1.0.4-x64.exe",
-      "description": "Native 64-bit Windows 10/11 GUI installer with full 10-field PE VersionInfo metadata and native NSIS shortcut/file-association registration (zero PowerShell scripts)."
+      "description": "Universal 64-bit Windows Setup installer compatible with Windows 11, 10, 8.1, 8, and 7 SP1. Creates Desktop & Start Menu shortcuts and registers .pdf file associations natively."
+    },
+    {
+      "fileName": "Local-Desk-Standalone-1.0.4-x64.exe",
+      "label": "Windows 10 / 11 & Universal Standalone Executable (.exe)",
+      "format": "PE32+ x64 Native GUI Executable (Win 7/8/8.1/10/11 Manifest)",
+      "sizeBytes": 139776,
+      "sizeFormatted": "136.5 KB",
+      "sha256": "be688c648f4cb597d90fb144ef7bff48a0508b16605e919bd3c02bce6fa67c74",
+      "authenticodeSigned": false,
+      "authenticodeSummary": "NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)",
+      "downloadUrl": "/api/releases/download/Local-Desk-Standalone-1.0.4-x64.exe",
+      "description": "Direct standalone 64-bit Windows PE32+ GUI application binary (Local Desk.exe) with embedded multi-layer icon, 10-field VS_VERSION_INFO, and Windows 7–11 compatibility GUIDs."
     },
     {
       "fileName": "Local-Desk-Portable-1.0.4-win-x64.zip",
-      "label": "Windows 10/11 64-bit Portable (.zip)",
-      "format": "Portable ZIP Archive (contains native x64 Local Desk.exe)",
-      "sizeBytes": 7954228,
-      "sizeFormatted": "7.59 MB",
-      "sha256": "0e26a778e9e474c091df082072af28089c89e9970b2c70dae12ec1634e906e4a",
+      "label": "Universal Windows 7 / 8 / 10 / 11 Portable Bundle (.zip)",
+      "format": "Portable ZIP Archive (contains both Standard & Win 7/8 Legacy .exe launchers)",
+      "sizeBytes": 14998590,
+      "sizeFormatted": "14.30 MB",
+      "sha256": "23fcccb0e52f75647358b052673a679b62935eb60bab7dffee4f8d6aabc9cc3e",
       "authenticodeSigned": false,
       "authenticodeSummary": "NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)",
       "downloadUrl": "/api/releases/download/Local-Desk-Portable-1.0.4-win-x64.zip",
-      "description": "Standalone Windows 10/11 x64 portable archive containing native Local Desk.exe (PE32+ 0x8664), pre-compiled offline assets, local OCR WASM binaries, and uninstaller."
+      "description": "Complete zero-install portable archive for Windows 7, 8, 8.1, 10, and 11 containing both Local Desk.exe and Local Desk (Win7-8 Legacy).exe plus offline OCR WASM assets."
+    },
+    {
+      "fileName": "Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe",
+      "label": "Windows 7 (SP1) / Windows 8 / 8.1 Legacy Setup Installer (.exe)",
+      "format": "PE32+ x64 NT 6.1/6.2/6.3 Compatibility Installer (WDDM 1.1/1.2 Safe Mode)",
+      "sizeBytes": 15138878,
+      "sizeFormatted": "14.44 MB",
+      "sha256": "b5d495d265b214b9d170fa5fd5b5feb15bad06a5f90ea7c93870cc14cbbab086",
+      "authenticodeSigned": false,
+      "authenticodeSummary": "NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)",
+      "downloadUrl": "/api/releases/download/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe",
+      "description": "Dedicated installer for Windows 7 SP1, Windows 8, and Windows 8.1 machines. Pre-configured with --win7-compat, --disable-direct-composition, and --disable-gpu-sandbox for older WDDM drivers."
+    },
+    {
+      "fileName": "Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe",
+      "label": "Windows 7 (SP1) / Windows 8 / 8.1 Legacy Standalone (.exe)",
+      "format": "PE32+ x64 NT 6.1/6.2/6.3 Compatibility Launcher (Zero-Install)",
+      "sizeBytes": 140288,
+      "sizeFormatted": "137.0 KB",
+      "sha256": "b4a4abd155edd22dafcf1af8adbfab430cc98a858039e98c0927ac8ca21c5d94",
+      "authenticodeSigned": false,
+      "authenticodeSummary": "NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)",
+      "downloadUrl": "/api/releases/download/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe",
+      "description": "Direct standalone launcher tuned specifically for Windows 7 SP1, Windows 8, and Windows 8.1 with NT 6.x kernel & WDDM 1.1/1.2 fallback flags enabled by default."
     }
   ]
 }

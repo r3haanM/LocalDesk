@@ -181,6 +181,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   );
   const [dirSearch, setDirSearch] = useState<string>('');
   const [heroFiles, setHeroFiles] = useState<UploadedFileItem[]>([]);
+  const [dropzoneError, setDropzoneError] = useState<string>('');
   const [isDropzoneDragging, setIsDropzoneDragging] = useState<boolean>(false);
   const [recentDocs, setRecentDocs] = useState<RecentDocumentRecord[]>(() =>
     getRecentDocumentsList()
@@ -212,10 +213,33 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
   }, [selectedGroup, dirSearch]);
 
   const handleHeroFileDrop = async (rawFiles: File[]) => {
+    setDropzoneError('');
     const processed: UploadedFileItem[] = [];
+    const seenKeys = new Set<string>(heroFiles.map((hf) => `${hf.name}:${hf.size}`));
+
     for (const f of rawFiles) {
+      if (f.size === 0) {
+        setDropzoneError(`Skipped "${f.name}": file is empty (0 bytes).`);
+        continue;
+      }
+      if (f.size > 50 * 1024 * 1024) {
+        setDropzoneError(`Skipped "${f.name}": exceeds the 50 MB local operational limit.`);
+        continue;
+      }
+      const dedupeKey = `${f.name}:${f.size}`;
+      if (seenKeys.has(dedupeKey)) {
+        continue;
+      }
       const ab = await f.arrayBuffer();
       const sig = await validateFileSignature(ab, f.name);
+      if (!sig.isValid) {
+        setDropzoneError(
+          `Rejected "${f.name}" (${sig.detectedFormat}): ${sig.details}.`
+        );
+        continue;
+      }
+      seenKeys.add(dedupeKey);
+
       let pageCount: number | undefined;
       if (sig.detectedFormat.startsWith('PDF')) {
         try {
@@ -248,7 +272,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
       });
     }
     if (processed.length > 0) {
-      setHeroFiles(processed);
+      setHeroFiles((prev) => [...prev, ...processed]);
     }
   };
 
@@ -401,6 +425,22 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 e.target.value = '';
               }}
             />
+
+            {dropzoneError && (
+              <div
+                role="alert"
+                className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 text-xs text-rose-400"
+              >
+                <span>{dropzoneError}</span>
+                <button
+                  type="button"
+                  onClick={() => setDropzoneError('')}
+                  className="text-rose-300 hover:text-white font-semibold cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <AnimatePresence mode="wait">
               {heroFiles.length === 0 ? (
