@@ -13,7 +13,8 @@
 # ============================================================================
 appId: com.localdesk.pdfstudio
 productName: Local Desk
-copyright: Copyright (C) 2026 Local Desk
+executableName: Local Desk
+copyright: Copyright (C) 2026 Local Desk Studio
 asar: true
 compression: normal
 
@@ -36,9 +37,23 @@ asarUnpack:
 
 win:
   icon: build/icon.ico
-  # Development build default: do not require a signing certificate or invent a publisherName
+  executableName: Local Desk
+  legalTrademarks: "Local Desk is a trademark of Local Desk Studio"
+  fileDescription: "Local Desk — All-in-One PDF & Document Studio"
+  # Development build default: do not require a signing certificate locally.
+  # Production releases use electron-builder.prod.yml (forceCodeSigning: true).
   forceCodeSigning: false
   signAndEditExecutable: true
+  signingHashAlgorithms:
+    - sha256
+  timeStampServer: "http://timestamp.digicert.com"
+  rfc3161TimeStampServer: "http://timestamp.digicert.com"
+  # Ready for Azure Trusted Signing / SignPath / Free Open-Source Certificate:
+  # azureSignOptions:
+  #   endpoint: "https://eus.codesigning.azure.net"
+  #   codeSigningAccountName: "local-desk-signing"
+  #   certificateProfileName: "local-desk-public-trust"
+  #   publisherName: "Local Desk Studio"
   target:
     - target: nsis
       arch:
@@ -55,6 +70,7 @@ win:
       icon: build/icon.ico
 
 nsis:
+  include: build/installer.nsh
   oneClick: false
   perMachine: false
   allowElevation: true

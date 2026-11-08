@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -31,6 +32,39 @@
   --scrollbar-thumb: rgba(19, 58, 43, 0.32);
   --scrollbar-thumb-hover: #059669;
   --scrollbar-thumb-active: #047857;
+
+  /* Hero Drop-Zone Crystal Glass Tokens — Light Theme */
+  --dropzone-bg: rgba(255, 255, 255, 0.62);
+  --dropzone-border: rgba(23, 32, 38, 0.10);
+  --dropzone-border-top: rgba(255, 255, 255, 0.85);
+  --dropzone-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 20px 40px rgba(23, 32, 38, 0.10);
+  --dropzone-rim-gradient: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(23, 32, 38, 0.05) 45%,
+    rgba(15, 165, 117, 0.22)
+  );
+  --dropzone-text-primary: #1A2530;
+  --dropzone-text-secondary: #5B6B75;
+
+  /* VibeCoded Signature Overlay Tokens — Light Theme */
+  --vibe-pill-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 244, 0.94) 55%, rgba(236, 253, 245, 0.96) 100%);
+  --vibe-pill-bg-hover: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(236, 253, 245, 0.96) 55%, rgba(209, 250, 229, 0.95) 100%);
+  --vibe-card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.97) 0%, rgba(240, 253, 244, 0.95) 60%, rgba(236, 253, 245, 0.97) 100%);
+  --vibe-border: rgba(5, 150, 105, 0.32);
+  --vibe-border-hover: rgba(5, 150, 105, 0.58);
+  --vibe-divider: rgba(5, 150, 105, 0.20);
+  --vibe-shadow: 0 10px 28px -6px rgba(13, 31, 24, 0.14), 0 2px 10px -2px rgba(5, 150, 105, 0.12);
+  --vibe-shadow-hover: 0 14px 32px -6px rgba(13, 31, 24, 0.18), 0 4px 14px -2px rgba(5, 150, 105, 0.22);
+  --vibe-text-primary: #0D1F18;
+  --vibe-text-secondary: #3B5249;
+  --vibe-text-accent: #047857;
+  --vibe-icon: #059669;
+  --vibe-badge-bg: rgba(5, 150, 105, 0.10);
+  --vibe-badge-border: rgba(5, 150, 105, 0.26);
+  --vibe-btn-hover-bg: rgba(5, 150, 105, 0.12);
 }
 
 html.dark {
@@ -55,6 +89,39 @@ html.dark {
   --scrollbar-thumb: rgba(16, 185, 129, 0.32);
   --scrollbar-thumb-hover: #10B981;
   --scrollbar-thumb-active: #34D399;
+
+  /* Hero Drop-Zone Crystal Glass Tokens — Dark Theme */
+  --dropzone-bg: rgba(13, 20, 26, 0.55);
+  --dropzone-border: rgba(255, 255, 255, 0.10);
+  --dropzone-border-top: rgba(255, 255, 255, 0.22);
+  --dropzone-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 48px rgba(0, 0, 0, 0.35);
+  --dropzone-rim-gradient: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(15, 165, 117, 0.28)
+  );
+  --dropzone-text-primary: #F2F7F5;
+  --dropzone-text-secondary: #B9C8C0;
+
+  /* VibeCoded Signature Overlay Tokens — Dark Theme (Original Rich Forest-Emerald Gradient) */
+  --vibe-pill-bg: linear-gradient(90deg, rgba(6, 26, 18, 0.88) 0%, rgba(15, 41, 34, 0.85) 55%, rgba(13, 46, 40, 0.88) 100%);
+  --vibe-pill-bg-hover: linear-gradient(90deg, rgba(8, 33, 23, 0.94) 0%, rgba(18, 50, 41, 0.90) 55%, rgba(15, 55, 48, 0.94) 100%);
+  --vibe-card-bg: linear-gradient(145deg, rgba(6, 26, 18, 0.92) 0%, rgba(12, 38, 30, 0.90) 55%, rgba(7, 21, 16, 0.94) 100%);
+  --vibe-border: rgba(16, 185, 129, 0.42);
+  --vibe-border-hover: rgba(52, 211, 153, 0.72);
+  --vibe-divider: rgba(16, 185, 129, 0.26);
+  --vibe-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.68), 0 0 20px -4px rgba(16, 185, 129, 0.24);
+  --vibe-shadow-hover: 0 16px 36px -6px rgba(0, 0, 0, 0.80), 0 0 26px -2px rgba(52, 211, 153, 0.38);
+  --vibe-text-primary: #ECFDF5;
+  --vibe-text-secondary: rgba(209, 250, 229, 0.76);
+  --vibe-text-accent: #34D399;
+  --vibe-icon: #34D399;
+  --vibe-badge-bg: rgba(6, 78, 59, 0.55);
+  --vibe-badge-border: rgba(16, 185, 129, 0.38);
+  --vibe-btn-hover-bg: rgba(16, 185, 129, 0.16);
 }
 
 /* ==========================================================================
@@ -381,3 +448,114 @@ main::-webkit-scrollbar,
     linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
     linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
 }
+
+/* ==========================================================================
+   HERO DROP-ZONE CRYSTAL FROSTED GLASS PANEL (.drop-zone / #dropPanel)
+   ========================================================================== */
+.drop-zone,
+#dropPanel {
+  position: relative;
+  background: var(--dropzone-bg);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-radius: 18px;
+  border: 1px solid var(--dropzone-border);
+  border-top-color: var(--dropzone-border-top);
+  box-shadow: var(--dropzone-shadow);
+}
+
+.drop-zone::before,
+#dropPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--dropzone-rim-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.drop-zone-headline {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--dropzone-text-primary);
+}
+
+.drop-zone-types {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--dropzone-text-primary);
+}
+
+.drop-zone-helper {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--dropzone-text-secondary);
+}
+
+/* ==========================================================================
+   VIBECODED BY REHAN MUMTAZ — SIGNATURE OVERLAY (LIGHT & DARK THEMES)
+   ========================================================================== */
+.vibecoded-pill {
+  background: var(--vibe-pill-bg);
+  border: 1px solid var(--vibe-border);
+  box-shadow: var(--vibe-shadow);
+  color: var(--vibe-text-primary);
+}
+
+.vibecoded-pill:hover {
+  background: var(--vibe-pill-bg-hover);
+  border-color: var(--vibe-border-hover);
+  box-shadow: var(--vibe-shadow-hover);
+}
+
+.vibecoded-card {
+  background: var(--vibe-card-bg);
+  border: 1px solid var(--vibe-border);
+  box-shadow: var(--vibe-shadow);
+  color: var(--vibe-text-primary);
+}
+
+.vibecoded-text-primary {
+  color: var(--vibe-text-primary);
+}
+
+.vibecoded-text-secondary {
+  color: var(--vibe-text-secondary);
+}
+
+.vibecoded-text-accent {
+  color: var(--vibe-text-accent);
+}
+
+.vibecoded-icon {
+  color: var(--vibe-icon);
+}
+
+.vibecoded-divider {
+  border-color: var(--vibe-divider);
+}
+
+.vibecoded-badge {
+  background: var(--vibe-badge-bg);
+  border: 1px solid var(--vibe-badge-border);
+  color: var(--vibe-icon);
+}
+
+.vibecoded-action-btn {
+  background: var(--vibe-badge-bg);
+  border: 1px solid var(--vibe-badge-border);
+  color: var(--vibe-text-primary);
+}
+
+.vibecoded-action-btn:hover {
+  background: var(--vibe-btn-hover-bg);
+  border-color: var(--vibe-border-hover);
+}
+

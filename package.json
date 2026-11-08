@@ -2,10 +2,13 @@
   "name": "local-desk",
   "productName": "Local Desk",
   "description": "Local Desk — All-in-One PDF & Document Studio",
-  "author": "Local Desk",
+  "author": {
+    "name": "Local Desk Studio",
+    "email": "security@localdesk.app"
+  },
   "license": "MIT",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {

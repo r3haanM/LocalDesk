@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ChevronDown, ChevronUp, Code2, ArrowUpRight } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Code2, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 export const GITHUB_REPO_URL =
   (typeof import.meta !== 'undefined' &&
@@ -31,7 +31,7 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
   visible,
   repoUrl = GITHUB_REPO_URL
 }) => {
-  // Default to minimized state as requested
+  // Default to minimized state
   const [collapsed, setCollapsed] = useState(true);
 
   return (
@@ -47,29 +47,23 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
           className="fixed bottom-5 right-5 z-40 select-none"
         >
           {collapsed ? (
-            <div className="group relative overflow-hidden inline-flex items-center rounded-full backdrop-blur-xl bg-gradient-to-r from-[#0A2218]/75 via-[#0E3324]/60 to-[#071811]/75 text-[#ECFDF5] border border-emerald-400/35 shadow-[0_12px_30px_-6px_rgba(2,12,8,0.75),0_0_22px_-4px_rgba(16,185,129,0.28)] hover:border-emerald-400/65 hover:from-[#0C2A1E]/85 hover:via-[#12402D]/70 hover:to-[#091E15]/85 hover:shadow-[0_14px_34px_-6px_rgba(2,12,8,0.85),0_0_28px_-2px_rgba(16,185,129,0.45)] transition-all duration-300">
-              {/* Subtle translucent diagonal glass sheen */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-emerald-500/12 via-transparent to-teal-300/18"
-              />
-
+            <div className="group relative overflow-hidden inline-flex items-center rounded-full backdrop-blur-xl vibecoded-pill transition-all duration-300">
               {/* Main Pill Expand Trigger */}
               <button
                 type="button"
                 onClick={() => setCollapsed(false)}
-                title="Expand VibeCoded by Rehan Mumtaz signature card"
-                className="relative inline-flex items-center gap-2.5 pl-3.5 pr-2.5 py-2 cursor-pointer focus-visible:outline-none"
+                title="Expand Rehan Mumtaz signature card"
+                className="relative inline-flex items-center gap-2 pl-3.5 pr-2.5 py-2 cursor-pointer focus-visible:outline-none"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 dark:bg-emerald-400" />
                 </span>
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-xs font-semibold tracking-tight text-emerald-50/95">
-                  VibeCoded by <span className="font-extrabold text-emerald-300">Rehan Mumtaz</span>
+                <Sparkles className="w-3.5 h-3.5 vibecoded-icon shrink-0" />
+                <span className="text-xs font-semibold tracking-tight vibecoded-text-primary">
+                  VibeCoded by <span className="font-extrabold vibecoded-text-accent">Rehan Mumtaz</span>
                 </span>
-                <ChevronUp className="w-3.5 h-3.5 text-emerald-400/80 group-hover:text-emerald-300 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                <ChevronUp className="w-3.5 h-3.5 vibecoded-icon opacity-85 group-hover:-translate-y-0.5 transition-transform duration-200" />
               </button>
 
               {/* Direct GitHub Repository Link Button inside Minimized Pill */}
@@ -79,69 +73,52 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
                 rel="noopener noreferrer"
                 title="Open Rehan Mumtaz GitHub Repository"
                 aria-label="Open Rehan Mumtaz GitHub Repository"
-                className="group/gh relative inline-flex items-center gap-1 pl-2.5 pr-3 py-2 border-l border-emerald-400/25 text-emerald-300/85 hover:text-white hover:bg-emerald-500/20 transition-all duration-300 cursor-pointer"
+                className="group/gh relative inline-flex items-center gap-1 pl-2.5 pr-3 py-2 border-l vibecoded-divider vibecoded-icon hover:bg-emerald-500/10 transition-all duration-300 cursor-pointer"
               >
                 <GitHubMarkSvg className="w-3.5 h-3.5 transition-transform duration-300 ease-out group-hover/gh:scale-110 group-hover/gh:-rotate-6" />
-                <ArrowUpRight className="w-3 h-3 opacity-70 transition-all duration-300 ease-out group-hover/gh:opacity-100 group-hover/gh:translate-x-0.5 group-hover/gh:-translate-y-0.5" />
+                <ArrowUpRight className="w-3 h-3 opacity-80 transition-all duration-300 ease-out group-hover/gh:opacity-100 group-hover/gh:translate-x-0.5 group-hover/gh:-translate-y-0.5" />
               </a>
             </div>
           ) : (
-            <div className="relative overflow-hidden rounded-2xl backdrop-blur-xl bg-gradient-to-br from-[#0D281D]/75 via-[#081A13]/65 to-[#05100C]/80 text-[#ECFDF5] border border-emerald-400/35 shadow-[0_20px_45px_-10px_rgba(2,10,7,0.82),0_0_32px_-6px_rgba(16,185,129,0.3)] min-w-[285px]">
-              {/* Top Translucent Emerald Signature Accent Bar */}
-              <div className="h-1 w-full bg-gradient-to-r from-emerald-500/80 via-teal-300/90 to-emerald-600/80" />
+            <div className="relative overflow-hidden rounded-2xl backdrop-blur-xl vibecoded-card min-w-[284px]">
+              {/* Top Emerald-Teal Accent Bar */}
+              <div className="h-[3px] w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400" />
 
-              {/* Diagonal Glassmorphic Gradient Wash */}
+              {/* Subtle Corner Glow */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-emerald-500/12 via-transparent to-teal-300/15"
+                className="pointer-events-none absolute -top-10 -right-10 w-24 h-24 rounded-full bg-emerald-500/15 blur-2xl"
               />
 
-              {/* Subtle Ambient Emerald Corner Glow */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-emerald-400/20 blur-2xl"
-              />
-
-              <div className="relative px-4 py-3.5 flex items-start gap-3.5">
-                {/* Left Icon Badge */}
-                <div className="w-10 h-10 rounded-xl backdrop-blur-md bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center text-emerald-300 shrink-0 shadow-inner mt-0.5">
-                  <Code2 className="w-5 h-5 stroke-[2.2]" />
-                </div>
-
-                {/* Center Copy & Interactive GitHub Repository Link */}
-                <div className="min-w-0 flex-1 pr-1">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-emerald-400">
-                      VibeCoded by
-                    </span>
-                  </div>
-                  <a
-                    href={repoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Visit Rehan Mumtaz on GitHub"
-                    className="group/author inline-flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight text-white hover:text-emerald-300 leading-snug mt-0.5 transition-colors cursor-pointer"
-                  >
-                    <span>Rehan Mumtaz</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 opacity-75 transition-transform duration-300 ease-out group-hover/author:translate-x-0.5 group-hover/author:-translate-y-0.5 group-hover/author:opacity-100" />
-                  </a>
-                  <div className="text-[10px] font-mono text-emerald-200/75 mt-0.5 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>Local Desk · PDF &amp; Document Studio</span>
+              <div className="relative px-4 py-3.5 flex items-start justify-between gap-3.5">
+                <div className="flex items-center gap-3">
+                  {/* Left Icon Badge */}
+                  <div className="w-10 h-10 rounded-xl vibecoded-badge flex items-center justify-center shrink-0">
+                    <Code2 className="w-5 h-5 stroke-[2.2]" />
                   </div>
 
-                  {/* Interactive GitHub Repository Pill Button */}
-                  <a
-                    href={repoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group/repo mt-2.5 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-500/12 hover:bg-emerald-500/22 border border-emerald-400/25 hover:border-emerald-400/55 text-[11px] font-mono font-semibold text-emerald-200 hover:text-white transition-all duration-300 cursor-pointer"
-                  >
-                    <GitHubMarkSvg className="w-3.5 h-3.5 text-emerald-300 transition-transform duration-300 ease-out group-hover/repo:scale-110 group-hover/repo:-rotate-6" />
-                    <span>GitHub Repository</span>
-                    <ArrowUpRight className="w-3 h-3 text-emerald-300 transition-transform duration-300 ease-out group-hover/repo:translate-x-0.5 group-hover/repo:-translate-y-0.5" />
-                  </a>
+                  {/* Center Copy & GitHub Link */}
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 vibecoded-icon shrink-0" />
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] vibecoded-text-accent">
+                        VibeCoded Signature
+                      </span>
+                    </div>
+                    <a
+                      href={repoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Visit Rehan Mumtaz on GitHub"
+                      className="group/author inline-flex items-center gap-1 text-sm font-extrabold tracking-tight vibecoded-text-primary hover:opacity-85 leading-tight mt-0.5 transition-opacity cursor-pointer"
+                    >
+                      <span>Rehan Mumtaz</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 vibecoded-icon opacity-85 transition-transform duration-300 ease-out group-hover/author:translate-x-0.5 group-hover/author:-translate-y-0.5 group-hover/author:opacity-100" />
+                    </a>
+                    <div className="text-[11px] vibecoded-text-secondary mt-0.5">
+                      All-in-One Privacy-First PDF &amp; Document Studio
+                    </div>
+                  </div>
                 </div>
 
                 {/* Minimize Button */}
@@ -150,10 +127,29 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
                   onClick={() => setCollapsed(true)}
                   aria-label="Minimize signature card"
                   title="Minimize"
-                  className="self-start p-1.5 rounded-lg text-emerald-300/75 hover:text-white hover:bg-emerald-500/20 border border-transparent hover:border-emerald-400/30 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg vibecoded-text-secondary hover:bg-emerald-500/10 transition-colors cursor-pointer"
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Card Footer with Direct GitHub Repository Action */}
+              <div className="relative px-4 py-2 border-t vibecoded-divider flex items-center justify-between gap-3 text-[11px]">
+                <span className="inline-flex items-center gap-1.5 vibecoded-text-secondary font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 vibecoded-icon shrink-0" />
+                  <span>100% Local Studio</span>
+                </span>
+
+                <a
+                  href={repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/repo inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg vibecoded-action-btn text-[11px] font-semibold transition-all duration-300 cursor-pointer"
+                >
+                  <GitHubMarkSvg className="w-3.5 h-3.5 vibecoded-icon transition-transform duration-300 ease-out group-hover/repo:scale-110 group-hover/repo:-rotate-6" />
+                  <span>GitHub Repo</span>
+                  <ArrowUpRight className="w-3 h-3 vibecoded-icon transition-transform duration-300 ease-out group-hover/repo:translate-x-0.5 group-hover/repo:-translate-y-0.5" />
+                </a>
               </div>
             </div>
           )}

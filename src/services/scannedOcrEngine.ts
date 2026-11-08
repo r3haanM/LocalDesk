@@ -3122,6 +3122,8 @@ export async function runScannedPageOcr(options: {
       const workerPromise = Tesseract.createWorker('eng', 1, {
         workerPath: './ocr/worker.min.js',
         corePath: './ocr',
+        langPath: './ocr',
+        gzip: false,
         logger: (m: any) => {
           if (m && typeof m.progress === 'number') {
             const pct = Math.min(88, Math.round(35 + m.progress * 50));

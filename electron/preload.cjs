@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 /**
  * Local Desk — Hardened Preload Context Bridge
  * Exposes strictly typed, permission-scoped desktop IPC methods and native window controls.
- * Raw Node.js fs, child_process, and shell execution are never exposed to the DOM.
+ * Raw Node.js file-system and OS process primitives are never exposed to the DOM.
  */
 contextBridge.exposeInMainWorld('localDeskNative', {
   getRuntimeInfo: () => ipcRenderer.invoke('localdesk:get-runtime-info'),

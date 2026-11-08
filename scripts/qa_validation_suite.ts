@@ -1283,7 +1283,7 @@ async function main() {
     'DSK-001',
     'Desktop Release',
     'Windows Setup (.exe), Portable (.zip), 9-Frame Multi-Size .ICO & SHA-256 Verification',
-    'Verify build/icon.ico contains 9 ICONDIR entries (16, 20, 24, 32, 40, 48, 64, 128px 32-bit BGRA BITMAPINFOHEADER DIBs + 256px PNG) and verify SHA-256 hashes of Local-Desk-Setup-1.0.3-x64.exe and Local-Desk-Portable-1.0.3-win-x64.zip against SHA256SUMS.txt',
+    'Verify build/icon.ico contains 9 ICONDIR entries (16, 20, 24, 32, 40, 48, 64, 128px 32-bit BGRA BITMAPINFOHEADER DIBs + 256px PNG) and verify SHA-256 hashes of Local-Desk-Setup-1.0.4-x64.exe and Local-Desk-Portable-1.0.4-win-x64.zip against SHA256SUMS.txt',
     'All Windows release artifacts exist, non-empty, and match recorded SHA-256 checksums',
     async () => {
       const fsMod = await import('fs/promises');
@@ -1300,8 +1300,8 @@ async function main() {
       const firstIconBiSize = icoBytes.readUInt32LE(firstIconOffset);
       assert(firstIconBiSize === 40, `Expected 16x16 icon to have BITMAPINFOHEADER biSize=40, got ${firstIconBiSize}`);
 
-      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.3-x64.exe'));
-      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const setupBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.4-x64.exe'));
+      const portableBytes = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.4-win-x64.zip'));
       const sumsText = await fsMod.readFile(pathMod.resolve('release/SHA256SUMS.txt'), 'utf-8');
 
       const setupSha = cryptoMod.createHash('sha256').update(setupBytes).digest('hex');
@@ -1310,7 +1310,7 @@ async function main() {
       assert(sumsText.includes(setupSha), 'Setup EXE SHA-256 mismatch in SHA256SUMS.txt');
       assert(sumsText.includes(portableSha), 'Portable ZIP SHA-256 mismatch in SHA256SUMS.txt');
 
-      return `Verified icon.ico (9 layers: 16,20,24,32,40,48,64,128px DIB biSize=40 + 256px PNG, ${icoBytes.byteLength}B), Setup EXE v1.0.3 (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP v1.0.3 (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
+      return `Verified icon.ico (9 layers: 16,20,24,32,40,48,64,128px DIB biSize=40 + 256px PNG, ${icoBytes.byteLength}B), Setup EXE v1.0.4 (${(setupBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${setupSha.slice(0, 12)}...), Portable ZIP v1.0.4 (${(portableBytes.byteLength / 1024 / 1024).toFixed(2)}MB, SHA256:${portableSha.slice(0, 12)}...)`;
     }
   );
 
@@ -1356,11 +1356,11 @@ async function main() {
       const jszipMod = await import('jszip');
       const { verifyPe64BinaryInvariants } = await import('./build_windows_release');
 
-      const setupBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.3-x64.exe'));
-      const sfxInfo = verifyPe64BinaryInvariants(setupBuf, 'Local-Desk-Setup-1.0.3-x64.exe', true);
+      const setupBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Setup-1.0.4-x64.exe'));
+      const sfxInfo = verifyPe64BinaryInvariants(setupBuf, 'Local-Desk-Setup-1.0.4-x64.exe', true);
 
       // Extract Local Desk.exe and Uninstall Local Desk.exe from Portable ZIP and verify their 5-section PE32+ headers
-      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.4-win-x64.zip'));
       const zip = await jszipMod.default.loadAsync(portableBuf);
       const appExeEntry = zip.file('Local Desk.exe');
       const uninstExeEntry = zip.file('Uninstall Local Desk.exe');
@@ -1376,78 +1376,69 @@ async function main() {
     }
   );
 
-  // 25. DSK-004: Windows PowerShell 5.1 UTF-8 BOM (EF BB BF), ASCII-Safe Punctuation & Shortcut Description Verification
+  // 25. DSK-004: Antivirus False-Positive Hygiene, Zero PowerShell (.ps1) Verification & Native NSIS build/installer.nsh Audit
   await runTest(
     'DSK-004',
-    'Windows PowerShell 5.1 Encoding & Shortcut Audit',
-    'UTF-8 BOM (0xEF 0xBB 0xBF), Zero Non-ASCII Bytes & Single-Quoted Shortcut Description Verification',
-    'Extract Install-Local-Desk-Shortcuts.ps1, Launch-Local-Desk.ps1, and Uninstall-Local-Desk.ps1 from the packaged release archive and verify single UTF-8 BOM, zero bytes >= 0x80 after BOM, and exact shortcut description',
-    'Every packaged .ps1 script begins with 0xEF 0xBB 0xBF (no duplicate BOM), contains 0 non-ASCII bytes in body, and sets Description to \'Local Desk - All-in-One Privacy-First PDF & Document Studio\'',
+    'AV Hygiene & Native NSIS Audit',
+    'Zero PowerShell (.ps1) Scripts, Native NSIS CreateShortCut & Complete 10-Field PE VS_VERSION_INFO Metadata',
+    'Verify zero .ps1 scripts exist in release/ or inside Local-Desk-Portable-1.0.4-win-x64.zip, verify build/installer.nsh uses native CreateShortCut without shell spawning, and verify 10-field VS_VERSION_INFO in PE binaries',
+    'Zero .ps1 files in release & portable archive; native NSIS CreateShortCut + WriteRegStr verified; 10-field UTF-16LE VS_VERSION_INFO verified',
     async () => {
       const fsMod = await import('fs/promises');
       const pathMod = await import('path');
       const jszipMod = await import('jszip');
 
-      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
+      const releaseEntries = await fsMod.readdir(pathMod.resolve('release'));
+      const releasePs1 = releaseEntries.filter((e) => e.toLowerCase().endsWith('.ps1'));
+      assert(releasePs1.length === 0, `Unexpected .ps1 files in release/: ${releasePs1.join(', ')}`);
+
+      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.4-win-x64.zip'));
       const zip = await jszipMod.default.loadAsync(portableBuf);
+      const zipPs1 = Object.keys(zip.files).filter((k) => k.toLowerCase().endsWith('.ps1'));
+      assert(zipPs1.length === 0, `Unexpected .ps1 files inside Portable ZIP: ${zipPs1.join(', ')}`);
 
-      const scriptNames = [
-        'Install-Local-Desk-Shortcuts.ps1',
-        'Launch-Local-Desk.ps1',
-        'Uninstall-Local-Desk.ps1'
-      ];
+      const nshText = await fsMod.readFile(pathMod.resolve('build/installer.nsh'), 'utf-8');
+      assert(nshText.includes('CreateShortCut'), 'build/installer.nsh must use native NSIS CreateShortCut');
+      assert(nshText.includes('VIAddVersionKey'), 'build/installer.nsh must include VIAddVersionKey');
+      assert(!nshText.toLowerCase().includes('powershell'), 'build/installer.nsh must not invoke PowerShell');
 
-      for (const name of scriptNames) {
-        const entry = zip.file(name);
-        assert(Boolean(entry), `Missing ${name} in release package`);
-        const buf = await entry!.async('nodebuffer');
-        assert(
-          buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf,
-          `${name} is missing UTF-8 BOM (expected EF BB BF, got ${buf.subarray(0, 3).toString('hex')})`
-        );
-        assert(
-          !(buf[3] === 0xef && buf[4] === 0xbb && buf[5] === 0xbf),
-          `${name} has duplicate UTF-8 BOM`
-        );
-        for (let i = 3; i < buf.byteLength; i++) {
-          assert(
-            buf[i] < 0x80,
-            `${name} contains non-ASCII byte 0x${buf[i].toString(16)} at offset ${i}`
-          );
-        }
+      const avDoc = await fsMod.readFile(pathMod.resolve('docs/AV-FALSE-POSITIVE.md'), 'utf-8');
+      assert(avDoc.includes('https://www.microsoft.com/en-us/wdsi/filesubmission'), 'docs/AV-FALSE-POSITIVE.md must include Microsoft WDSI submission URL');
+      assert(avDoc.includes('https://opentip.kaspersky.com/'), 'docs/AV-FALSE-POSITIVE.md must include Kaspersky OpenTIP URL');
+
+      const appExeBuf = await zip.file('Local Desk.exe')!.async('nodebuffer');
+      const utf16Strings = appExeBuf.toString('utf16le');
+      for (const requiredKey of [
+        'CompanyName',
+        'Local Desk Studio',
+        'FileDescription',
+        'FileVersion',
+        '1.0.4.0',
+        'InternalName',
+        'LegalCopyright',
+        'LegalTrademarks',
+        'OriginalFilename',
+        'ProductName',
+        'ProductVersion',
+        'Comments'
+      ]) {
+        assert(utf16Strings.includes(requiredKey), `Missing ${requiredKey} in Local Desk.exe VS_VERSION_INFO resource table`);
       }
 
-      const installBuf = await zip.file('Install-Local-Desk-Shortcuts.ps1')!.async('nodebuffer');
-      const installText = installBuf.subarray(3).toString('utf8');
-      assert(
-        installText.includes(
-          "$DesktopShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'"
-        ),
-        'DesktopShortcut.Description does not match expected single-quoted ASCII hyphen string'
-      );
-      assert(
-        installText.includes(
-          "$StartShortcut.Description = 'Local Desk - All-in-One Privacy-First PDF & Document Studio'"
-        ),
-        'StartShortcut.Description does not match expected single-quoted ASCII hyphen string'
-      );
-      assert(!installText.includes('\u2014'), 'Em dash U+2014 still present in Install-Local-Desk-Shortcuts.ps1');
-
-      return `Verified single UTF-8 BOM (EF BB BF), 0 non-ASCII body bytes across all 3 .ps1 scripts, and exact '$DesktopShortcut.Description = \\'Local Desk - All-in-One Privacy-First PDF & Document Studio\\''`;
+      return 'Verified 0 .ps1 files in release/ and Portable ZIP, native NSIS build/installer.nsh (CreateShortCut + VIAddVersionKey), 10-field VS_VERSION_INFO (v1.0.4.0), and docs/AV-FALSE-POSITIVE.md';
     }
   );
 
-  // 26. DSK-005: Windows Desktop Polish (Single Native Title Bar, Custom Scrollbars, Context-Aware Cursors, VibeCoded Overlay & Pixel-Locked Taskbar Icons)
+  // 26. DSK-005: Windows Desktop Polish (Single Native Title Bar, Crystal Frosted Glass Drop-Zone, Custom Scrollbars, Context-Aware Cursors, VibeCoded Overlay & Pixel-Locked Taskbar Icons)
   await runTest(
     'DSK-005',
     'Windows Desktop Polish Verification',
-    'Native Single Title Bar, Chromium ::-webkit-scrollbar Fix, Context-Aware Cursor Lock, VibeCodedOverlay & Pixel-Locked Multi-DPI Taskbar Icons',
-    'Verify removal of duplicate DesktopTitleBar.tsx, unified title Local Desk — All-in-One PDF & Document Studio, native frame: true, taskbar warning badge elimination, src/index.css ::-webkit-scrollbar & data-active-cursor lock, and 9-frame pixel-locked PNG/ICO resolutions',
-    'Single native Windows title bar, unified Studio title, zero warning badge flags, custom scrollbars, context-aware cursors, and crisp 9-frame icons verified',
+    'Native Single Title Bar, Crystal Frosted Glass #dropPanel, Chromium ::-webkit-scrollbar Fix, Context-Aware Cursor Lock & 9-Frame Taskbar Icons',
+    'Verify removal of duplicate DesktopTitleBar.tsx, unified title Local Desk — All-in-One PDF & Document Studio, native frame: true, crystal glass #dropPanel (.drop-zone), src/index.css ::-webkit-scrollbar & data-active-cursor lock, and 9-frame pixel-locked PNG/ICO resolutions',
+    'Single native Windows title bar, crystal frosted glass #dropPanel, custom scrollbars, context-aware cursors, and crisp 9-frame icons verified',
     async () => {
       const fsMod = await import('fs/promises');
       const pathMod = await import('path');
-      const jszipMod = await import('jszip');
 
       // 1. Verify redundant DesktopTitleBar.tsx is completely removed and not rendered in App.tsx
       let duplicateTitleBarExists = false;
@@ -1481,16 +1472,18 @@ async function main() {
       assert(mainCjs.includes("nativeTheme.themeSource = 'dark'"), 'electron/main.cjs must set dark nativeTheme');
       assert(mainCjs.includes('setOverlayIcon(null'), 'electron/main.cjs must clear taskbar overlay badge');
 
-      // 3. Verify packaged Launch-Local-Desk.ps1 eliminates --allow-file-access-from-files warning badge & enforces Win32 icon/DWM dark caption
-      const portableBuf = await fsMod.readFile(pathMod.resolve('release/Local-Desk-Portable-1.0.3-win-x64.zip'));
-      const zip = await jszipMod.default.loadAsync(portableBuf);
-      const launchPs1 = (await zip.file('Launch-Local-Desk.ps1')!.async('nodebuffer')).subarray(3).toString('utf8');
-      assert(!launchPs1.includes('--allow-file-access-from-files'), 'Launch-Local-Desk.ps1 must not pass --allow-file-access-from-files');
-      assert(launchPs1.includes('DwmSetWindowAttribute'), 'Launch-Local-Desk.ps1 must apply dark caption via DwmSetWindowAttribute');
-      assert(launchPs1.includes('SetOverlayIcon'), 'Launch-Local-Desk.ps1 must clear taskbar overlay badge via ITaskbarList3::SetOverlayIcon');
+      // 3. Verify Hero Drop-Zone (#dropPanel / .drop-zone) crystal frosted glass styling and minimal copy
+      const homeSrc = await fsMod.readFile(pathMod.resolve('src/components/HomeAndDirectory.tsx'), 'utf-8');
+      assert(homeSrc.includes('id="dropPanel"'), 'HomeAndDirectory.tsx must include id="dropPanel"');
+      assert(homeSrc.includes('Drop your files here'), 'HomeAndDirectory.tsx must include minimal headline "Drop your files here"');
+      assert(homeSrc.includes('PDF · Word · Excel · PowerPoint · HTML · Images'), 'HomeAndDirectory.tsx must include compact format subline');
+      assert(homeSrc.includes('Each file is routed to the right tool automatically.'), 'HomeAndDirectory.tsx must include compact routing caption');
 
       const overlaySrc = await fsMod.readFile(pathMod.resolve('src/components/VibeCodedOverlay.tsx'), 'utf-8');
       assert(overlaySrc.includes('Rehan Mumtaz'), 'Missing Rehan Mumtaz credit in VibeCodedOverlay.tsx');
+      assert(overlaySrc.includes('VibeCoded by '), 'VibeCodedOverlay must use the restored "VibeCoded by Rehan Mumtaz" copy');
+      assert(!overlaySrc.includes('from-white/[0.14]'), 'VibeCodedOverlay must not have the milky crystal wash');
+      assert(overlaySrc.includes('vibecoded-pill') && overlaySrc.includes('vibecoded-card'), 'VibeCodedOverlay must use theme-aware vibecoded-pill and vibecoded-card classes');
       assert(overlaySrc.includes('const [collapsed, setCollapsed] = useState(true)'), 'VibeCodedOverlay must default to minimized state (collapsed = true)');
       assert(overlaySrc.includes('ChevronUp') && overlaySrc.includes('ChevronDown'), 'VibeCodedOverlay must use the expand/collapse signature badge UI');
       assert(overlaySrc.includes('backdrop-blur-xl'), 'VibeCodedOverlay must use translucent frosted-glass gradient backdrop');
@@ -1503,6 +1496,9 @@ async function main() {
       assert(readmeSrc.includes('npm run dev') && readmeSrc.includes('npm run desktop:release:dev'), 'README.md must include local and desktop build instructions');
 
       const cssSrc = await fsMod.readFile(pathMod.resolve('src/index.css'), 'utf-8');
+      assert(cssSrc.includes('--vibe-pill-bg') && cssSrc.includes('.vibecoded-pill'), 'Missing light/dark --vibe-pill-bg and .vibecoded-pill rules in src/index.css');
+      assert(cssSrc.includes('.drop-zone') && cssSrc.includes('#dropPanel'), 'Missing .drop-zone / #dropPanel crystal glass rules in src/index.css');
+      assert(cssSrc.includes('blur(18px) saturate(1.4)'), 'Missing backdrop-filter: blur(18px) saturate(1.4) in src/index.css');
       assert(cssSrc.includes('::-webkit-scrollbar-thumb'), 'Missing custom scrollbar thumb rules in src/index.css');
       assert(cssSrc.includes('@supports not selector(::-webkit-scrollbar)'), 'scrollbar-width must be scoped inside @supports not selector(::-webkit-scrollbar) so Chromium/Electron renders ::-webkit-scrollbar');
       assert(cssSrc.includes('html[data-active-cursor="grabbing"]'), 'Missing global active interaction cursor lock in src/index.css');
@@ -1523,7 +1519,7 @@ async function main() {
       const v103IcoStat = await fsMod.stat(pathMod.resolve('build/local-desk-icon-v103.ico'));
       assert(v103IcoStat.size > 50000, 'build/local-desk-icon-v103.ico missing or incomplete');
 
-      return 'Verified single native Windows title bar (DesktopTitleBar removed), unified Studio title, taskbar warning badge cleared, Chromium ::-webkit-scrollbar fix, active cursor locking, and 9 pixel-locked icon resolutions (16..256px)';
+      return 'Verified single native Windows title bar, crystal frosted glass #dropPanel (.drop-zone), Chromium ::-webkit-scrollbar fix, active cursor locking, and 9 pixel-locked icon resolutions (16..256px)';
     }
   );
 

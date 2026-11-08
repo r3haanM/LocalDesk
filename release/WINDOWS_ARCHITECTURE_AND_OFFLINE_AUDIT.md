@@ -1,7 +1,5 @@
-# Local Desk - Windows 11 x64 PE32+, SFX, PowerShell 5.1 BOM & Authenticode Audit Report (v1.0.3)
+# Local Desk — Windows 11 x64 Architecture, Native NSIS & Offline Privacy Audit (v1.0.4)
 
-## 1. Root Cause of Windows PowerShell 5.1 `Install-Local-Desk-Shortcuts.ps1` Encoding Failure Fixed in v1.0.3
-
-1. **BOM-less UTF-8 Em Dash (`0xE2 0x80 0x94`) Parsed as Windows-1252 Right Double Quote (`0x94` = `”`):** In `v1.0.2`, `Install-Local-Desk-Shortcuts.ps1` was packaged as UTF-8 without a Byte Order Mark (`0xEF 0xBB 0xBF`) and contained the em dash `—` (`0xE2 0x80 0x94`) in `"Local Desk — All-in-One Privacy-First PDF & Document Studio"`. Windows PowerShell 5.1 defaults to the system ANSI code page (Windows-1252) when a script has no BOM. In Windows-1252, `0xE2` = `â`, `0x80` = `€`, and **`0x94` = `”` (`U+201D`, Right Double Quotation Mark)**, which PowerShell's tokenizer treats as a closing string delimiter.
-2. **Permanent Fix in v1.0.3:** All PowerShell scripts (`Install-Local-Desk-Shortcuts.ps1`, `Launch-Local-Desk.ps1`, `Uninstall-Local-Desk.ps1`, `Verify-Local-Desk-Signatures.ps1`) are now encoded with an explicit single UTF-8 BOM (`0xEF 0xBB 0xBF`) via `encodePowerShellScriptWithUtf8Bom()`, use single-quoted ASCII-hyphen strings (`'Local Desk - All-in-One Privacy-First PDF & Document Studio'`), and are byte-audited at build time to guarantee zero non-ASCII bytes exist in any script body.
-3. **Win32 `RT_VERSION` (`VS_VERSION_INFO`) & Authenticode Pipeline:** Embedded `VS_VERSION_INFO` (`0xFEEF04BD`) in `.rsrc` across all generated PE32+ executables with consistent publisher metadata (`null`) and integrated SHA-256 + RFC 3161 Authenticode signing with strict production gate enforcement (`FORCE_CODE_SIGNING=true`).
+- **Native NSIS Installer (`build/installer.nsh`):** Uses `CreateShortCut`, `WriteRegStr`, and `SHChangeNotify` with zero child processes.
+- **Zero External Network Calls:** Enforced via `electron/main.cjs` session firewall and bundled local Tesseract WASM assets.
+- **Complete PE32+ Metadata:** Full 10-field `VS_VERSION_INFO` resource table embedded in all executables.

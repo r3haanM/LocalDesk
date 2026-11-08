@@ -1,0 +1,58 @@
+name: Windows x64 Release & SHA256SUMS Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-x64:
+    name: Build & Verify Windows x64 Release (NSIS + Portable + SHA256SUMS)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Type-Check & Lint
+        run: npm run lint
+
+      - name: Build Windows Release Binaries, SHA256SUMS.txt & Version Metadata
+        env:
+          # Signed-in-future-ready hooks: populate WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD in GitHub Secrets
+          # and flip FORCE_CODE_SIGNING to 'true' once the Authenticode / Azure Trusted Signing cert is active.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_PUBLISHER_NAME: ${{ secrets.WIN_PUBLISHER_NAME }}
+          WIN_TIMESTAMP_SERVER: 'http://timestamp.digicert.com'
+          FORCE_CODE_SIGNING: ${{ secrets.WIN_CSC_LINK != '' && 'true' || 'false' }}
+          ALLOW_UNSIGNED_DEV_BUILDS: ${{ secrets.WIN_CSC_LINK == '' && 'true' || 'false' }}
+        run: npx tsx scripts/build_windows_release.ts
+
+      - name: Execute 27-Case Automated QA & AV Hygiene Validation Suite
+        run: npm run test:qa
+
+      - name: Upload Release Artifacts (Binaries, SHA256SUMS.txt & Version Manifest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-desk-windows-x64-release
+          path: |
+            release/Local-Desk-Setup-*-x64.exe
+            release/Local-Desk-Portable-*-win-x64.zip
+            release/SHA256SUMS.txt
+            release/release-manifest.json
+            release/RELEASE_NOTES.md
+          if-no-files-found: error

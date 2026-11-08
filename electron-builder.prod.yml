@@ -2,13 +2,16 @@
 # Local Desk — Electron Builder Production Configuration (Signed Release Gate)
 # Extends electron-builder.yml and enforces mandatory Authenticode code signing.
 #
-# Usage (requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD):
+# Usage (requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD or azureSignOptions):
 #   npm run desktop:dist:win:prod
 # ============================================================================
 extends: ./electron-builder.yml
 
 win:
   icon: build/icon.ico
+  executableName: Local Desk
+  legalTrademarks: "Local Desk is a trademark of Local Desk Studio"
+  fileDescription: "Local Desk — All-in-One PDF & Document Studio"
   forceCodeSigning: true
   signAndEditExecutable: true
   signDlls: true
@@ -16,3 +19,9 @@ win:
     - sha256
   timeStampServer: "http://timestamp.digicert.com"
   rfc3161TimeStampServer: "http://timestamp.digicert.com"
+  # Ready for Azure Trusted Signing / SignPath / Free Open-Source Certificate:
+  # azureSignOptions:
+  #   endpoint: "https://eus.codesigning.azure.net"
+  #   codeSigningAccountName: "local-desk-signing"
+  #   certificateProfileName: "local-desk-public-trust"
+  #   publisherName: "Local Desk Studio"

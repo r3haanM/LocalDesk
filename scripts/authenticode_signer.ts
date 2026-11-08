@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+// Host build-time only (never shipped in app/installer): invokes Windows SDK signtool.exe or osslsigncode with array arguments (shell: false)
 import { execFileSync } from 'child_process';
 
 export interface SigningEnvironmentConfig {

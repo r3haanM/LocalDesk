@@ -367,6 +367,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
 
           {/* Magnetic Interactive Upload Dropzone */}
           <motion.div
+            id="dropPanel"
             animate={{
               scale: isDropzoneDragging ? 1.01 : 1,
               borderColor: isDropzoneDragging ? 'rgba(16, 185, 129, 0.9)' : undefined
@@ -384,7 +385,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                 handleHeroFileDrop(Array.from(e.dataTransfer.files));
               }
             }}
-            className="max-w-4xl mx-auto p-7 rounded-2xl bg-theme-surface/95 border border-theme-strong space-y-5 shadow-2xl"
+            className="drop-zone max-w-4xl mx-auto p-7 space-y-5"
           >
             <input
               ref={heroFileInputRef}
@@ -415,12 +416,15 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                       <div className="p-3.5 rounded-xl bg-theme-elevated border border-theme-subtle text-theme-accent shrink-0">
                         <Upload className="w-6 h-6" />
                       </div>
-                      <div>
-                        <h2 className="text-base font-bold text-theme-primary">
-                          Drop PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), HTML, or Images Here
+                      <div className="space-y-0.5">
+                        <h2 className="drop-zone-headline">
+                          Drop your files here
                         </h2>
-                        <p className="text-xs text-theme-secondary mt-1">
-                          Automatically routes your file to the 2D PDF Editor, Office &amp; Image Converter, or Batch Security Queue.
+                        <p className="drop-zone-types">
+                          PDF · Word · Excel · PowerPoint · HTML · Images
+                        </p>
+                        <p className="drop-zone-helper">
+                          Each file is routed to the right tool automatically.
                         </p>
                       </div>
                     </div>
@@ -490,7 +494,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
 
                   {/* Quick Direct Workflow Launch Bar */}
                   <div className="pt-4 border-t border-theme-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-theme-secondary">
-                    <span>Direct Studio Workspaces:</span>
+                    <span className="drop-zone-helper">Direct Studio Workspaces:</span>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"

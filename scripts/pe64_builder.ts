@@ -6,9 +6,11 @@ export interface Pe64VersionMetadata {
   fileVersion: string;
   internalName: string;
   legalCopyright: string;
+  legalTrademarks?: string;
   originalFilename: string;
   productName: string;
   productVersion: string;
+  comments?: string;
   versionTuple?: [number, number, number, number];
 }
 
@@ -292,16 +294,20 @@ export function relocateZipCentralDirectoryOffsets(zipBuf: Buffer, baseOffset: n
  */
 export function buildVersionInfoResource(meta?: Pe64VersionMetadata): Buffer {
   const info: Required<Pe64VersionMetadata> = {
-    companyName: meta?.companyName || 'Local Desk',
+    companyName: meta?.companyName || 'Local Desk Studio',
     fileDescription:
-      meta?.fileDescription || 'Local Desk - Privacy-First PDF & Document Studio',
-    fileVersion: meta?.fileVersion || '1.0.3.0',
+      meta?.fileDescription || 'Local Desk - All-in-One PDF & Document Studio',
+    fileVersion: meta?.fileVersion || '1.0.4.0',
     internalName: meta?.internalName || 'LocalDesk',
-    legalCopyright: meta?.legalCopyright || 'Copyright (C) 2026 Local Desk',
+    legalCopyright: meta?.legalCopyright || 'Copyright (C) 2026 Local Desk Studio',
+    legalTrademarks:
+      meta?.legalTrademarks || 'Local Desk is a trademark of Local Desk Studio',
     originalFilename: meta?.originalFilename || 'Local Desk.exe',
     productName: meta?.productName || 'Local Desk',
-    productVersion: meta?.productVersion || '1.0.3.0',
-    versionTuple: meta?.versionTuple || [1, 0, 3, 0]
+    productVersion: meta?.productVersion || '1.0.4.0',
+    comments:
+      meta?.comments || 'Local Desk All-in-One PDF & Document Studio (Windows x64)',
+    versionTuple: meta?.versionTuple || [1, 0, 4, 0]
   };
 
   function padTo4(buf: Buffer): Buffer {
@@ -349,9 +355,11 @@ export function buildVersionInfoResource(meta?: Pe64VersionMetadata): Buffer {
     buildStringEntry('FileVersion', info.fileVersion),
     buildStringEntry('InternalName', info.internalName),
     buildStringEntry('LegalCopyright', info.legalCopyright),
+    buildStringEntry('LegalTrademarks', info.legalTrademarks),
     buildStringEntry('OriginalFilename', info.originalFilename),
     buildStringEntry('ProductName', info.productName),
-    buildStringEntry('ProductVersion', info.productVersion)
+    buildStringEntry('ProductVersion', info.productVersion),
+    buildStringEntry('Comments', info.comments)
   ];
 
   // 040904B0 = US English (0x0409 = 1033) + Unicode UTF-16LE (0x04B0 = 1200)
@@ -612,7 +620,7 @@ export function buildWindowsPe64Executable(options: Pe64BuildOptions): Buffer {
   // 0x1100 (RVA 0x4100): Writable UTF-16LE exePathBuf (8192 bytes)
   dataBuf.writeUInt32LE(104, 0x0000 + 0x00); // cb = sizeof(STARTUPINFOW) = 104
   dataBuf.writeUInt32LE(1, 0x0000 + 0x3c); // dwFlags = STARTF_USESHOWWINDOW (1)
-  dataBuf.writeUInt16LE(0, 0x0000 + 0x40); // wShowWindow = SW_HIDE (0)
+  dataBuf.writeUInt16LE(1, 0x0000 + 0x40); // wShowWindow = SW_SHOWNORMAL (1) — standard visible GUI window
 
   const cmdUtf16 = Buffer.from(`${options.commandLine}\0`, 'utf16le');
   if (cmdUtf16.byteLength > 0x0f80) {
@@ -671,13 +679,13 @@ export function buildWindowsPe64Executable(options: Pe64BuildOptions): Buffer {
   emitRip7(0x8d, 0x15, EXE_PATH_BUF_RVA);
   emitCallRip(IMPORTS[1].iatRva);
 
-  // CreateProcessW(NULL, &cmdLineBuf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &procInfo)
+  // CreateProcessW(NULL, &cmdLineBuf, NULL, NULL, FALSE, 0, NULL, NULL, &startupInfo, &procInfo)
   emitBytes([0x31, 0xc9]);
   emitRip7(0x8d, 0x15, CMD_LINE_RVA);
   emitBytes([0x45, 0x31, 0xc0]);
   emitBytes([0x45, 0x31, 0xc9]);
   emitBytes([0xc7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00]);
-  emitBytes([0xc7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x08]);
+  emitBytes([0xc7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x00]); // dwCreationFlags = 0 (standard visible GUI, no CREATE_NO_WINDOW)
   emitBytes([0x48, 0xc7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00]);
   emitBytes([0x48, 0xc7, 0x44, 0x24, 0x38, 0x00, 0x00, 0x00, 0x00]);
   emitRip7(0x8d, 0x05, STARTUP_INFO_RVA);
