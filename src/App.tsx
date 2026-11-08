@@ -459,24 +459,6 @@ export default function App() {
               >
                 Terms of Service
               </button>
-              {!isDesktop && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleOpenDesktopRelease}
-                    className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
-                  >
-                    Windows Desktop (.exe)
-                  </button>
-                  <a
-                    href="/api/export-source"
-                    download="local-desk-pdf-toolkit-source.zip"
-                    className="text-theme-secondary hover:text-theme-primary transition-colors cursor-pointer"
-                  >
-                    Export Source (.zip)
-                  </a>
-                </>
-              )}
               <span className="text-theme-muted font-mono">
                 © {new Date().getFullYear()} Local Desk · VibeCoded by Rehan Mumtaz
               </span>

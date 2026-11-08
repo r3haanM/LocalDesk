@@ -1651,9 +1651,11 @@ async function main() {
       const appSrc = await fsMod.readFile(pathMod.resolve('src/App.tsx'), 'utf-8');
       assert(homeSrc.includes('!isDesktopShell() && onOpenDesktopRelease'), 'HomeAndDirectory.tsx must guard Windows Setup (.exe) with !isDesktopShell()');
       assert(topNavSrc.includes('!isDesktopShell() && onOpenDesktopRelease'), 'TopNav.tsx must guard Windows App button with !isDesktopShell()');
-      assert(appSrc.includes('!isDesktop &&'), 'App.tsx must guard footer installer links and DesktopReleaseModal with !isDesktop');
+      assert(appSrc.includes('!isDesktop &&'), 'App.tsx must guard DesktopReleaseModal with !isDesktop');
+      assert(!appSrc.includes('Windows Desktop (.exe)'), 'App.tsx footer must not contain Windows Desktop (.exe)');
+      assert(!appSrc.includes('Export Source (.zip)'), 'App.tsx footer must not contain Export Source (.zip)');
 
-      return 'Verified Mode A (Browser localhost -> false, CTAs shown), Mode B (Electron Dev localhost -> true, CTAs hidden), Mode C (Packaged build -> true, CTAs hidden), contextIsolation: true';
+      return 'Verified Mode A (Browser localhost -> false, CTAs shown), Mode B (Electron Dev localhost -> true, CTAs hidden), Mode C (Packaged build -> true, CTAs hidden), footer links removed, contextIsolation: true';
     }
   );
 

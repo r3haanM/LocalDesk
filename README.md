@@ -15,9 +15,9 @@
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.png" />
-    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-light.png" />
-    <img alt="Local Desk — All-in-One PDF & Document Studio" src="docs/screenshots/home-dark.png" width="100%" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.gif" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-light.gif" />
+    <img alt="Local Desk — Interactive Studio Overview (Home Drop-Zone, 2D Object Editor, 35+ Conversions, and Batch Security)" src="docs/screenshots/overview-dark.gif" width="100%" />
   </picture>
 </div>
 
@@ -35,19 +35,18 @@
 <table>
   <thead>
     <tr>
-      <th width="50%" align="left">🪟 WINDOWS DESKTOP</th>
+      <th width="50%" align="left">🪟 WINDOWS DESKTOP (.EXE &amp; STANDALONE)</th>
       <th width="50%" align="left">🌐 ANY OS — IN BROWSER</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td valign="top">
-        <p>1. Download <a href="https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe"><strong>Local-Desk-Setup-1.0.4-x64.exe</strong></a> from <a href="https://github.com/rehanmumtaz/local-desk/releases/latest">GitHub Releases</a>.</p>
-        <p>2. Download &amp; run the installer (per-user install, no admin UAC required).</p>
-        <p>3. Launch <strong>Local Desk</strong> from your Desktop or Start Menu shortcut.</p>
+        <p>1. <strong>Windows Setup (<code>.exe</code>):</strong> Download <a href="https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe"><strong>Local-Desk-Setup-1.0.4-x64.exe</strong></a> (<a href="./release/Local-Desk-Setup-1.0.4-x64.exe">repo binary</a>) and run the installer.</p>
+        <p>2. <strong>Standalone Portable (<code>.zip</code>):</strong> Download <a href="https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip"><strong>Local-Desk-Portable-1.0.4-win-x64.zip</strong></a> (<a href="./release/Local-Desk-Portable-1.0.4-win-x64.zip">repo binary</a>), extract anywhere, and launch <code>Local Desk.exe</code>.</p>
         <details>
           <summary><strong>SmartScreen &amp; SHA-256 verification</strong></summary>
-          <p>If Windows SmartScreen appears on unsigned builds, click <strong>More info → Run anyway</strong>. Verify against <a href="https://github.com/rehanmumtaz/local-desk/releases/latest/download/SHA256SUMS.txt"><code>SHA256SUMS.txt</code></a>:</p>
+          <p>If Windows SmartScreen appears on unsigned builds, click <strong>More info → Run anyway</strong>. Verify against <a href="./release/SHA256SUMS.txt"><code>SHA256SUMS.txt</code></a>:</p>
           <pre><code>certutil -hashfile Local-Desk-Setup-1.0.4-x64.exe SHA256</code></pre>
         </details>
       </td>
@@ -63,10 +62,10 @@ npm run dev</code></pre>
   </tbody>
 </table>
 
-## 🔗 Links
+## 🔗 Links & Releases
 
-- 📦 [**Releases & Checksums**](https://github.com/rehanmumtaz/local-desk/releases) — Windows x64 installer (`.exe`), portable archive (`.zip`), and `SHA256SUMS.txt`.
-- 🤝 [**Contributing**](./CONTRIBUTING.md) — Local setup, automated 27-case QA validation suite, and pull request workflow.
+- 📦 [**Windows Setup Installer (`.exe`)**](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe) · [**Standalone Portable (`.zip`)**](https://github.com/rehanmumtaz/local-desk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip) · [**`SHA256SUMS.txt`**](./release/SHA256SUMS.txt) ([All Releases](https://github.com/rehanmumtaz/local-desk/releases))
+- 🤝 [**Contributing**](./CONTRIBUTING.md) — Local setup, automated 28-case QA validation suite, and pull request workflow.
 - 🛡️ [**Security Policy**](./SECURITY.md) — Air-gapped execution guarantees, vulnerability reporting, and [AV False-Positive Guide](./docs/AV-FALSE-POSITIVE.md).
 - 📄 [**License**](./LICENSE) — Released under the MIT License.
 
