@@ -1493,7 +1493,7 @@ async function main() {
       assert(topNavSrc.includes('GITHUB_REPO_URL'), 'TopNav must include the smooth-transition GitHub repository icon link');
 
       const readmeSrc = await fsMod.readFile(pathMod.resolve('README.md'), 'utf-8');
-      assert(readmeSrc.includes('npm run dev') && readmeSrc.includes('npm run desktop:release:dev'), 'README.md must include local and desktop build instructions');
+      assert(readmeSrc.includes('npm run dev') && readmeSrc.includes('http://localhost:3000'), 'README.md must include local dev command and port 3000');
 
       const cssSrc = await fsMod.readFile(pathMod.resolve('src/index.css'), 'utf-8');
       assert(cssSrc.includes('--vibe-pill-bg') && cssSrc.includes('.vibecoded-pill'), 'Missing light/dark --vibe-pill-bg and .vibecoded-pill rules in src/index.css');
@@ -1574,6 +1574,86 @@ async function main() {
       assert(envExample.includes('ALLOW_UNSIGNED_DEV_BUILDS=true'), '.env.example must contain ALLOW_UNSIGNED_DEV_BUILDS=true');
 
       return 'Verified unsigned dev build config (WIN_CSC_LINK/KEY_PASSWORD/PUBLISHER_NAME/TIMESTAMP_SERVER unset, FORCE_CODE_SIGNING=false, ALLOW_UNSIGNED_DEV_BUILDS=true) & strict production signing gate';
+    }
+  );
+
+  // 28. DSK-007: Runtime Shell Detection (isDesktopShell) Across Browser, Electron Dev, and Packaged Builds
+  await runTest(
+    'DSK-007',
+    'Runtime Shell Detection',
+    'isDesktopShell() Preload Flag & Installer CTA Suppression in Electron (Dev + Packaged) vs. Browser',
+    'Verify electron/preload.cjs exposes localDeskEnv: { shell: "desktop" } via contextBridge, contextIsolation stays enabled, and isDesktopShell() returns false in Browser and true in Electron Dev (localhost) and Packaged builds',
+    'Browser shows installer CTAs; Electron Dev (localhost) and Packaged build return isDesktopShell()===true and suppress all installer CTAs',
+    async () => {
+      const fsMod = await import('fs/promises');
+      const pathMod = await import('path');
+      const { isDesktopShell } = await import('../src/lib/env');
+
+      // 1. Verify electron/preload.cjs exposes localDeskEnv via contextBridge and main.cjs preserves contextIsolation: true
+      const preloadSrc = await fsMod.readFile(pathMod.resolve('electron/preload.cjs'), 'utf-8');
+      assert(
+        preloadSrc.includes("contextBridge.exposeInMainWorld('localDeskEnv', { shell: 'desktop' })"),
+        'electron/preload.cjs must expose localDeskEnv: { shell: "desktop" } via contextBridge'
+      );
+      const mainSrc = await fsMod.readFile(pathMod.resolve('electron/main.cjs'), 'utf-8');
+      assert(mainSrc.includes('contextIsolation: true'), 'electron/main.cjs must keep contextIsolation: true');
+
+      // 2. Verify Mode A (Web Browser on http://localhost:3000 — Chrome/Edge UA, no preload flag)
+      const origWindow = (globalThis as any).window;
+      const origNavDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+      const setMockEnv = (winObj: any, userAgent: string) => {
+        (globalThis as any).window = winObj;
+        Object.defineProperty(globalThis, 'navigator', {
+          value: { userAgent },
+          configurable: true,
+          writable: true
+        });
+      };
+      try {
+        setMockEnv(
+          { location: { href: 'http://localhost:3000/' } },
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36'
+        );
+        assert(isDesktopShell() === false, 'Mode A (Browser at localhost:3000): isDesktopShell() must return false');
+
+        // 3. Verify Mode B (Electron Dev on http://localhost:3000 — preload sets window.localDeskEnv.shell = "desktop")
+        setMockEnv(
+          {
+            location: { href: 'http://localhost:3000/' },
+            localDeskEnv: { shell: 'desktop' }
+          },
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36'
+        );
+        assert(
+          isDesktopShell() === true,
+          'Mode B (Electron Dev at localhost:3000 with preload flag): isDesktopShell() must return true'
+        );
+
+        // 4. Verify Mode C (Packaged Electron Build — both preload flag and Electron userAgent fallback)
+        setMockEnv(
+          {
+            location: { href: 'file:///C:/Users/User/AppData/Local/Programs/LocalDesk/dist/index.html' },
+            localDeskEnv: { shell: 'desktop' }
+          },
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) LocalDesk/1.0.4 Chrome/134.0.0.0 Electron/35.0.0 Safari/537.36'
+        );
+        assert(isDesktopShell() === true, 'Mode C (Packaged Electron build): isDesktopShell() must return true');
+      } finally {
+        (globalThis as any).window = origWindow;
+        if (origNavDesc) {
+          Object.defineProperty(globalThis, 'navigator', origNavDesc);
+        }
+      }
+
+      // 5. Verify conditional render & click guards in HomeAndDirectory.tsx, TopNav.tsx, and App.tsx
+      const homeSrc = await fsMod.readFile(pathMod.resolve('src/components/HomeAndDirectory.tsx'), 'utf-8');
+      const topNavSrc = await fsMod.readFile(pathMod.resolve('src/components/TopNav.tsx'), 'utf-8');
+      const appSrc = await fsMod.readFile(pathMod.resolve('src/App.tsx'), 'utf-8');
+      assert(homeSrc.includes('!isDesktopShell() && onOpenDesktopRelease'), 'HomeAndDirectory.tsx must guard Windows Setup (.exe) with !isDesktopShell()');
+      assert(topNavSrc.includes('!isDesktopShell() && onOpenDesktopRelease'), 'TopNav.tsx must guard Windows App button with !isDesktopShell()');
+      assert(appSrc.includes('!isDesktop &&'), 'App.tsx must guard footer installer links and DesktopReleaseModal with !isDesktop');
+
+      return 'Verified Mode A (Browser localhost -> false, CTAs shown), Mode B (Electron Dev localhost -> true, CTAs hidden), Mode C (Packaged build -> true, CTAs hidden), contextIsolation: true';
     }
   );
 

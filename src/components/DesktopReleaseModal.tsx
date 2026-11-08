@@ -114,7 +114,8 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || typeof window === 'undefined') return;
+    if (window.localDeskEnv?.shell === 'desktop' || /electron/i.test(navigator.userAgent)) return;
 
     fetch('/api/releases/info')
       .then((r) => (r.ok ? r.json() : null))
@@ -137,6 +138,9 @@ export const DesktopReleaseModal: React.FC<DesktopReleaseModalProps> = ({
   };
 
   const handleVerifiedDownload = async (item: ReleaseArtifactMeta) => {
+    if (typeof window !== 'undefined' && (window.localDeskEnv?.shell === 'desktop' || /electron/i.test(navigator.userAgent))) {
+      return;
+    }
     setDownloadingFile(item.fileName);
     setDownloadStatus(null);
     try {

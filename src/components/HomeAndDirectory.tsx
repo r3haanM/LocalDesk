@@ -27,6 +27,7 @@ import {
 } from '../services/desktopBridge';
 import { ToolIcon } from './IconMapper';
 import { ThreeHeroStage } from './Three/ThreeHeroStage';
+import { isDesktopShell } from '../lib/env';
 import { PDFDocument } from 'pdf-lib';
 import {
   Search,
@@ -445,10 +446,13 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                         <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
                         Open Sample in 2D PDF Editor
                       </button>
-                      {onOpenDesktopRelease && (
+                      {!isDesktopShell() && onOpenDesktopRelease && (
                         <button
                           type="button"
-                          onClick={onOpenDesktopRelease}
+                          onClick={() => {
+                            if (isDesktopShell()) return;
+                            onOpenDesktopRelease();
+                          }}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent transition-colors whitespace-nowrap cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5 text-theme-accent" />

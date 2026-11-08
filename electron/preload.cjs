@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require('electron');
  * Exposes strictly typed, permission-scoped desktop IPC methods and native window controls.
  * Raw Node.js file-system and OS process primitives are never exposed to the DOM.
  */
+contextBridge.exposeInMainWorld('localDeskEnv', { shell: 'desktop' });
+
 contextBridge.exposeInMainWorld('localDeskNative', {
   getRuntimeInfo: () => ipcRenderer.invoke('localdesk:get-runtime-info'),
   openFilesDialog: (options) => ipcRenderer.invoke('localdesk:open-files-dialog', options),

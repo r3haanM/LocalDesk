@@ -11,8 +11,8 @@
 
 | Artifact File | Format | Architecture | Authenticode Status | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `Local-Desk-Setup-1.0.4-x64.exe` | PE32+ GUI Installer | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 7.69 MB (8066182 B) | `cf2d05adfb800d425abc2f9e872fa5a76e5e2fde0e3ba119fa77cdf2279df8ab` |
-| `Local-Desk-Portable-1.0.4-win-x64.zip` | Portable ZIP (contains `Local Desk.exe`) | Windows x64 (`0x8664`) | Contains `Local Desk.exe` | 7.56 MB (7927430 B) | `9d46bb87aebc05cc47d7cadce1429a4dedfcb6833ff44df9a1a29bf95feb9f90` |
+| `Local-Desk-Setup-1.0.4-x64.exe` | PE32+ GUI Installer | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 7.69 MB (8066386 B) | `d4a7626b514a7bc257bf2856a69911cfd31842f593acfc5a5f369447c29e27e7` |
+| `Local-Desk-Portable-1.0.4-win-x64.zip` | Portable ZIP (contains `Local Desk.exe`) | Windows x64 (`0x8664`) | Contains `Local Desk.exe` | 7.56 MB (7927634 B) | `53245d4826024dac7bb67cb65c02375bd6b2470ca6440927da869a317a9da092` |
 | `Local Desk.exe` | PE32+ GUI Application | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 135.5 KB (138752 B) | `f9002f6fc94a98dfa617503175ce541f83825753e619af33607297f1890ad133` |
 | `Uninstall Local Desk.exe` | PE32+ GUI Uninstaller | Windows x64 (`0x8664`) | `NotSigned (Unsigned Development Build — IMAGE_DIRECTORY_ENTRY_SECURITY = 0x00000000)` | 135.5 KB (138752 B) | `1115730c063272e7db9eb445348b0c6f4c997ca950f4eed59cbf8d0df36be9c9` |
 | `build/icon.ico` | Multi-Resolution Windows Icon | 16, 20, 24, 32, 40, 48, 64, 128px DIB + 256px PNG | N/A | 114.3 KB (117032 B) | `726b0e890d1bec8fe5a38295e8c861998a81c3e3bb5f6d3e1991327c3355e233` |

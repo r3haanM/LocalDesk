@@ -24,6 +24,7 @@ import {
   createUploadedFileItemFromBytes,
   purgeTemporaryWorkspaceBuffers
 } from './services/desktopBridge';
+import { isDesktopShell } from './lib/env';
 import type { EditorToolMode } from './components/Editor/PdfEditorWorkspace';
 
 const PdfEditorWorkspace = React.lazy(() =>
@@ -190,6 +191,12 @@ export default function App() {
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
   const [desktopReleaseOpen, setDesktopReleaseOpen] = useState<boolean>(false);
   const [preferencesOpen, setPreferencesOpen] = useState<boolean>(false);
+  const isDesktop = isDesktopShell();
+
+  const handleOpenDesktopRelease = useCallback(() => {
+    if (isDesktopShell()) return;
+    setDesktopReleaseOpen(true);
+  }, []);
 
   const handleSelectTool = useCallback(
     (tool: PdfToolDefinition, files: UploadedFileItem[] = []) => {
@@ -300,7 +307,7 @@ export default function App() {
           setTheme((prev) => ({ ...prev, appearance: mode }))
         }
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-        onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
+        onOpenDesktopRelease={!isDesktop ? handleOpenDesktopRelease : undefined}
       />
 
       {/* Main Content Viewport */}
@@ -320,7 +327,7 @@ export default function App() {
                 onSelectTool={handleSelectTool}
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-                onOpenDesktopRelease={() => setDesktopReleaseOpen(true)}
+                onOpenDesktopRelease={!isDesktop ? handleOpenDesktopRelease : undefined}
                 onUpdateAppearance={(mode: AppearanceMode) =>
                   setTheme((prev) => ({ ...prev, appearance: mode }))
                 }
@@ -452,20 +459,24 @@ export default function App() {
               >
                 Terms of Service
               </button>
-              <button
-                type="button"
-                onClick={() => setDesktopReleaseOpen(true)}
-                className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
-              >
-                Windows Desktop (.exe)
-              </button>
-              <a
-                href="/api/export-source"
-                download="local-desk-pdf-toolkit-source.zip"
-                className="text-theme-secondary hover:text-theme-primary transition-colors cursor-pointer"
-              >
-                Export Source (.zip)
-              </a>
+              {!isDesktop && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleOpenDesktopRelease}
+                    className="text-theme-accent font-semibold hover:underline transition-colors cursor-pointer"
+                  >
+                    Windows Desktop (.exe)
+                  </button>
+                  <a
+                    href="/api/export-source"
+                    download="local-desk-pdf-toolkit-source.zip"
+                    className="text-theme-secondary hover:text-theme-primary transition-colors cursor-pointer"
+                  >
+                    Export Source (.zip)
+                  </a>
+                </>
+              )}
               <span className="text-theme-muted font-mono">
                 © {new Date().getFullYear()} Local Desk · VibeCoded by Rehan Mumtaz
               </span>
@@ -484,11 +495,13 @@ export default function App() {
         onSelectTool={(tool) => handleSelectTool(tool, [])}
       />
 
-      {/* Windows Desktop Installer & Offline Audit Modal */}
-      <DesktopReleaseModal
-        isOpen={desktopReleaseOpen}
-        onClose={() => setDesktopReleaseOpen(false)}
-      />
+      {/* Windows Desktop Installer & Offline Audit Modal (Web Browser Only) */}
+      {!isDesktop && (
+        <DesktopReleaseModal
+          isOpen={desktopReleaseOpen}
+          onClose={() => setDesktopReleaseOpen(false)}
+        />
+      )}
 
       {/* Workspace Preferences Modal (Appearance, Smooth Scrolling & Local Profile) */}
       <ThemeAndAccountModal

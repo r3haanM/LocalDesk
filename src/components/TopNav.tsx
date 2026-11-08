@@ -5,6 +5,7 @@ import { ToolIcon } from './IconMapper';
 import { LocalDeskLogo } from './Brand/LocalDeskLogo';
 import { AnimatedThemeToggle } from './AnimatedThemeToggle';
 import { GITHUB_REPO_URL } from './VibeCodedOverlay';
+import { isDesktopShell } from '../lib/env';
 import { Menu, X, Download, ArrowUpRight } from 'lucide-react';
 
 interface TopNavProps {
@@ -131,10 +132,11 @@ export const TopNav: React.FC<TopNavProps> = ({
             onToggle={onUpdateAppearance}
           />
 
-          {onOpenDesktopRelease && (
+          {!isDesktopShell() && onOpenDesktopRelease && (
             <button
               type="button"
               onClick={() => {
+                if (isDesktopShell()) return;
                 setMegaMenuOpen(false);
                 onOpenDesktopRelease();
               }}
