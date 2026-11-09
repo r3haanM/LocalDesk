@@ -43,10 +43,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
           <div className="space-y-4 text-xs text-theme-secondary leading-relaxed">
             <div>
               <h3 className="font-bold text-theme-primary text-sm mb-1">
-                01. Ephemeral In-Memory &amp; Browser-First Processing
+                01. In-Memory Local Processing
               </h3>
               <p>
-                Local Desk processes PDF rendering, native content stream editing, object hiding and removal, redaction, and Office conversions directly within your local workspace memory. Guest documents are never written to persistent server disks or shared across sessions.
+                Local Desk processes PDF editing, object removal, redaction, and Office conversions directly in local memory. Documents are never uploaded or shared across sessions.
               </p>
             </div>
             <div>
@@ -54,7 +54,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 02. SSRF-Protected Remote URL Imports
               </h3>
               <p>
-                When you import a document via URL, our server validates the hostname against private, loopback, and cloud-metadata CIDR blocks (RFC 1918, RFC 4193, link-local), enforces a strict 25 MB payload limit, verifies magic-byte file headers, and discards the transit buffer immediately after returning the response.
+                Remote URL imports validate hostnames against private CIDR blocks, enforce a 25 MB limit, verify file headers, and discard transit buffers immediately.
               </p>
             </div>
             <div>
@@ -62,7 +62,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 03. Zero AI Training or Telemetry
               </h3>
               <p>
-                Local Desk contains zero generative AI models, chatbots, or external LLM API calls. Optical character recognition (OCR) uses traditional deterministic Tesseract pattern recognition. Your documents are never analyzed, indexed, or used for model training.
+                Local Desk uses deterministic Tesseract OCR with zero external API calls. Your documents are never analyzed, indexed, or used for training.
               </p>
             </div>
           </div>
@@ -70,10 +70,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
           <div className="space-y-4 text-xs text-theme-secondary leading-relaxed">
             <div>
               <h3 className="font-bold text-theme-primary text-sm mb-1">
-                01. Completely Free — Zero Tiers, Paywalls, or Credits
+                01. Completely Free · Zero Tiers or Paywalls
               </h3>
               <p>
-                Every tool in the Local Desk catalogue—including the Professional PDF Editor, Object Manager, Permanent Redaction engine, and Batch Organizer—is provided completely free of charge to both anonymous guests and registered profile users alike.
+                Every tool in Local Desk, including the 2D PDF Editor, Object Manager, Redaction engine, and Batch Organizer, is free for all users.
               </p>
             </div>
             <div>
@@ -81,7 +81,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 02. Cryptographic vs. Visual Signatures
               </h3>
               <p>
-                Local Desk provides both visual signatures (drawn, typed, or uploaded) and SHA-256 cryptographic digest stamps. For regulated statutory PKI workflows requiring hardware token X.509 certificates, verify compliance requirements with your jurisdiction.
+                Local Desk provides visual signatures and SHA-256 cryptographic digest stamps. For regulated hardware PKI workflows, verify your jurisdiction requirements.
               </p>
             </div>
             <div>
@@ -89,7 +89,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 03. Operational Safety Limits
               </h3>
               <p>
-                To maintain browser responsiveness and prevent resource exhaustion, individual file uploads are capped at 50 MB (25 MB for remote URL imports). These safety limits apply equally to all users.
+                To keep processing responsive, individual files are capped at 50 MB (25 MB for URL imports).
               </p>
             </div>
           </div>

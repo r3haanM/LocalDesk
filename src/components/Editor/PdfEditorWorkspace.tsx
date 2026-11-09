@@ -565,11 +565,11 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
       if (scannedCount > 0 || mixedCount > 0) {
         setShowScannedDetectionPrompt(true);
         setSaveStatus(
-          `Detected ${scannedCount} scanned page(s) & ${mixedCount} mixed page(s) — English OCR & Font Matching ready`
+          `Detected ${scannedCount} scanned & ${mixedCount} mixed page(s) · English OCR ready`
         );
       } else {
         setShowScannedDetectionPrompt(false);
-        setSaveStatus(`Ready — ${parsed.objects.length} native PDF objects indexed`);
+        setSaveStatus(`Ready · ${parsed.objects.length} native PDF objects indexed`);
       }
     } catch (err: any) {
       setSaveStatus(`Load error: ${err?.message || 'Invalid PDF'}`);
@@ -691,7 +691,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
             (o) => o.type === 'ocr-text' && !o.deleted
           ).length;
           setSaveStatus(
-            `OCR Complete — ${totalOcr} English regions recognized & font-matched`
+            `OCR Complete · ${totalOcr} English regions recognized`
           );
         } else {
           setSaveStatus('OCR cancelled by user');
@@ -2361,7 +2361,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
         rotation: 0,
         opacity: 0.85,
         text: isHeader
-          ? `${docName.replace(/\.pdf$/i, '')} — Confidential`
+          ? `${docName.replace(/\.pdf$/i, '')} · Confidential`
           : isFooter
           ? 'Prepared via Local Desk Studio'
           : `Page ${currentPageIdx + 1} of ${Math.max(1, activePages.length)}`,
@@ -2915,7 +2915,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                     {TOOLBAR_CATEGORY_ORDER.find((c) => c.id === openCategory)?.label} Tools
                   </span>
                   <span className="text-[11px] text-theme-secondary">
-                    — {TOOLBAR_CATEGORY_ORDER.find((c) => c.id === openCategory)?.shortDesc}
+                    · {TOOLBAR_CATEGORY_ORDER.find((c) => c.id === openCategory)?.shortDesc}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -6013,7 +6013,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                                   origH: obj.height
                                 });
                               }}
-                              title={`Resize (${h.dir.toUpperCase()}) — Hold Shift for proportional`}
+                              title={`Resize (${h.dir.toUpperCase()}) · Hold Shift for proportional`}
                               className={`absolute ${h.pos} w-5 h-5 flex items-center justify-center cursor-${handleCursor} z-30`}
                             >
                               <div className="w-2.5 h-2.5 bg-white border-2 border-emerald-600 rounded-[2px] shadow-xs pointer-events-none" />
@@ -8199,7 +8199,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-theme-primary">
-                Sign Document — Visual &amp; Cryptographic Attestation
+                Sign Document · Visual &amp; Cryptographic Attestation
               </h3>
               <button
                 type="button"

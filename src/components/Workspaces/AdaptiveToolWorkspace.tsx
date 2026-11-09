@@ -1696,7 +1696,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                     className="w-full px-3 py-2 rounded-lg bg-theme-elevated border border-theme-subtle text-theme-primary"
                   >
                     <option value={1.0}>Standard Screen (72 DPI)</option>
-                    <option value={2.0}>High Definition (150 DPI — Recommended)</option>
+                    <option value={2.0}>High Definition (150 DPI · Recommended)</option>
                     <option value={3.0}>Archival Print Quality (216–300 DPI)</option>
                   </select>
                 </div>

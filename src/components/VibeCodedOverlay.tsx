@@ -5,7 +5,14 @@ import { Sparkles, ChevronDown, ChevronUp, Code2, ShieldCheck, ArrowUpRight } fr
 export const GITHUB_REPO_URL =
   (typeof import.meta !== 'undefined' &&
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GITHUB_REPO_URL) ||
-  'https://github.com/rehanmumtaz/local-desk';
+  'https://github.com/r3haanM/LocalDesk';
+
+export const SOCIAL_LINKS = {
+  github: GITHUB_REPO_URL,
+  linkedin: 'https://linkedin.com/in/rehan-mumtaz',
+  x: 'https://x.com/cyber_cypher007',
+  medium: 'https://rehanmumtaz.medium.com'
+};
 
 interface VibeCodedOverlayProps {
   visible: boolean;
@@ -116,7 +123,7 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
                       <ArrowUpRight className="w-3.5 h-3.5 vibecoded-icon opacity-85 transition-transform duration-300 ease-out group-hover/author:translate-x-0.5 group-hover/author:-translate-y-0.5 group-hover/author:opacity-100" />
                     </a>
                     <div className="text-[11px] vibecoded-text-secondary mt-0.5">
-                      All-in-One Privacy-First PDF &amp; Document Studio
+                      Offline PDF &amp; Document Studio
                     </div>
                   </div>
                 </div>
@@ -133,23 +140,61 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
                 </button>
               </div>
 
-              {/* Card Footer with Direct GitHub Repository Action */}
+              {/* Card Footer with Social Icons & Direct GitHub Repository Action */}
               <div className="relative px-4 py-2 border-t vibecoded-divider flex items-center justify-between gap-3 text-[11px]">
                 <span className="inline-flex items-center gap-1.5 vibecoded-text-secondary font-medium">
                   <ShieldCheck className="w-3.5 h-3.5 vibecoded-icon shrink-0" />
-                  <span>100% Local Studio</span>
+                  <span>100% Local</span>
                 </span>
 
-                <a
-                  href={repoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group/repo inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg vibecoded-action-btn text-[11px] font-semibold transition-all duration-300 cursor-pointer"
-                >
-                  <GitHubMarkSvg className="w-3.5 h-3.5 vibecoded-icon transition-transform duration-300 ease-out group-hover/repo:scale-110 group-hover/repo:-rotate-6" />
-                  <span>GitHub Repo</span>
-                  <ArrowUpRight className="w-3 h-3 vibecoded-icon transition-transform duration-300 ease-out group-hover/repo:translate-x-0.5 group-hover/repo:-translate-y-0.5" />
-                </a>
+                <div className="inline-flex items-center gap-1.5">
+                  <a
+                    href={repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="GitHub Repository"
+                    aria-label="GitHub Repository"
+                    className="p-1.5 rounded-lg vibecoded-action-btn transition-all duration-200 cursor-pointer"
+                  >
+                    <GitHubMarkSvg className="w-3.5 h-3.5 vibecoded-icon" />
+                  </a>
+                  <a
+                    href={SOCIAL_LINKS.x}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="X (Twitter)"
+                    aria-label="X (Twitter)"
+                    className="p-1.5 rounded-lg vibecoded-action-btn transition-all duration-200 cursor-pointer"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="w-3.5 h-3.5 vibecoded-icon">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </a>
+                  <a
+                    href={SOCIAL_LINKS.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="LinkedIn"
+                    aria-label="LinkedIn"
+                    className="p-1.5 rounded-lg vibecoded-action-btn transition-all duration-200 cursor-pointer"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="w-3.5 h-3.5 vibecoded-icon">
+                      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+                    </svg>
+                  </a>
+                  <a
+                    href={SOCIAL_LINKS.medium}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Medium"
+                    aria-label="Medium"
+                    className="p-1.5 rounded-lg vibecoded-action-btn transition-all duration-200 cursor-pointer"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="w-3.5 h-3.5 vibecoded-icon">
+                      <path d="M13.54 12a6.8 6.8 0 0 1-6.77 6.82A6.8 6.8 0 0 1 0 12a6.8 6.8 0 0 1 6.77-6.82A6.8 6.8 0 0 1 13.54 12zm7.42 0c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z" />
+                    </svg>
+                  </a>
+                </div>
               </div>
             </div>
           )}

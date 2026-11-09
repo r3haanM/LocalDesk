@@ -3,19 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Local Desk — Your documents. Your device. Your control.</title>
+    <title>Local Desk · Your documents. Your device. Your control.</title>
     <meta
       name="description"
-      content="Local Desk is an all-in-one PDF studio — merge, split, organize, convert, edit — that runs entirely on your machine. Files are parsed in memory and written back locally. Nothing is ever uploaded."
+      content="All-in-one offline PDF studio to merge, split, organize, convert, and edit files in local memory with zero uploads."
     />
-    <link rel="canonical" href="GITHUB_REPO_URL" data-url-constant="REPO_URL" />
-    <meta property="og:title" content="Local Desk — Your documents. Your device. Your control." />
+    <link rel="canonical" href="https://github.com/r3haanM/LocalDesk" data-url-constant="REPO_URL" />
+    <meta property="og:title" content="Local Desk · Your documents. Your device. Your control." />
     <meta
       property="og:description"
-      content="Local Desk is an all-in-one PDF studio — merge, split, organize, convert, edit — that runs entirely on your machine. Files are parsed in memory and written back locally. Nothing is ever uploaded."
+      content="All-in-one offline PDF studio to merge, split, organize, convert, and edit files in local memory with zero uploads."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="GITHUB_REPO_URL" data-url-constant="REPO_URL" />
+    <meta property="og:url" content="https://github.com/r3haanM/LocalDesk" data-url-constant="REPO_URL" />
     <link rel="icon" type="image/svg+xml" href="assets/local-desk-app-icon.svg" />
     <style>
       :root {
@@ -836,7 +836,7 @@
       }
 
       /* =====================================================================
-         SCENE 01: ORGANIZE — 7 Page Cards Fly-In, 90° Badge Flip,
+         SCENE 01: ORGANIZE · 7 Page Cards Fly-In, 90° Badge Flip,
          Trailing-Shadow Drag, and Two-Card Magnetic Merge Snap (One-Shot)
          ===================================================================== */
       .seven-page-grid {
@@ -1004,7 +1004,7 @@
       }
 
       /* =====================================================================
-         SCENE 02: CONVERT + OCR — Green Particle Dissolve -> Word Table Draw ->
+         SCENE 02: CONVERT + OCR · Green Particle Dissolve -> Word Table Draw ->
          Excel Row-by-Row Fill + Blurry Scanned Text Snapping Word-by-Word
          ===================================================================== */
       .format-ticker-row {
@@ -1244,7 +1244,7 @@
       }
 
       /* =====================================================================
-         SCENE 03: EDIT — Sentence Selected & Retyped + Solid Black Redaction
+         SCENE 03: EDIT · Sentence Selected & Retyped + Solid Black Redaction
          Sweep + Self-Drawing SVG Signature + Squash "Export" Stamp
          ===================================================================== */
       .edit-story-card {
@@ -1391,7 +1391,7 @@
       }
 
       /* =====================================================================
-         SCENE 04: PRIVACY — "The Blocked Request" (6-8s Looping SVG + CSS)
+         SCENE 04: PRIVACY · "The Blocked Request" (6-8s Looping SVG + CSS)
          ===================================================================== */
       .privacy-scene-card {
         position: relative;
@@ -1854,20 +1854,49 @@
       .footer-meta {
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 16px;
+        flex-wrap: wrap;
         font-size: 0.9rem;
         color: var(--text-secondary);
       }
 
-      .footer-meta a {
-        color: var(--text-primary);
-        text-decoration: none;
-        font-weight: 600;
-        transition: color 180ms ease-out;
+      .footer-socials {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
 
-      .footer-meta a:hover {
+      .social-icon-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--glass-panel);
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition:
+          color 180ms ease-out,
+          border-color 180ms ease-out,
+          background 180ms ease-out,
+          transform 220ms var(--spring),
+          box-shadow 220ms ease-out;
+      }
+
+      .social-icon-link:hover {
         color: var(--accent-mint);
+        border-color: rgba(16, 185, 129, 0.45);
+        background: rgba(16, 185, 129, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.22);
+      }
+
+      .social-icon-link svg {
+        width: 17px;
+        height: 17px;
+        fill: currentColor;
       }
 
       .roadmap-strip {
@@ -2093,8 +2122,20 @@
           </div>
 
           <div class="nav-actions">
-            <a href="GITHUB_REPO_URL" data-url-constant="REPO_URL" class="btn btn-secondary btn-sm" data-magnetic="true">Star on GitHub</a>
-            <a href="GITHUB_REPO_URL/releases" data-url-constant="RELEASES" class="btn btn-primary btn-sm" data-magnetic="true">Download</a>
+            <a
+              href="https://github.com/r3haanM/LocalDesk"
+              data-url-constant="REPO_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="social-icon-link"
+              aria-label="GitHub Repository"
+              title="GitHub Repository"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+              </svg>
+            </a>
+            <a href="https://github.com/r3haanM/LocalDesk/releases" data-url-constant="RELEASES" class="btn btn-primary btn-sm" data-magnetic="true">Download</a>
           </div>
         </nav>
       </header>
@@ -2105,11 +2146,11 @@
           <p class="eyebrow">FREE &amp; OPEN SOURCE · NO ACCOUNT · NO CLOUD</p>
           <h1>Your documents. Your device. Your control.</h1>
           <p class="hero-sub">
-            Local Desk is an all-in-one PDF studio — merge, split, organize, convert, edit — that runs entirely on your machine. Files are parsed in memory and written back locally. Nothing is ever uploaded.
+            An all-in-one PDF studio to merge, split, organize, convert, and edit files on your machine. Processed in local memory. Nothing is ever uploaded.
           </p>
 
           <div class="hero-buttons">
-            <a href="GITHUB_REPO_URL/releases" data-url-constant="RELEASES" class="btn btn-primary" data-magnetic="true">Download for Windows</a>
+            <a href="https://github.com/r3haanM/LocalDesk/releases" data-url-constant="RELEASES" class="btn btn-primary" data-magnetic="true">Download for Windows</a>
             <a href="#features" class="btn btn-secondary" data-magnetic="true">See the interface</a>
           </div>
 
@@ -2146,7 +2187,7 @@
                   <span class="window-dot"></span>
                   <span class="window-dot"></span>
                 </div>
-                <span class="window-title">Local Desk — Self-Assembling In-Memory Document Stage</span>
+                <span class="window-title">Local Desk · In-Memory Document Stage</span>
                 <div class="chrome-right">
                   <button type="button" class="replay-scene-btn" data-replay-scene="scene-hero">Replay ↻</button>
                   <span class="window-status">IN-MEMORY · OFFLINE</span>
@@ -2212,7 +2253,7 @@
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
               </span>
-              <span>0 network calls — enforced at engine level</span>
+              <span>0 network calls · enforced at engine level</span>
             </div>
             <div class="proof-item">
               <span class="proof-icon" aria-hidden="true">
@@ -2237,7 +2278,7 @@
 
         <!-- Zigzag Feature Sections -->
         <div id="features" class="container features-wrapper">
-          <!-- SCENE 01: ORGANIZE (45/55) — 7 Page Cards Fly-In, 90° Badge Flip, Drag & Magnetic Merge -->
+          <!-- SCENE 01: ORGANIZE (45/55) · 7 Page Cards Fly-In, 90° Badge Flip, Drag & Magnetic Merge -->
           <section class="feature-row ratio-45-55 reveal-section scene-stage" id="scene-organize">
             <div class="feature-copy">
               <div class="kicker-row">
@@ -2246,7 +2287,7 @@
               </div>
               <h2>Every page, under your thumb.</h2>
               <p class="feature-body">
-                Reorder pages by dragging live thumbnails. Rotate any page 90° at a time. Extract a selection into a new file, burst a PDF into one file per page, or delete what you don't need. Every thumbnail is a live render of your real page.
+                Drag live thumbnails to reorder pages, rotate 90°, extract ranges, burst into single files, or delete pages you don't need.
               </p>
             </div>
 
@@ -2258,7 +2299,7 @@
                     <span class="window-dot"></span>
                     <span class="window-dot"></span>
                   </div>
-                  <span class="window-title">Organize Scene — Fly-In · 90° Flip · Drag · Magnetic Merge</span>
+                  <span class="window-title">Organize Scene · Fly-In · 90° Flip · Drag · Merge</span>
                   <div class="chrome-right">
                     <button type="button" class="replay-scene-btn" data-replay-scene="scene-organize">Replay ↻</button>
                   </div>
@@ -2363,7 +2404,7 @@
             </div>
           </section>
 
-          <!-- SCENE 02: CONVERT & OCR (55/45) — Particle Dissolve -> Word Table Draw -> Excel Fill + Blurry-to-Crisp OCR -->
+          <!-- SCENE 02: CONVERT & OCR (55/45) · Particle Dissolve -> Word Table Draw -> Excel Fill + Blurry-to-Crisp OCR -->
           <section class="feature-row ratio-55-45 reveal-section scene-stage" id="scene-convert">
             <div class="feature-copy">
               <div class="kicker-row">
@@ -2372,10 +2413,10 @@
               </div>
               <h2>PDF ⇄ Office, without the upload.</h2>
               <p class="feature-body">
-                Turn PDFs into Word documents with real bordered tables and headings, into Excel worksheets with columns rebuilt from text positions, or into PowerPoint slides with editable text beside each page. Word, Excel and PowerPoint files convert the other way into clean PDFs. Parsing happens in memory on your device — there is no server to send files to.
+                Convert PDFs to and from Word, Excel, and PowerPoint while keeping bordered tables, columns, and editable slides intact. Everything parses in local memory with no server involved.
               </p>
               <p class="feature-extra">
-                Scanned PDFs? OCR runs locally too — the English language model ships inside the installer, so recognition works with the internet completely off. Verify it yourself: <code>npx tsx scripts/verify_offline_ocr.ts</code>
+                Scanned PDFs? Offline English OCR ships inside the installer and runs with the internet off: <code>npx tsx scripts/verify_offline_ocr.ts</code>
               </p>
             </div>
 
@@ -2387,7 +2428,7 @@
                     <span class="window-dot"></span>
                     <span class="window-dot"></span>
                   </div>
-                  <span class="window-title">Convert &amp; OCR Scene — Particle Reassembly</span>
+                  <span class="window-title">Convert &amp; OCR Scene · Particle Reassembly</span>
                   <div class="chrome-right">
                     <button type="button" class="replay-scene-btn" data-replay-scene="scene-convert">Replay ↻</button>
                   </div>
@@ -2469,7 +2510,7 @@
             </div>
           </section>
 
-          <!-- SCENE 03: EDIT (40/60) — Caret Retypes in Place + Black Redaction Sweep + SVG Signature + Squash Export -->
+          <!-- SCENE 03: EDIT (40/60) · Caret Retypes in Place + Black Redaction Sweep + SVG Signature + Squash Export -->
           <section class="feature-row ratio-40-60 reveal-section scene-stage" id="scene-edit">
             <div class="feature-copy">
               <div class="kicker-row">
@@ -2478,7 +2519,7 @@
               </div>
               <h2>Fix it where it sits.</h2>
               <p class="feature-body">
-                Click any text on the page and edit it in place — font, size, color. Add rectangles, lines, images, your signature, or true black-box redactions. Export rebuilds the PDF itself, so edits are baked into the document — not a screenshot.
+                Click any text to edit font, size, and color in place. Add shapes, images, signatures, or true stream redactions, then export a rebuilt native PDF.
               </p>
             </div>
 
@@ -2490,7 +2531,7 @@
                     <span class="window-dot"></span>
                     <span class="window-dot"></span>
                   </div>
-                  <span class="window-title">Edit Scene — Retype · Redact Sweep · Signature · Export Stamp</span>
+                  <span class="window-title">Edit Scene · Retype · Redact · Signature · Export</span>
                   <div class="chrome-right">
                     <button type="button" class="replay-scene-btn" data-replay-scene="scene-edit">Replay ↻</button>
                   </div>
@@ -2502,7 +2543,7 @@
                     <div class="edit-retype-box">
                       <span class="edit-retype-label">SELECTED TEXT NODE · IN-PLACE RETYPE</span>
                       <div class="edit-retype-line">
-                        <span id="edit-retype-text">Quarterly Security &amp; Operations Brief — Final</span><span class="typing-caret" aria-hidden="true"></span>
+                        <span id="edit-retype-text">Quarterly Security &amp; Operations Brief · Final</span><span class="typing-caret" aria-hidden="true"></span>
                       </div>
                     </div>
 
@@ -2531,7 +2572,7 @@
             </div>
           </section>
 
-          <!-- SCENE 04: PRIVACY (60/40) — "The Blocked Request" Animated SVG Scene -->
+          <!-- SCENE 04: PRIVACY (60/40) · "The Blocked Request" Animated SVG Scene -->
           <section id="privacy" class="feature-row ratio-60-40 reveal-section scene-stage">
             <div class="feature-copy">
               <div class="kicker-row">
@@ -2540,7 +2581,7 @@
               </div>
               <h2>Offline isn't a promise. It's enforced.</h2>
               <p class="feature-body">
-                Local Desk blocks every outbound request at the engine level: anything that isn't a local file is cancelled before it can leave. No updater, no analytics, no account server — and no premium tier that changes that. The enforcement lives in about 40 lines of electron/main.cjs. Go read them — that's the point of open source. Even in browser mode, nothing touches a CDN: every asset, including the OCR engine and its language model, loads from local files.
+                Local Desk blocks every outbound request at the engine level in ~40 auditable lines of electron/main.cjs. No updaters, analytics, accounts, or CDNs. Every asset, including the OCR engine and language model, loads from local files.
               </p>
             </div>
 
@@ -2552,7 +2593,7 @@
                     <span class="window-dot"></span>
                     <span class="window-dot"></span>
                   </div>
-                  <span class="window-title">Engine Boundary — Outbound Request Blocker</span>
+                  <span class="window-title">Engine Boundary · Outbound Request Blocker</span>
                   <span class="window-status">YOUR DEVICE</span>
                 </div>
 
@@ -2604,7 +2645,7 @@
                 </svg>
 
                 <div class="privacy-counter-bar">
-                  <span class="privacy-counter-tick">0 outbound — blocked at engine level</span>
+                  <span class="privacy-counter-tick">0 outbound · blocked at engine level</span>
                   <span style="font-size:0.72rem;color:var(--text-secondary);">LOCAL FILES ONLY</span>
                 </div>
               </div>
@@ -2628,14 +2669,14 @@
               <button type="button" class="tool-chip" data-demo-trigger="true">PDF/A</button>
             </div>
             <p class="chips-small-print">
-              Compress rebuilds the file structure (typically 5–20% on document-heavy PDFs). We never re-encode your images — photo-heavy files keep their quality, and most of their size.
+              Compression compacts PDF streams (5 to 20% smaller on text PDFs) without re-encoding images, keeping full photo quality.
             </p>
           </div>
 
           <div class="cta-banner">
             <h2>Stop uploading your documents.</h2>
-            <p>Download Local Desk — free &amp; open source.</p>
-            <a href="GITHUB_REPO_URL/releases" data-url-constant="RELEASES" class="btn btn-primary" data-magnetic="true">Get the latest release</a>
+            <p>Download Local Desk · Free &amp; open source.</p>
+            <a href="https://github.com/r3haanM/LocalDesk/releases" data-url-constant="RELEASES" class="btn btn-primary" data-magnetic="true">Get the latest release</a>
           </div>
         </section>
 
@@ -2740,14 +2781,60 @@
             </a>
 
             <div class="footer-meta">
-              <a href="GITHUB_REPO_URL" data-url-constant="REPO_URL">GitHub</a>
+              <div class="footer-socials" aria-label="Social and Repository Links">
+                <a
+                  href="https://github.com/r3haanM/LocalDesk"
+                  data-url-constant="REPO_URL"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="social-icon-link"
+                  aria-label="GitHub"
+                  title="GitHub · r3haanM/LocalDesk"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                </a>
+                <a
+                  href="https://x.com/cyber_cypher007"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="social-icon-link"
+                  aria-label="X (Twitter)"
+                  title="X · @cyber_cypher007"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+                <a
+                  href="https://linkedin.com/in/rehan-mumtaz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="social-icon-link"
+                  aria-label="LinkedIn"
+                  title="LinkedIn · Rehan Mumtaz"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+                  </svg>
+                </a>
+                <a
+                  href="https://rehanmumtaz.medium.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="social-icon-link"
+                  aria-label="Medium"
+                  title="Medium · Rehan Mumtaz"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M13.54 12a6.8 6.8 0 0 1-6.77 6.82A6.8 6.8 0 0 1 0 12a6.8 6.8 0 0 1 6.77-6.82A6.8 6.8 0 0 1 13.54 12zm7.42 0c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z" />
+                  </svg>
+                </a>
+              </div>
               <span>Free &amp; open source</span>
             </div>
           </div>
-
-          <p class="roadmap-strip">
-            In progress: more OCR languages (Urdu, Hindi), deeper image compression, macOS &amp; Linux builds.
-          </p>
         </div>
       </footer>
     </div>
@@ -2764,11 +2851,11 @@
       <div class="modal-dialog">
         <h3 id="demo-modal-title">This is a look-only demo</h3>
         <p>
-          Everything you see is the real interface. Actual file processing happens in the desktop app — on your machine, offline.
+          Everything you see is the real interface. Actual file processing runs offline in the desktop app on your machine.
         </p>
         <div class="modal-actions">
           <a
-            href="GITHUB_REPO_URL/releases"
+            href="https://github.com/r3haanM/LocalDesk/releases"
             data-url-constant="RELEASES"
             class="btn btn-primary"
             id="demo-modal-primary"
@@ -2780,7 +2867,7 @@
 
     <script>
       (function () {
-        var REPO_URL = "GITHUB_REPO_URL";
+        var REPO_URL = "https://github.com/r3haanM/LocalDesk";
         var RELEASES = REPO_URL + "/releases";
 
         document.querySelectorAll('[data-url-constant="REPO_URL"]').forEach(function (el) {
@@ -2844,7 +2931,7 @@
 
         // Play Edit Scene Retype
         var editTypeEl = document.getElementById("edit-retype-text");
-        var editFullText = "Quarterly Security & Operations Brief — Final";
+        var editFullText = "Quarterly Security & Operations Brief · Final";
 
         function triggerSceneTimeline(sceneEl) {
           if (!sceneEl) return;

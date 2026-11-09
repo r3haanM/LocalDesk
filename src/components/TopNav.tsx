@@ -183,7 +183,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                   Local Desk PDF Studio &amp; Conversion Suite
                 </h2>
                 <p className="text-xs text-theme-secondary mt-0.5">
-                  Direct 2D canvas editing, PDF to Office, Images &amp; Web, and Formats to PDF—100% local &amp; private.
+                  2D canvas editing, PDF to Office, Images &amp; Web, and Formats to PDF · 100% local &amp; private.
                 </p>
               </div>
               <button

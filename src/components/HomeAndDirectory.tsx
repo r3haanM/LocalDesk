@@ -386,7 +386,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
             </h1>
 
             <p className="text-base sm:text-lg text-theme-secondary max-w-2xl mx-auto leading-relaxed">
-              Manipulate PDF objects directly on a Figma-grade 2D canvas, or convert seamlessly between PDF, Word, Excel, PowerPoint, JPG, PNG, and HTML5.
+              Edit PDF objects directly on a 2D canvas, or convert between PDF, Word, Excel, PowerPoint, Images, and HTML5.
             </p>
           </div>
 
@@ -893,7 +893,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
               Figma-Grade Object Manipulation on Real PDF Streams.
             </h2>
             <p className="text-sm text-theme-secondary leading-relaxed max-w-2xl">
-              Step into our 2D PDF Editor to select, drag, resize from 8 handles, rotate, align, group, cover with background blur, or permanently delete native PDF text and vector objects—backed by faithful PDF stream export.
+              Select, drag, resize, rotate, blur, or permanently delete native PDF text and vector objects with clean stream export.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button

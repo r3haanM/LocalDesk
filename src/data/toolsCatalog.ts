@@ -149,7 +149,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
   },
 
   // ============================================================================
-  // 3. CONVERSION SUITE — A. PDF TO OFFICE (3 Tools)
+  // 3. CONVERSION SUITE · A. PDF TO OFFICE (3 Tools)
   // ============================================================================
   {
     id: 'pdf-to-word',
@@ -216,7 +216,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
   },
 
   // ============================================================================
-  // 4. CONVERSION SUITE — B. PDF TO IMAGES & WEB (3 Tools)
+  // 4. CONVERSION SUITE · B. PDF TO IMAGES & WEB (3 Tools)
   // ============================================================================
   {
     id: 'pdf-to-jpg',
@@ -283,7 +283,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
   },
 
   // ============================================================================
-  // 5. CONVERSION SUITE — C. OTHER FORMATS TO PDF (6 Tools)
+  // 5. CONVERSION SUITE · C. OTHER FORMATS TO PDF (6 Tools)
   // ============================================================================
   {
     id: 'word-to-pdf',
@@ -448,7 +448,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
     category: 'optimize-pdf',
     categoryLabel: 'Compress & Batch',
     description:
-      'Process multiple PDFs or Office files in parallel—including converting multiple Word files to password-protected PDFs or unlocking multiple PDFs in one go.',
+      'Process multiple PDFs or Office files in parallel, including batch Word-to-PDF conversion and bulk password unlocking.',
     acceptedTypes: [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
