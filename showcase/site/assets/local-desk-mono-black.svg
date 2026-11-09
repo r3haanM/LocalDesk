@@ -1,0 +1,14 @@
+<svg width="340" height="72" viewBox="0 0 340 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(4, 4)">
+    <rect x="4" y="4" width="56" height="56" rx="14" stroke="#0D1F18" stroke-width="3.5" fill="none" />
+    <path d="M14 18C14 15.7909 15.7909 14 18 14H21C22.3807 14 23.5 15.1193 23.5 16.5V38C23.5 39.3807 24.6193 40.5 26 40.5H47.5C48.8807 40.5 50 41.6193 50 43V46C50 48.2091 48.2091 50 46 50H18C15.7909 50 14 48.2091 14 46V18Z" fill="#0D1F18" />
+    <path d="M28 16.5C28 15.1193 29.1193 14 30.5 14H41L50 23V33.5C50 34.8807 48.8807 36 47.5 36H30.5C29.1193 36 28 34.8807 28 33.5V16.5Z" fill="#0D1F18" />
+    <path d="M40.5 14V21C40.5 22.3807 41.6193 23.5 43 23.5H50" stroke="#FFFFFF" stroke-width="2.5" />
+    <rect x="32.5" y="23" width="11.5" height="2.6" rx="1.3" fill="#FFFFFF" />
+    <rect x="32.5" y="28" width="7.5" height="2.6" rx="1.3" fill="#FFFFFF" />
+  </g>
+  <text x="82" y="48" font-family="'Plus Jakarta Sans', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif" font-size="36" letter-spacing="-0.03em">
+    <tspan font-weight="800" fill="#0D1F18">Local</tspan>
+    <tspan dx="8" font-weight="700" fill="#0D1F18">Desk</tspan>
+  </text>
+</svg>
