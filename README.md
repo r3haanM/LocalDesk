@@ -1,5 +1,5 @@
 <div align="center">
-  <img src=".github/assets/logo.png" alt="Local Desk Logo" width="140" height="140" />
+  <img src="public/brand/local-desk-app-icon.svg" alt="Local Desk Logo" width="128" height="128" />
 
   <h1>Local Desk</h1>
   <p><strong>Edit, convert, and secure documents privately on your own machine.</strong></p>
