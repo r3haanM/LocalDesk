@@ -1,6 +1,6 @@
-# Local Desk v1.0.4 — Pre-Ship QA Report (2026-11-12)
+# Local Desk v1.0.5 — Pre-Ship QA Report (2026-11-12)
 
-**Product:** Local Desk — All-in-One PDF & Document Studio (`v1.0.4`)
+**Product:** Local Desk — All-in-One PDF & Document Studio (`v1.0.5`)
 **Shells:** Web (dev server :3000, hosted Express build) & Windows Desktop (Electron 45.3.0, NSIS / Portable / ZIP)
 **Method:** Every tool executed through the real `executePdfTool` dispatch and the real editor engine, with outputs validated by **independent parsers** (pdf-lib, pdf.js text extraction, SheetJS, JSZip, magic-byte inspection) — never by trusting the tools' own summary strings. Marketing/legal claims audited line-by-line against the implementation.
 
@@ -107,12 +107,7 @@ Also verified in-browser earlier in this session: OCR + pixel-template font matc
 
 ---
 
-## 6. Release Artifacts (rebuilt after fixes; hash-verified over HTTP)
+## 6. Release Artifacts
 
-| Artifact | Size | SHA-256 (first 16) |
-| :--- | :--- | :--- |
-| Local-Desk-Setup-1.0.4-x64.exe | 113.32 MB | `a54731e55d498343` |
-| Local-Desk-Portable-1.0.4-x64.exe | 113.10 MB | `b261d381307159d1` |
-| Local-Desk-Portable-1.0.4-win-x64.zip | 165.38 MB | `7b5cd8d392e5e0b2` |
-
-Full hashes in `release/SHA256SUMS.txt` and `release/release-manifest.json` (both regenerated). All three download endpoints served bytes matching the release directory byte-for-byte.
+Published by the CI pipeline (`release-windows.yml`) on tag `v1.0.5`:
+[github.com/r3haanM/LocalDesk/releases/tag/v1.0.5](https://github.com/r3haanM/LocalDesk/releases/tag/v1.0.5) — Setup installer, single-file Portable exe, Portable zip, `SHA256SUMS.txt` and `release-manifest.json` attached. Release download links verified live (HTTP 200). All future releases publish through the same QA-gated pipeline.

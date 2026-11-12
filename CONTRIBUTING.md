@@ -5,7 +5,7 @@ Thank you for contributing to **Local Desk**.
 ## Local Development
 
 ```bash
-git clone https://github.com/rehanmumtaz/local-desk.git
+git clone https://github.com/r3haanM/LocalDesk.git
 cd local-desk
 npm install
 npm run dev

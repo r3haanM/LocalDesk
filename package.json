@@ -3,8 +3,7 @@
   "productName": "Local Desk",
   "description": "Local Desk \u2014 All-in-One PDF & Document Studio",
   "author": {
-    "name": "Local Desk Studio",
-    "email": "security@localdesk.app"
+    "name": "Local Desk Studio"
   },
   "license": "MIT",
   "private": true,
