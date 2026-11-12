@@ -37,6 +37,11 @@ async function main() {
 
   // Brand icon: the landing references ../public/brand/... on the dev server;
   // copy it into the artifact and rewrite the reference for standalone serving
+  fs.copyFileSync(
+    path.join(repoRoot, 'docs', 'screenshots', 'social-preview.png'),
+    path.join(pagesOutDir, 'social-preview.png')
+  );
+
   const brandDir = path.join(pagesOutDir, 'brand');
   fs.mkdirSync(brandDir, { recursive: true });
   fs.copyFileSync(
