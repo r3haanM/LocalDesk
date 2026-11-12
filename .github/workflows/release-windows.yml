@@ -55,7 +55,7 @@ jobs:
         env:
           FORCE_CODE_SIGNING: 'false'
           ALLOW_UNSIGNED_DEV_BUILDS: 'true'
-        run: npx electron-builder --win --x64 --config electron-builder.yml
+        run: npx electron-builder --win --x64 --config electron-builder.yml --publish never
 
       - name: Create GitHub Release with Artifacts
         env:
