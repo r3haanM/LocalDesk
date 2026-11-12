@@ -4,7 +4,7 @@ import {
   getBundledSamplePdfBytes
 } from './samplePdfData';
 
-const RELEASES_LATEST_URL = 'https://github.com/rehanmumtaz/local-desk/releases/latest';
+const RELEASES_LATEST_URL = 'https://github.com/r3haanM/LocalDesk/releases/latest';
 const SYNTHETIC_DEMO_EVENT_FLAG = '__localDeskSyntheticSampleEvent';
 
 /**
