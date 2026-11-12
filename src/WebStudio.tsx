@@ -15,6 +15,7 @@ import { LocalDeskLogo } from './components/Brand/LocalDeskLogo';
 import { CommandPalette } from './components/CommandPalette';
 import { LegalModal } from './components/LegalModal';
 import { DesktopReleaseModal } from './components/DesktopReleaseModal';
+import { isShowcaseDemo } from './lib/env';
 import { ThemeAndAccountModal } from './components/ThemeAndAccountModal';
 import { HomeAndDirectory } from './components/HomeAndDirectory';
 import { StudioLaunchTransition } from './components/StudioLaunchTransition';
@@ -341,7 +342,7 @@ export default function WebStudio() {
           setTheme((prev) => ({ ...prev, appearance: mode }))
         }
         onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-        onOpenDesktopRelease={!isDesktop ? handleOpenDesktopRelease : undefined}
+        onOpenDesktopRelease={isShowcaseDemo() && !isDesktop ? handleOpenDesktopRelease : undefined}
       />
 
       {/* Main Content Viewport */}
@@ -361,7 +362,7 @@ export default function WebStudio() {
                 onSelectTool={handleSelectTool}
                 onOpenEditorWithSample={handleOpenEditorDirect}
                 onOpenCommandPalette={() => setCmdPaletteOpen(true)}
-                onOpenDesktopRelease={!isDesktop ? handleOpenDesktopRelease : undefined}
+                onOpenDesktopRelease={isShowcaseDemo() && !isDesktop ? handleOpenDesktopRelease : undefined}
                 onUpdateAppearance={(mode: AppearanceMode) =>
                   setTheme((prev) => ({ ...prev, appearance: mode }))
                 }
@@ -555,7 +556,7 @@ export default function WebStudio() {
       />
 
       {/* Windows Desktop Installer & Offline Audit Modal (Web Browser Only) */}
-      {!isDesktop && (
+      {!isDesktop && isShowcaseDemo() && (
         <DesktopReleaseModal
           isOpen={desktopReleaseOpen}
           onClose={() => setDesktopReleaseOpen(false)}

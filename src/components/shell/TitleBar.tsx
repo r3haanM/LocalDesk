@@ -1,5 +1,6 @@
+import { Minus, Square, X, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Minus, Square, X, Copy, Download } from 'lucide-react';
+
 import {
   subscribeDesktopWindowState,
   minimizeDesktopWindow,
@@ -74,19 +75,6 @@ export function TitleBar() {
       </div>
 
       <div className="app-titlebar-spacer" />
-
-      {desktop && (
-        <a
-          className="app-titlebar-dl"
-          href="https://github.com/r3haanM/LocalDesk/releases/latest"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Download the latest Windows installer"
-          aria-label="Download Windows installer"
-        >
-          <Download size={14} strokeWidth={1.8} />
-        </a>
-      )}
 
       {desktop ? (
         <div className="app-titlebar-controls">

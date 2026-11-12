@@ -42,6 +42,7 @@ import {
   reanalyzeObjectTypographyStyle,
   ensureOcrFontsLoaded
 } from '../../services/scannedOcrEngine';
+import { isShowcaseDemo } from '../../lib/env';
 import {
   ArrowLeft,
   Undo2,
@@ -2517,15 +2518,17 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
             Open PDF
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleLoadScannedEnglishSample()}
-            title="Load a synthetic Scanned English Document to test OCR font matching, text replacement positioning, alignment, and background reconstruction"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 border border-emerald-500/40 text-theme-accent hover:bg-emerald-500/25 cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
-            <span>Load Scanned Sample (EN)</span>
-          </button>
+          {isShowcaseDemo() && (
+            <button
+              type="button"
+              onClick={() => handleLoadScannedEnglishSample()}
+              title="Load a synthetic Scanned English Document to test OCR font matching, text replacement positioning, alignment, and background reconstruction"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 border border-emerald-500/40 text-theme-accent hover:bg-emerald-500/25 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
+              <span>Load Scanned Sample (EN)</span>
+            </button>
+          )}
 
           <div className="min-w-0">
             <input
@@ -3382,13 +3385,15 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                           Match Original Text Style
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleLoadScannedEnglishSample()}
-                        className="px-2.5 py-2 rounded-lg bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent cursor-pointer"
-                      >
-                        Load Scanned Sample (EN)
-                      </button>
+                      {isShowcaseDemo() && (
+                        <button
+                          type="button"
+                          onClick={() => handleLoadScannedEnglishSample()}
+                          className="px-2.5 py-2 rounded-lg bg-theme-surface border border-theme-subtle text-theme-secondary hover:text-theme-primary hover:border-theme-accent cursor-pointer"
+                        >
+                          Load Scanned Sample (EN)
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
