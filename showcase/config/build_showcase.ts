@@ -62,9 +62,18 @@ async function main() {
   process.env.SHOWCASE_DEMO_OUT_DIR = demoOutDir;
   process.env.SHOWCASE_BASE_PATH = process.env.SHOWCASE_BASE_PATH || '/LocalDesk/demo/';
 
+  console.log(`[showcase] Building demo bundle with vite -> ${demoOutDir}`);
   await build({
     configFile: path.join(repoRoot, 'showcase/config/vite.config.demo.ts'),
+    root: path.join(repoRoot, 'showcase/demo'),
+    logLevel: 'info',
   });
+  console.log('[showcase] Demo vite build finished');
+  // demo/index.html favicon: absolute /showcase/assets path 404s on Pages
+  const demoHtmlPath = path.join(demoOutDir, 'index.html');
+  let demoHtml = fs.readFileSync(demoHtmlPath, 'utf-8');
+  demoHtml = demoHtml.replace('/showcase/assets/logo.png', 'brand/local-desk-app-icon.svg');
+  fs.writeFileSync(demoHtmlPath, demoHtml, 'utf-8');
 
   console.log(`\n[showcase] Built GitHub Pages bundle at: ${pagesOutDir}`);
   console.log(`  - Landing page: ${path.join(pagesOutDir, 'index.html')}`);

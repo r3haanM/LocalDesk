@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Explicit sources: the restricted-demo build (vite root = showcase/demo) scans
+   only its own root by default, so the app sources must be declared here. */
+@source "./**/*.{ts,tsx}";
+@source "../src/**/*.{ts,tsx}";
+@source "../showcase/**/*.{html,ts,tsx}";
 @import "./shell.css";
 @import "./ocr-fonts.css";
 @custom-variant dark (&:where(.dark, .dark *));
