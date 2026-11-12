@@ -1,9 +1,13 @@
-name: Deploy Public Showcase to GitHub Pages
+name: Deploy THE DESK landing to GitHub Pages
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'landing/**'
+      - 'public/brand/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,42 +20,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-showcase:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Build Landing Page (/) and Restricted Demo (/demo/)
-        env:
-          PAGES_OUT_DIR: dist-pages
-          SHOWCASE_BASE_PATH: /local-desk/demo/
-        run: npx tsx showcase/config/build_showcase.ts
-
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist-pages
-
-  deploy-showcase:
-    needs: build-showcase
+  deploy-landing:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Stage public site (THE DESK landing, designs excluded)
+        run: |
+          mkdir -p site/brand
+          cp landing/index.html site/index.html
+          cp -r landing/assets site/assets
+          cp public/brand/local-desk-app-icon.svg site/brand/local-desk-app-icon.svg
+          # dev-server-only paths -> standalone site paths
+          sed -i 's|\.\./public/brand/local-desk-app-icon\.svg|brand/local-desk-app-icon.svg|g' site/index.html
+          # the live demo needs the local dev server; public visitors get the release page
+          sed -i 's|href="/demo/"|href="https://github.com/r3haanM/LocalDesk/releases/latest"|g' site/index.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
