@@ -8,18 +8,7 @@
 ; ============================================================================
 
 !macro customHeader
-  VIProductVersion "1.0.4.0"
-  VIFileVersion "1.0.4.0"
-  VIAddVersionKey /LANG=1033 "ProductName" "Local Desk"
-  VIAddVersionKey /LANG=1033 "CompanyName" "Local Desk Studio"
-  VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright (C) 2026 Local Desk Studio"
-  VIAddVersionKey /LANG=1033 "LegalTrademarks" "Local Desk is a trademark of Local Desk Studio"
-  VIAddVersionKey /LANG=1033 "FileDescription" "Local Desk - All-in-One PDF & Document Studio"
-  VIAddVersionKey /LANG=1033 "FileVersion" "1.0.4.0"
-  VIAddVersionKey /LANG=1033 "ProductVersion" "1.0.4.0"
-  VIAddVersionKey /LANG=1033 "InternalName" "LocalDeskSetup"
-  VIAddVersionKey /LANG=1033 "OriginalFilename" "Local-Desk-Setup-1.0.4-x64.exe"
-  VIAddVersionKey /LANG=1033 "Comments" "Offline PDF & Document Studio for Windows 7, 8, 8.1, 10 & 11 (x64)"
+  ; PE VersionInfo is populated by electron-builder from package.json metadata.
 !macroend
 
 !macro customInstall
