@@ -30,6 +30,9 @@ jobs:
       - name: Type-Check and Lint
         run: npm run lint
 
+      - name: Ensure Electron Runtime Binary (for bundled runtime packaging)
+        run: node node_modules/electron/install.js
+
       - name: 'QA Gate - Functional Suite (32 checks)'
         run: npx tsx scripts/qa/functional_suite.ts
 
