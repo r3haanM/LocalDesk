@@ -12,24 +12,10 @@ The product itself (`src/`, `electron/`, `server.ts`) is untouched.
 | `/demo/` | Restricted interactive demo — real studio UI, sample PDF staged, uploads disabled, banner-free |
 | `/studio` (alias `/app`) | **The full unrestricted product** — empty dropzone, every tool |
 | `/showcase` | Previous screenshot-based landing (archived) |
-| `/designs/` | Landing design gallery + the 5 alternate concepts + font-preview |
 
 Typography: **Instrument Serif** (display, italic gradient flourish) + **Inter** (body/UI)
 + **JetBrains Mono** (annotations) — vendored locally in `assets/fonts/` (latin subsets,
 ~118 KB, OFL licensed), so the landing page itself still makes **zero external requests**.
-
-## The designs
-
-Browse them all from [`designs/index.html`](designs/index.html):
-
-| # | File | Direction |
-|---|---|---|
-| 00 | [index.html](index.html) | **THE DESK** (flagship) — the page IS a desk: draggable papers, scanner (conversion), shredder (redaction), drawers (tools), pinboard (formats); scroll pans the camera across the world |
-| 01 | [designs/obsidian-editorial.html](designs/obsidian-editorial.html) | **Obsidian Editorial** — particle document ⇄ vault morph, live-drawn bento, interactive redaction, audit terminal |
-| 02 | [designs/aurora-glass.html](designs/aurora-glass.html) | **Aurora Glass** — glassmorphism over drifting aurora, orb hero with orbiting format chips |
-| 03 | [designs/terminal-vault.html](designs/terminal-vault.html) | **Terminal Vault** — phosphor CRT console, self-typing command transcripts, man-page features |
-| 04 | [designs/daylight-editorial.html](designs/daylight-editorial.html) | **Daylight Editorial** — light print-journal serif, numbered figures, dark forest footer |
-| 05 | [designs/iso-blueprint.html](designs/iso-blueprint.html) | **ISO Blueprint** — engineering spec sheet: dimensioned A4 drawing, §1–§4 clauses, title block + stamps |
 
 Every design: official logo unchanged · footer mirrors the old showcase landing · no screenshots · zero external resources · demo-first CTAs (`/demo/`).
 

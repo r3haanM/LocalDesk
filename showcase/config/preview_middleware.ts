@@ -84,6 +84,4 @@ export function mountShowcasePreview(app: Express, repoRoot: string, vite?: Vite
     }
   });
 
-  // 5. Landing design gallery + alternates (designs/*.html)
-  app.use('/designs', express.static(path.join(landingDir, 'designs')));
 }
