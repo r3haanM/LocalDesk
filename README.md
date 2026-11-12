@@ -5,9 +5,9 @@
   <p><strong>Edit, convert, and secure documents privately on your own machine.</strong></p>
 
   <p>
-    <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.4-0FA575?style=flat-square" alt="Release v1.0.4" /></a>
+    <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.5-0FA575?style=flat-square" alt="Release v1.0.5" /></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0FA575?style=flat-square" alt="MIT License" /></a>
-    <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%207%2F8%2F10%2F11%20(x64)-090D16?style=flat-square&logo=windows&logoColor=0FA575" alt="Platform Windows 7/8/10/11" /></a>
+    <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64)-090D16?style=flat-square&logo=windows&logoColor=0FA575" alt="Platform Windows 10/11" /></a>
     <a href="#-install"><img src="https://img.shields.io/badge/web-runs%20in%20browser-0FA575?style=flat-square" alt="Runs in browser" /></a>
     <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0FA575?style=flat-square" alt="PRs Welcome" /></a>
   </p>
@@ -38,19 +38,20 @@
 <table>
   <thead>
     <tr>
-      <th width="50%" align="left">🪟 WINDOWS DESKTOP (.EXE &amp; STANDALONE)</th>
+      <th width="50%" align="left">🪟 WINDOWS DESKTOP (.EXE &amp; .ZIP) — WINDOWS 10 / 11 x64</th>
       <th width="50%" align="left">🌐 ANY OS · IN BROWSER</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td valign="top">
-        <p>1. <strong>Windows Setup (<code>.exe</code>):</strong> Download <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe"><strong>Local-Desk-Setup-1.0.4-x64.exe</strong></a> (<a href="./release/Local-Desk-Setup-1.0.4-x64.exe">repo binary</a>) and run the installer.</p>
-        <p>2. <strong>Standalone Portable (<code>.zip</code>):</strong> Download <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip"><strong>Local-Desk-Portable-1.0.4-win-x64.zip</strong></a> (<a href="./release/Local-Desk-Portable-1.0.4-win-x64.zip">repo binary</a>), extract anywhere, and launch <code>Local Desk.exe</code>.</p>
+        <p>1. <strong>Windows Setup (<code>.exe</code>):</strong> Download <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Setup-1.0.5-x64.exe"><strong>Local-Desk-Setup-1.0.5-x64.exe</strong></a> and run the installer.</p>
+        <p>2. <strong>Single-File Portable (<code>.exe</code>):</strong> Download <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-x64.exe"><strong>Local-Desk-Portable-1.0.5-x64.exe</strong></a> — runs without installing.</p>
+        <p>3. <strong>Portable Bundle (<code>.zip</code>):</strong> Download <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-win-x64.zip"><strong>Local-Desk-Portable-1.0.5-win-x64.zip</strong></a>, extract anywhere, and launch <code>Local Desk.exe</code>.</p>
         <details>
           <summary><strong>SmartScreen &amp; SHA-256 verification</strong></summary>
-          <p>If Windows SmartScreen appears on unsigned builds, click <strong>More info → Run anyway</strong>. Verify against <a href="./release/SHA256SUMS.txt"><code>SHA256SUMS.txt</code></a>:</p>
-          <pre><code>certutil -hashfile Local-Desk-Setup-1.0.4-x64.exe SHA256</code></pre>
+          <p>If Windows SmartScreen appears on unsigned builds, click <strong>More info → Run anyway</strong> (see <a href="#%EF%B8%8F-troubleshooting">Troubleshooting</a> below). Verify your download against <a href="https://github.com/r3haanM/LocalDesk/releases/latest/download/SHA256SUMS.txt"><code>SHA256SUMS.txt</code></a>:</p>
+          <pre><code>certutil -hashfile Local-Desk-Setup-1.0.5-x64.exe SHA256</code></pre>
         </details>
       </td>
       <td valign="top">
@@ -65,19 +66,32 @@ npm run dev</code></pre>
   </tbody>
 </table>
 
-## 🚀 Releases (v1.0.4 · Windows 7, 8, 8.1, 10 & 11 Binaries)
+## 🚀 Releases (v1.0.5 · Windows 10 & 11 Binaries)
 
-| Release Section | Binary Artifact | Target OS / Format | Direct Links |
+| Release Section | Binary Artifact | Target OS / Format | Direct Link |
 | :--- | :--- | :--- | :--- |
-| **1. Universal Setup Installer (`.exe`)** | `Local-Desk-Setup-1.0.4-x64.exe` | Windows 10, 11 & Universal (7–11) NSIS | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Setup-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Setup-1.0.4-x64.exe) |
-| **2. Universal Standalone (`.exe`)** | `Local-Desk-Standalone-1.0.4-x64.exe` | Windows 10, 11 & Universal (7–11) Direct | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Standalone-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Standalone-1.0.4-x64.exe) |
-| **3. Windows 7 / 8 / 8.1 Setup (`.exe`)** | `Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe` | Windows 7 SP1, 8 & 8.1 (WDDM Safe Mode) | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe) |
-| **4. Windows 7 / 8 / 8.1 Standalone (`.exe`)** | `Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe` | Windows 7 SP1, 8 & 8.1 Direct Binary | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe) · [Repo Binary](./release/Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe) |
-| **5. Universal Portable Bundle (`.zip`)** | `Local-Desk-Portable-1.0.4-win-x64.zip` | Zero-Install ZIP (All Win 7–11 Launchers) | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.4-win-x64.zip) · [Repo Binary](./release/Local-Desk-Portable-1.0.4-win-x64.zip) |
+| **1. Setup Installer (`.exe`)** | `Local-Desk-Setup-1.0.5-x64.exe` | Windows 10 & 11 (NSIS) | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Setup-1.0.5-x64.exe) |
+| **2. Single-File Portable (`.exe`)** | `Local-Desk-Portable-1.0.5-x64.exe` | Windows 10 & 11 Direct | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-x64.exe) |
+| **3. Portable Bundle (`.zip`)** | `Local-Desk-Portable-1.0.5-win-x64.zip` | Windows 10 & 11 Zero-Install ZIP | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-win-x64.zip) |
+
+> ℹ️ Windows 7 / 8 / 8.1 are not supported — the bundled Chromium runtime requires Windows 10 or newer.
+
+## 🛠️ Troubleshooting
+
+### Windows SmartScreen — "Windows protected your PC"
+
+The Windows desktop build is unsigned, so SmartScreen shows a one-time warning on first launch. This is expected for unsigned installers — the file itself is verified and hash-published in `SHA256SUMS.txt`. Two clicks and you're in:
+
+1. On the **"Windows protected your PC"** dialog, click **More info**.
+2. Click **Run anyway** — the installer launches normally.
+
+<picture>
+  <img alt="Windows SmartScreen walkthrough: click More info, then Run anyway" src="docs/screenshots/troubleshoot-smartscreen.gif" width="100%" />
+</picture>
 
 ## 🔗 Links
 
-- 🔐 [**SHA-256 Checksums (`SHA256SUMS.txt`)**](./release/SHA256SUMS.txt) · [**Release Notes**](./release/RELEASE_NOTES.md) · [**All Releases**](https://github.com/r3haanM/LocalDesk/releases)
+- 🔐 [**SHA-256 Checksums (`SHA256SUMS.txt`)**](https://github.com/r3haanM/LocalDesk/releases/latest/download/SHA256SUMS.txt) · [**Release Notes**](https://github.com/r3haanM/LocalDesk/releases/latest) · [**All Releases**](https://github.com/r3haanM/LocalDesk/releases)
 - 🤝 [**Contributing**](./CONTRIBUTING.md): Local setup, automated QA validation suite, and pull request workflow.
 - 🛡️ [**Security Policy**](./SECURITY.md): Air-gapped execution guarantees, vulnerability reporting, and [AV False-Positive Guide](./docs/AV-FALSE-POSITIVE.md).
 - 📄 [**License**](./LICENSE): Released under the MIT License.
