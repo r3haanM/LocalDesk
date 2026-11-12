@@ -16,7 +16,11 @@ productName: Local Desk
 executableName: Local Desk
 copyright: Copyright (C) 2026 Local Desk Studio
 asar: true
-compression: normal
+compression: maximum
+
+# Ship the UI in English only — trims ~47 MB of Chromium locale packs.
+electronLanguages:
+  - en-US
 
 directories:
   output: release
@@ -30,21 +34,20 @@ files:
   - electron/main.cjs
   - electron/preload.cjs
   - package.json
+  # The app runs exclusively from the prebuilt dist/ bundle — never ship
+  # node_modules (electron-builder would otherwise auto-include all production
+  # dependencies: ~270 MB of dead weight inside app.asar).
+  - "!node_modules/**"
 
 asarUnpack:
   - dist/ocr/**/*
   - build/icon.ico
   - build/local-desk-icon-v103.ico
-
-extraResources:
-  - from: public/ocr/eng.traineddata.gz
-    to: ocr/eng.traineddata.gz
-
 win:
   icon: build/icon.ico
   executableName: Local Desk
   legalTrademarks: "Local Desk is a trademark of Local Desk Studio"
-  fileDescription: "Local Desk — All-in-One PDF & Document Studio"
+  # fileDescription comes from package.json "description" in electron-builder v25.
   # Development build default: do not require a signing certificate locally.
   # Production releases use electron-builder.prod.yml (forceCodeSigning: true).
   forceCodeSigning: false

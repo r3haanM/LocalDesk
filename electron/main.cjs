@@ -223,17 +223,30 @@ function createMainWindow() {
 
   const iconImage = resolveWindowIcon();
 
+  // Restore persisted window bounds (size + position) between sessions
+  let savedBounds = null;
+  try {
+    const boundsPath = path.join(getAppStoragePaths().userDataDir, 'window-bounds.json');
+    if (fs.existsSync(boundsPath)) {
+      savedBounds = JSON.parse(fs.readFileSync(boundsPath, 'utf8'));
+    }
+  } catch {
+    // Non-fatal — fall back to defaults
+  }
+
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 920,
-    minWidth: 1024,
-    minHeight: 680,
+    width: savedBounds && savedBounds.width ? savedBounds.width : 1280,
+    height: savedBounds && savedBounds.height ? savedBounds.height : 860,
+    x: savedBounds && typeof savedBounds.x === 'number' ? savedBounds.x : undefined,
+    y: savedBounds && typeof savedBounds.y === 'number' ? savedBounds.y : undefined,
+    minWidth: 960,
+    minHeight: 640,
     title: UNIFIED_WINDOW_TITLE,
     backgroundColor: '#0A1712',
     icon: iconImage,
     show: false,
-    frame: true,
-    titleBarStyle: 'default',
+    frame: false,
+    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -245,6 +258,25 @@ function createMainWindow() {
       devTools: !app.isPackaged
     }
   });
+
+  // Persist window bounds between sessions (on close + debounced on resize/move)
+  let boundsSaveTimer = null;
+  const saveWindowBounds = () => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized() || mainWindow.isFullScreen()) return;
+    try {
+      const boundsPath = path.join(getAppStoragePaths().userDataDir, 'window-bounds.json');
+      fs.writeFileSync(boundsPath, JSON.stringify(mainWindow.getBounds()), 'utf8');
+    } catch {
+      // Non-fatal
+    }
+  };
+  const scheduleSaveWindowBounds = () => {
+    if (boundsSaveTimer) clearTimeout(boundsSaveTimer);
+    boundsSaveTimer = setTimeout(saveWindowBounds, 400);
+  };
+  mainWindow.on('resize', scheduleSaveWindowBounds);
+  mainWindow.on('move', scheduleSaveWindowBounds);
+  mainWindow.on('close', saveWindowBounds);
 
   if (process.platform === 'win32') {
     if (iconImage) {

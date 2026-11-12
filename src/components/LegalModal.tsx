@@ -51,10 +51,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
             </div>
             <div>
               <h3 className="font-bold text-theme-primary text-sm mb-1">
-                02. SSRF-Protected Remote URL Imports
+                02. No Network Document Transfers
               </h3>
               <p>
-                Remote URL imports validate hostnames against private CIDR blocks, enforce a 25 MB limit, verify file headers, and discard transit buffers immediately.
+                Local Desk does not import documents from remote URLs — there is no cloud fetch path in the application. Files only enter the studio through local file selection, and in the desktop app all outbound requests are blocked at the session layer.
               </p>
             </div>
             <div>
@@ -89,7 +89,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ docType, onClose }) => {
                 03. Operational Safety Limits
               </h3>
               <p>
-                To keep processing responsive, individual files are capped at 50 MB (25 MB for URL imports).
+                To keep processing responsive, individual files are capped at 50 MB.
               </p>
             </div>
           </div>

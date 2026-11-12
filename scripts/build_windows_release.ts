@@ -19,8 +19,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const RELEASE_VERSION = '1.0.4';
-const RELEASE_VERSION_QUAD: [number, number, number, number] = [1, 0, 4, 0];
+const RELEASE_VERSION = '1.0.5';
+const RELEASE_VERSION_QUAD: [number, number, number, number] = [1, 0, 5, 0];
 
 function sha256Hex(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -182,6 +182,22 @@ async function addDirectoryToZip(zip: JSZip, dirPath: string, zipFolder: string)
   }
 }
 
+/** Recursively collects every file under `dir` with zip-root-relative paths. */
+async function collectFilesRecursive(
+  dir: string,
+  out: Array<{ rel: string; full: string }>
+): Promise<void> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectFilesRecursive(full, out);
+    } else {
+      out.push({ rel: path.relative(dir, full).split(path.sep).join('/'), full });
+    }
+  }
+}
+
 /**
  * Inspects a generated PE32+ executable buffer and verifies all Windows 11 x64 loader & AV hygiene invariants:
  * - MZ (0x5A4D) + PE\0\0 (0x00004550)
@@ -279,7 +295,7 @@ export function verifyPe64BinaryInvariants(
     }
   }
 
-  // Verify Windows 7, 8, 8.1, and 10/11 supportedOS GUIDs exist in RT_MANIFEST inside .rsrc
+  // Verify supportedOS GUIDs exist in RT_MANIFEST inside .rsrc
   for (const osGuid of [
     '{35138b9a-5d96-4fbd-8e2d-a2440225f93a}', // Windows 7 SP1
     '{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}', // Windows 8
@@ -347,7 +363,7 @@ export function verifyPe64BinaryInvariants(
 }
 
 async function main() {
-  console.log(`=== LOCAL DESK WINDOWS 7 / 8 / 8.1 / 10 / 11 x64 PE32+ DESKTOP RELEASE BUILDER (v${RELEASE_VERSION}) ===`);
+  console.log(`=== LOCAL DESK WINDOWS 10 / 11 x64 PE32+ DESKTOP RELEASE BUILDER (v${RELEASE_VERSION}) ===`);
 
   // 0. Audit Authenticode Signing Environment & Enforce Production Signing Policy
   const signingEnv = inspectSigningEnvironment();
@@ -381,11 +397,11 @@ async function main() {
   }
   console.log('[AUDIT] Verified dist/index.html contains 0 external CDN URLs.');
 
-  // 4. Compile & Sign Inner 64-bit Windows PE32+ GUI Executables ("Local Desk.exe", "Local Desk (Win7-8 Legacy).exe", & "Uninstall Local Desk.exe")
+  // 4. Compile & Sign Inner 64-bit Windows PE32+ GUI Executables ("Local Desk.exe" & "Uninstall Local Desk.exe")
   console.log(
-    '[PE64] Compiling universal Windows 7/8/8.1/10/11 PE32+ GUI executable: Local Desk.exe (0x8664 AMD64 + 10-field RT_VERSION + 5 supportedOS GUIDs)...'
+    '[PE64] Compiling universal Windows 10/11 PE32+ GUI executable: Local Desk.exe (0x8664 AMD64 + 10-field RT_VERSION + 5 supportedOS GUIDs)...'
   );
-  const appLauncherCommandLine = 'electron.exe resources\\app.asar';
+  const appLauncherCommandLine = 'electron.exe resources\\app';
 
   const rawLocalDeskExeBytes = buildWindowsPe64Executable({
     commandLine: appLauncherCommandLine,
@@ -393,7 +409,7 @@ async function main() {
     pngLayers,
     versionInfo: {
       companyName,
-      fileDescription: 'Local Desk - All-in-One PDF & Document Studio (Win 7/8/10/11)',
+      fileDescription: 'Local Desk - All-in-One PDF & Document Studio (Win 10/11)',
       fileVersion: `${RELEASE_VERSION}.0`,
       internalName: 'LocalDesk',
       legalCopyright: `Copyright (C) 2026 ${companyName}`,
@@ -401,7 +417,7 @@ async function main() {
       originalFilename: 'Local Desk.exe',
       productName: 'Local Desk',
       productVersion: `${RELEASE_VERSION}.0`,
-      comments: 'Local Desk All-in-One PDF & Document Studio (Windows 7/8/8.1/10/11 x64)',
+      comments: 'Local Desk All-in-One PDF & Document Studio (Windows 10/11 x64)',
       versionTuple: RELEASE_VERSION_QUAD
     }
   });
@@ -412,43 +428,6 @@ async function main() {
   );
   const localDeskExeBytes = signedLocalDeskExe.buffer;
   verifyPe64BinaryInvariants(localDeskExeBytes, 'Local Desk.exe', false);
-
-  // Compile Dedicated Windows 7 SP1 / Windows 8 / 8.1 Legacy Compatibility Standalone Launcher
-  console.log(
-    '[PE64] Compiling dedicated Windows 7/8/8.1 Legacy Compatibility executable: Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe...'
-  );
-  const win7LegacyCommandLine =
-    'electron.exe resources\\app.asar --win7-compat --disable-gpu-sandbox --disable-direct-composition --no-sandbox';
-
-  const rawWin7StandaloneBytes = buildWindowsPe64Executable({
-    commandLine: win7LegacyCommandLine,
-    waitForChildMs: 0,
-    pngLayers,
-    versionInfo: {
-      companyName,
-      fileDescription: 'Local Desk - Windows 7 / 8 / 8.1 Compatibility Edition',
-      fileVersion: `${RELEASE_VERSION}.0`,
-      internalName: 'LocalDeskWin7Compat',
-      legalCopyright: `Copyright (C) 2026 ${companyName}`,
-      legalTrademarks: 'Local Desk is a trademark of Local Desk Studio',
-      originalFilename: `Local-Desk-Win7-Win8-Standalone-${RELEASE_VERSION}-x64.exe`,
-      productName: 'Local Desk (Windows 7/8/8.1 Compatible)',
-      productVersion: `${RELEASE_VERSION}.0`,
-      comments: 'Local Desk Windows 7 SP1, Windows 8 & Windows 8.1 Compatibility Launcher (NT 6.1/6.2/6.3 x64)',
-      versionTuple: RELEASE_VERSION_QUAD
-    }
-  });
-  const signedWin7Standalone = await signPe64ExecutableIfConfigured(
-    rawWin7StandaloneBytes,
-    `Local-Desk-Win7-Win8-Standalone-${RELEASE_VERSION}-x64.exe`,
-    signingEnv
-  );
-  const win7StandaloneBytes = signedWin7Standalone.buffer;
-  verifyPe64BinaryInvariants(
-    win7StandaloneBytes,
-    `Local-Desk-Win7-Win8-Standalone-${RELEASE_VERSION}-x64.exe`,
-    false
-  );
 
   console.log(
     '[PE64] Compiling native 64-bit Windows PE32+ GUI executable: Uninstall Local Desk.exe (0x8664 AMD64 + 10-field RT_VERSION)...'
@@ -469,7 +448,7 @@ async function main() {
       originalFilename: 'Uninstall Local Desk.exe',
       productName: 'Local Desk',
       productVersion: `${RELEASE_VERSION}.0`,
-      comments: 'Local Desk Native Uninstaller (Windows 7/8/8.1/10/11 x64)',
+      comments: 'Local Desk Native Uninstaller (Windows 10/11 x64)',
       versionTuple: RELEASE_VERSION_QUAD
     }
   });
@@ -484,31 +463,59 @@ async function main() {
   // 5. Build Portable Windows Package (Local-Desk-Portable-1.0.4-win-x64.zip) — Zero .ps1 files!
   const setupFileName = `Local-Desk-Setup-${RELEASE_VERSION}-x64.exe`;
   const standaloneFileName = `Local-Desk-Standalone-${RELEASE_VERSION}-x64.exe`;
-  const win7SetupFileName = `Local-Desk-Win7-Win8-Setup-${RELEASE_VERSION}-x64.exe`;
-  const win7StandaloneFileName = `Local-Desk-Win7-Win8-Standalone-${RELEASE_VERSION}-x64.exe`;
   const portableFileName = `Local-Desk-Portable-${RELEASE_VERSION}-win-x64.zip`;
 
-  console.log(`[PACKAGE] Building ${portableFileName} (includes Win 10/11 + Win 7/8/8.1 executables, zero .ps1 files)...`);
+  console.log(`[PACKAGE] Building ${portableFileName} (real Electron runtime + resources/app, zero .ps1 files)...`);
   const portableZip = new JSZip();
-  await addDirectoryToZip(portableZip, path.join(ROOT_DIR, 'dist'), 'dist');
-  await addDirectoryToZip(portableZip, path.join(ROOT_DIR, 'electron'), 'electron');
+
+  // 5a. Stage the Electron application directory: resources/app (plain unpacked app —
+  //     package.json main resolves electron/main.cjs, which loads ../dist/index.html).
+  //     Using a plain directory instead of an .asar keeps tesseract's OCR worker
+  //     assets (dist/ocr/*) loadable as real files at runtime.
+  const appStagingDir = path.join(stagingDir, 'resources', 'app');
+  await fs.mkdir(path.join(appStagingDir, 'electron'), { recursive: true });
+  await fs.copyFile(
+    path.join(ROOT_DIR, 'package.json'),
+    path.join(appStagingDir, 'package.json')
+  );
+  await fs.copyFile(
+    path.join(ROOT_DIR, 'electron', 'main.cjs'),
+    path.join(appStagingDir, 'electron', 'main.cjs')
+  );
+  await fs.copyFile(
+    path.join(ROOT_DIR, 'electron', 'preload.cjs'),
+    path.join(appStagingDir, 'electron', 'preload.cjs')
+  );
+  await addDirectoryToZip(portableZip, path.join(ROOT_DIR, 'dist'), 'resources/app/dist');
+  await addDirectoryToZip(portableZip, appStagingDir, 'resources/app');
+
+  // 5b. Bundle the REAL Electron runtime at the zip root (electron.exe + chromium
+  //     runtime + locales). Without this the launchers spawn nothing — the
+  //     1.0.4 artifacts shipped launchers with no runtime to launch.
+  const electronDistDir = path.join(ROOT_DIR, 'node_modules', 'electron', 'dist');
+  const electronExePath = path.join(electronDistDir, 'electron.exe');
+  try {
+    const runtimeStat = await fs.stat(electronExePath);
+    if (!runtimeStat.isFile()) throw new Error('not a file');
+  } catch {
+    throw new Error(
+      'Electron runtime missing — run `node node_modules/electron/install.js` (npm i -D electron) before building the release.'
+    );
+  }
+  const runtimeFiles: Array<{ rel: string; full: string }> = [];
+  await collectFilesRecursive(electronDistDir, runtimeFiles);
+  for (const f of runtimeFiles) {
+    portableZip.file(f.rel, await fs.readFile(f.full));
+  }
+  console.log(`[PACKAGE] Bundled Electron runtime: ${runtimeFiles.length} files from node_modules/electron/dist`);
+
   portableZip.file('Local Desk.exe', localDeskExeBytes);
-  portableZip.file('Local Desk (Win7-8 Legacy).exe', win7StandaloneBytes);
   portableZip.file('Uninstall Local Desk.exe', uninstallExeBytes);
   portableZip.file('build/icon.ico', icoBuffer);
   portableZip.file('build/local-desk-icon-v103.ico', icoBuffer);
   portableZip.file(
     'build/installer.nsh',
     await fs.readFile(path.join(ROOT_DIR, 'build', 'installer.nsh'))
-  );
-  portableZip.file('package.json', await fs.readFile(path.join(ROOT_DIR, 'package.json')));
-  portableZip.file(
-    'electron-builder.yml',
-    await fs.readFile(path.join(ROOT_DIR, 'electron-builder.yml'))
-  );
-  portableZip.file(
-    'electron-builder.prod.yml',
-    await fs.readFile(path.join(ROOT_DIR, 'electron-builder.prod.yml'))
   );
 
   const portableBytes = await portableZip.generateAsync({
@@ -517,8 +524,8 @@ async function main() {
     compressionOptions: { level: 6 }
   });
 
-  // 6. Build & Sign Universal Windows 7/8/10/11 Setup Installer (Local-Desk-Setup-1.0.4-x64.exe)
-  console.log(`[PACKAGE] Compiling Universal Windows 7/8/8.1/10/11 x64 Setup Installer: ${setupFileName}...`);
+  // 6. Build & Sign Universal Windows 10/11 Setup Installer
+  console.log(`[PACKAGE] Compiling Windows 10/11 x64 Setup Installer: ${setupFileName}...`);
   const setupInstallerCommandLine = 'Local Desk.exe --install-setup';
 
   const rawSetupExeBytes = buildWindowsPe64Executable({
@@ -528,7 +535,7 @@ async function main() {
     sfxZipPayload: portableBytes,
     versionInfo: {
       companyName,
-      fileDescription: 'Local Desk - All-in-One PDF & Document Studio Setup (Win 7/8/10/11)',
+      fileDescription: 'Local Desk - All-in-One PDF & Document Studio Setup (Win 10/11)',
       fileVersion: `${RELEASE_VERSION}.0`,
       internalName: 'LocalDeskSetup',
       legalCopyright: `Copyright (C) 2026 ${companyName}`,
@@ -536,7 +543,7 @@ async function main() {
       originalFilename: setupFileName,
       productName: 'Local Desk',
       productVersion: `${RELEASE_VERSION}.0`,
-      comments: 'Local Desk Native NSIS Installer (Windows 7, 8, 8.1, 10 & 11 x64)',
+      comments: 'Local Desk Native NSIS Installer (Windows 10 & 11 x64)',
       versionTuple: RELEASE_VERSION_QUAD
     }
   });
@@ -557,60 +564,21 @@ async function main() {
     `[VERIFY] ${setupFileName} PE32+, 10-field RT_VERSION, 5 supportedOS GUIDs & Relocated SFX ZIP verified: peEndOffset=0x${sfxVerification.peSectionsEndOffset.toString(16)}, checkSum=0x${sfxVerification.checkSum.toString(16)}, sfxEntries=${sfxVerification.sfxEntryCount}, signed=${sfxVerification.isAuthenticodeSigned}`
   );
 
-  // 6b. Build & Sign Dedicated Windows 7 / 8 / 8.1 Legacy Setup Installer (Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe)
-  console.log(`[PACKAGE] Compiling Windows 7/8/8.1 Legacy Setup Installer: ${win7SetupFileName}...`);
-  const win7SetupCommandLine = 'Local Desk (Win7-8 Legacy).exe --install-setup --win7-compat';
-
-  const rawWin7SetupBytes = buildWindowsPe64Executable({
-    commandLine: win7SetupCommandLine,
-    waitForChildMs: 0xffffffff,
-    pngLayers,
-    sfxZipPayload: portableBytes,
-    versionInfo: {
-      companyName,
-      fileDescription: 'Local Desk - Windows 7 / 8 / 8.1 Legacy Setup Installer',
-      fileVersion: `${RELEASE_VERSION}.0`,
-      internalName: 'LocalDeskWin7Setup',
-      legalCopyright: `Copyright (C) 2026 ${companyName}`,
-      legalTrademarks: 'Local Desk is a trademark of Local Desk Studio',
-      originalFilename: win7SetupFileName,
-      productName: 'Local Desk (Windows 7/8/8.1 Edition)',
-      productVersion: `${RELEASE_VERSION}.0`,
-      comments: 'Local Desk Dedicated Installer for Windows 7 SP1, Windows 8 & Windows 8.1 (NT 6.1/6.2/6.3 x64)',
-      versionTuple: RELEASE_VERSION_QUAD
-    }
-  });
-  const signedWin7Setup = await signPe64ExecutableIfConfigured(
-    rawWin7SetupBytes,
-    win7SetupFileName,
-    signingEnv
-  );
-  const win7SetupExeBytes = signedWin7Setup.buffer;
-  verifyPe64BinaryInvariants(win7SetupExeBytes, win7SetupFileName, true);
-
   // 7. Write binary artifacts to staging first, then compute SHA256SUMS.txt AFTER disk write
   const stagedSetupPath = path.join(stagingDir, setupFileName);
   const stagedStandalonePath = path.join(stagingDir, standaloneFileName);
-  const stagedWin7SetupPath = path.join(stagingDir, win7SetupFileName);
-  const stagedWin7StandalonePath = path.join(stagingDir, win7StandaloneFileName);
   const stagedPortablePath = path.join(stagingDir, portableFileName);
   await fs.writeFile(stagedSetupPath, setupExeBytes);
   await fs.writeFile(stagedStandalonePath, localDeskExeBytes);
-  await fs.writeFile(stagedWin7SetupPath, win7SetupExeBytes);
-  await fs.writeFile(stagedWin7StandalonePath, win7StandaloneBytes);
   await fs.writeFile(stagedPortablePath, portableBytes);
 
   // Re-read written files from disk to guarantee zero write-truncation before computing SHA-256
   const diskSetupBytes = await fs.readFile(stagedSetupPath);
   const diskStandaloneBytes = await fs.readFile(stagedStandalonePath);
-  const diskWin7SetupBytes = await fs.readFile(stagedWin7SetupPath);
-  const diskWin7StandaloneBytes = await fs.readFile(stagedWin7StandalonePath);
   const diskPortableBytes = await fs.readFile(stagedPortablePath);
   if (
     diskSetupBytes.byteLength !== setupExeBytes.byteLength ||
     diskStandaloneBytes.byteLength !== localDeskExeBytes.byteLength ||
-    diskWin7SetupBytes.byteLength !== win7SetupExeBytes.byteLength ||
-    diskWin7StandaloneBytes.byteLength !== win7StandaloneBytes.byteLength ||
     diskPortableBytes.byteLength !== portableBytes.byteLength
   ) {
     throw new Error('Disk write verification failed: byte length mismatch');
@@ -618,8 +586,6 @@ async function main() {
 
   const setupSha256 = sha256Hex(diskSetupBytes);
   const standaloneSha256 = sha256Hex(diskStandaloneBytes);
-  const win7SetupSha256 = sha256Hex(diskWin7SetupBytes);
-  const win7StandaloneSha256 = sha256Hex(diskWin7StandaloneBytes);
   const portableSha256 = sha256Hex(diskPortableBytes);
   const appExeSha256 = sha256Hex(localDeskExeBytes);
   const uninstExeSha256 = sha256Hex(uninstallExeBytes);
@@ -627,8 +593,6 @@ async function main() {
 
   const sha256SumsTxt = `${setupSha256}  ${setupFileName}
 ${standaloneSha256}  ${standaloneFileName}
-${win7SetupSha256}  ${win7SetupFileName}
-${win7StandaloneSha256}  ${win7StandaloneFileName}
 ${portableSha256}  ${portableFileName}
 ${appExeSha256}  Local Desk.exe
 ${uninstExeSha256}  Uninstall Local Desk.exe
@@ -639,11 +603,11 @@ ${icoSha256}  icon.ico
     ? 'SIGNED_PRODUCTION_RELEASE'
     : 'UNSIGNED_DEVELOPMENT_BUILD';
 
-  const releaseNotesMd = `# Local Desk v${RELEASE_VERSION} - Windows 7 / 8 / 8.1 / 10 / 11 (x64) Desktop Release Notes
+  const releaseNotesMd = `# Local Desk v${RELEASE_VERSION} - Windows 10 & 11 (x64) Desktop Release Notes
 
 **Release Date:** ${new Date().toISOString().slice(0, 10)}  
 **Build Mode:** \`${signingEnv.buildMode}\` (\`FORCE_CODE_SIGNING=${signingEnv.forceCodeSigning}\`, \`ALLOW_UNSIGNED_DEV_BUILDS=${signingEnv.allowUnsignedDevBuilds}\`)  
-**Target Platforms:** Windows 7 SP1, Windows 8, Windows 8.1, Windows 10 & Windows 11 (64-bit / x64, \`IMAGE_FILE_MACHINE_AMD64 = 0x8664\`, \`Subsystem = 6.0+\`)  
+**Target Platforms:** Windows 10 & Windows 11 only (64-bit / x64, \`IMAGE_FILE_MACHINE_AMD64 = 0x8664\`, \`Subsystem = 6.0+\`). Windows 7 / 8 / 8.1 are not supported by the bundled Chromium runtime.  
 **Binary Format:** 5-Section PE32+ (\`.text\`, \`.rdata\`, \`.data\`, \`.rsrc\` with 10-field \`RT_VERSION\` & all 5 Windows \`supportedOS\` GUIDs, \`.reloc\`, \`DllCharacteristics = 0x8160\`) + Native NSIS (\`build/installer.nsh\`)  
 **Company / Publisher Metadata:** \`${companyName}\`  
 **Authenticode Signing Status:** \`${signingStatusLabel}\`  
@@ -652,28 +616,25 @@ ${icoSha256}  icon.ico
 
 | Artifact File | Target Windows Versions | Format | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- | :--- |
-| \`${setupFileName}\` | Windows 10, 11 & Universal (7/8/8.1/10/11) | PE32+ GUI Installer | ${formatBytes(diskSetupBytes.byteLength)} (${diskSetupBytes.byteLength} B) | \`${setupSha256}\` |
-| \`${standaloneFileName}\` | Windows 10, 11 & Universal (7/8/8.1/10/11) | PE32+ Standalone Launcher | ${formatBytes(diskStandaloneBytes.byteLength)} (${diskStandaloneBytes.byteLength} B) | \`${standaloneSha256}\` |
-| \`${win7SetupFileName}\` | Windows 7 SP1, Windows 8 & Windows 8.1 | PE32+ Legacy WDDM Setup Installer | ${formatBytes(diskWin7SetupBytes.byteLength)} (${diskWin7SetupBytes.byteLength} B) | \`${win7SetupSha256}\` |
-| \`${win7StandaloneFileName}\` | Windows 7 SP1, Windows 8 & Windows 8.1 | PE32+ Legacy WDDM Standalone | ${formatBytes(diskWin7StandaloneBytes.byteLength)} (${diskWin7StandaloneBytes.byteLength} B) | \`${win7StandaloneSha256}\` |
-| \`${portableFileName}\` | All Windows 7 / 8 / 8.1 / 10 / 11 (x64) | Portable ZIP (both launchers included) | ${formatBytes(diskPortableBytes.byteLength)} (${diskPortableBytes.byteLength} B) | \`${portableSha256}\` |
+| \`${setupFileName}\` | Windows 10 & 11 | PE32+ GUI Installer | ${formatBytes(diskSetupBytes.byteLength)} (${diskSetupBytes.byteLength} B) | \`${setupSha256}\` |
+| \`${standaloneFileName}\` | Windows 10 & 11 | PE32+ Standalone Launcher | ${formatBytes(diskStandaloneBytes.byteLength)} (${diskStandaloneBytes.byteLength} B) | \`${standaloneSha256}\` |
+| \`${portableFileName}\` | Windows 10 & 11 (x64) | Portable ZIP | ${formatBytes(diskPortableBytes.byteLength)} (${diskPortableBytes.byteLength} B) | \`${portableSha256}\` |
 
-## 2. Windows 7, 8, 8.1, 10 & 11 Multi-OS Compatibility
+## 2. Windows 10 & 11 Compatibility Notes
 
-1. **All 5 Official Microsoft \`supportedOS\` GUIDs Embedded in \`RT_MANIFEST\`:**
+1. **Official Microsoft \`supportedOS\` GUIDs Embedded in \`RT_MANIFEST\`:**
    - Windows 10 & Windows 11 (\`{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}\`)
    - Windows 8.1 / Server 2012 R2 (\`{1f676c76-80e1-4239-95bb-83d0f6d0da78}\`)
    - Windows 8 / Server 2012 (\`{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}\`)
    - Windows 7 SP1 / Server 2008 R2 (\`{35138b9a-5d96-4fbd-8e2d-a2440225f93a}\`)
    - Windows Vista / Server 2008 (\`{e2011457-1546-43c5-a5fe-008deee3d3f0}\`)
-2. **NT 6.x Kernel & WDDM 1.1/1.2 Compatibility Mode:** Automatically detects Windows 7 (\`6.1\`), Windows 8 (\`6.2\`), and Windows 8.1 (\`6.3\`) in \`electron/main.cjs\` (or via the dedicated \`Local-Desk-Win7-Win8-*\` binaries) and enables \`--disable-gpu-sandbox\`, \`--disable-direct-composition\`, and \`--no-sandbox\` so older graphics drivers render without black screens.
-3. **Dual DPI Awareness:** Declares both legacy \`<dpiAware>true/pm</dpiAware>\` (Windows 7/8/8.1) and \`<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>\` (Windows 10/11).
+2. **Dual DPI Awareness:** Declares both legacy \`<dpiAware>true/pm</dpiAware>\` and \`<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>\` for multi-monitor Windows 10/11 setups.
 `;
 
-  const architectureAuditMd = `# Local Desk — Windows 7/8/8.1/10/11 x64 Architecture, Native NSIS & Offline Privacy Audit (v${RELEASE_VERSION})
+  const architectureAuditMd = `# Local Desk — Windows 10/11 x64 Architecture, Native NSIS & Offline Privacy Audit (v${RELEASE_VERSION})
 
 - **Native NSIS Installer (\`build/installer.nsh\`):** Uses \`CreateShortCut\`, \`WriteRegStr\`, and \`SHChangeNotify\` with zero child processes.
-- **Universal Windows 7 / 8 / 8.1 / 10 / 11 Compatibility:** Embeds all 5 Microsoft \`supportedOS\` manifest GUIDs and NT 6.x WDDM fallback flags.
+- **Windows 10 & 11 Compatibility:** Embeds the official Microsoft \`supportedOS\` manifest GUIDs for modern Windows releases.
 - **Zero External Network Calls:** Enforced via \`electron/main.cjs\` session firewall and bundled local Tesseract WASM assets.
 - **Complete PE32+ Metadata:** Full 10-field \`VS_VERSION_INFO\` resource table embedded in all executables.
 `;
@@ -696,7 +657,7 @@ ${icoSha256}  icon.ico
     version: RELEASE_VERSION,
     productName: 'Local Desk',
     companyName,
-    targetPlatform: 'Windows 7 SP1, Windows 8, Windows 8.1, Windows 10 & Windows 11 (64-bit x64)',
+    targetPlatform: 'Windows 10 & Windows 11 (64-bit x64). Windows 7 / 8 / 8.1 are not supported by the bundled Chromium runtime.',
     peArchitecture: 'PE32+ (AMD64 / 0x8664, Subsystem 6.0+, 5 Sections, ASLR 0x8160, 10-Field RT_VERSION, 5 supportedOS GUIDs)',
     buildMode: signingEnv.buildMode,
     forceCodeSigning: signingEnv.forceCodeSigning,
@@ -710,8 +671,8 @@ ${icoSha256}  icon.ico
     artifacts: [
       {
         fileName: setupFileName,
-        label: 'Windows 10 / 11 & Universal Setup Installer (.exe)',
-        format: 'PE32+ x64 GUI Installer (Win 7/8/8.1/10/11 Manifest + Native NSIS)',
+        label: 'Windows 10 / 11 Setup Installer (.exe)',
+        format: 'PE32+ x64 GUI Installer (Modern Windows Manifest + Native NSIS)',
         sizeBytes: diskSetupBytes.byteLength,
         sizeFormatted: formatBytes(diskSetupBytes.byteLength),
         sha256: setupSha256,
@@ -719,12 +680,12 @@ ${icoSha256}  icon.ico
         authenticodeSummary: signedSetupExe.inspection.statusSummary,
         downloadUrl: `/api/releases/download/${setupFileName}`,
         description:
-          'Universal 64-bit Windows Setup installer compatible with Windows 11, 10, 8.1, 8, and 7 SP1. Creates Desktop & Start Menu shortcuts and registers .pdf file associations natively.'
+          'Native 64-bit Windows Setup installer for Windows 10 & 11. Creates Desktop & Start Menu shortcuts and registers .pdf file associations natively.'
       },
       {
         fileName: standaloneFileName,
-        label: 'Windows 10 / 11 & Universal Standalone Executable (.exe)',
-        format: 'PE32+ x64 Native GUI Executable (Win 7/8/8.1/10/11 Manifest)',
+        label: 'Windows 10 / 11 Standalone Executable (.exe)',
+        format: 'PE32+ x64 Native GUI Executable (Modern Windows Manifest)',
         sizeBytes: diskStandaloneBytes.byteLength,
         sizeFormatted: formatBytes(diskStandaloneBytes.byteLength),
         sha256: standaloneSha256,
@@ -732,12 +693,12 @@ ${icoSha256}  icon.ico
         authenticodeSummary: signedLocalDeskExe.inspection.statusSummary,
         downloadUrl: `/api/releases/download/${standaloneFileName}`,
         description:
-          'Direct standalone 64-bit Windows PE32+ GUI application binary (Local Desk.exe) with embedded multi-layer icon, 10-field VS_VERSION_INFO, and Windows 7–11 compatibility GUIDs.'
+          'Direct standalone 64-bit Windows PE32+ GUI application binary (Local Desk.exe) with embedded multi-layer icon and 10-field VS_VERSION_INFO.'
       },
       {
         fileName: portableFileName,
-        label: 'Universal Windows 7 / 8 / 10 / 11 Portable Bundle (.zip)',
-        format: 'Portable ZIP Archive (contains both Standard & Win 7/8 Legacy .exe launchers)',
+        label: 'Windows 10 / 11 Portable Bundle (.zip)',
+        format: 'Portable ZIP Archive (Local Desk.exe + offline OCR WASM assets)',
         sizeBytes: diskPortableBytes.byteLength,
         sizeFormatted: formatBytes(diskPortableBytes.byteLength),
         sha256: portableSha256,
@@ -745,34 +706,8 @@ ${icoSha256}  icon.ico
         authenticodeSummary: signedLocalDeskExe.inspection.statusSummary,
         downloadUrl: `/api/releases/download/${portableFileName}`,
         description:
-          'Complete zero-install portable archive for Windows 7, 8, 8.1, 10, and 11 containing both Local Desk.exe and Local Desk (Win7-8 Legacy).exe plus offline OCR WASM assets.'
+          'Complete zero-install portable archive for Windows 10 and 11 containing Local Desk.exe plus offline OCR WASM assets.'
       },
-      {
-        fileName: win7SetupFileName,
-        label: 'Windows 7 (SP1) / Windows 8 / 8.1 Legacy Setup Installer (.exe)',
-        format: 'PE32+ x64 NT 6.1/6.2/6.3 Compatibility Installer (WDDM 1.1/1.2 Safe Mode)',
-        sizeBytes: diskWin7SetupBytes.byteLength,
-        sizeFormatted: formatBytes(diskWin7SetupBytes.byteLength),
-        sha256: win7SetupSha256,
-        authenticodeSigned: signedWin7Setup.inspection.isSigned,
-        authenticodeSummary: signedWin7Setup.inspection.statusSummary,
-        downloadUrl: `/api/releases/download/${win7SetupFileName}`,
-        description:
-          'Dedicated installer for Windows 7 SP1, Windows 8, and Windows 8.1 machines. Pre-configured with --win7-compat, --disable-direct-composition, and --disable-gpu-sandbox for older WDDM drivers.'
-      },
-      {
-        fileName: win7StandaloneFileName,
-        label: 'Windows 7 (SP1) / Windows 8 / 8.1 Legacy Standalone (.exe)',
-        format: 'PE32+ x64 NT 6.1/6.2/6.3 Compatibility Launcher (Zero-Install)',
-        sizeBytes: diskWin7StandaloneBytes.byteLength,
-        sizeFormatted: formatBytes(diskWin7StandaloneBytes.byteLength),
-        sha256: win7StandaloneSha256,
-        authenticodeSigned: signedWin7Standalone.inspection.isSigned,
-        authenticodeSummary: signedWin7Standalone.inspection.statusSummary,
-        downloadUrl: `/api/releases/download/${win7StandaloneFileName}`,
-        description:
-          'Direct standalone launcher tuned specifically for Windows 7 SP1, Windows 8, and Windows 8.1 with NT 6.x kernel & WDDM 1.1/1.2 fallback flags enabled by default.'
-      }
     ]
   };
 
@@ -798,7 +733,7 @@ ${icoSha256}  icon.ico
   await fs.rm(releaseDir, { recursive: true, force: true });
   await fs.rename(stagingDir, releaseDir);
 
-  console.log(`\n=== WINDOWS 7 / 8 / 8.1 / 10 / 11 x64 PE32+ RELEASE ARTIFACTS (v${RELEASE_VERSION}) GENERATED SUCCESSFULLY ===`);
+  console.log(`\n=== WINDOWS 10 / 11 x64 PE32+ RELEASE ARTIFACTS (v${RELEASE_VERSION}) GENERATED SUCCESSFULLY ===`);
   console.log(
     `1. ${setupFileName} (${formatBytes(diskSetupBytes.byteLength)}, ${diskSetupBytes.byteLength} B) - SHA256: ${setupSha256}`
   );
@@ -806,13 +741,7 @@ ${icoSha256}  icon.ico
     `2. ${standaloneFileName} (${formatBytes(diskStandaloneBytes.byteLength)}, ${diskStandaloneBytes.byteLength} B) - SHA256: ${standaloneSha256}`
   );
   console.log(
-    `3. ${win7SetupFileName} (${formatBytes(diskWin7SetupBytes.byteLength)}, ${diskWin7SetupBytes.byteLength} B) - SHA256: ${win7SetupSha256}`
-  );
-  console.log(
-    `4. ${win7StandaloneFileName} (${formatBytes(diskWin7StandaloneBytes.byteLength)}, ${diskWin7StandaloneBytes.byteLength} B) - SHA256: ${win7StandaloneSha256}`
-  );
-  console.log(
-    `5. ${portableFileName} (${formatBytes(diskPortableBytes.byteLength)}, ${diskPortableBytes.byteLength} B) - SHA256: ${portableSha256}`
+    `3. ${portableFileName} (${formatBytes(diskPortableBytes.byteLength)}, ${diskPortableBytes.byteLength} B) - SHA256: ${portableSha256}`
   );
 }
 

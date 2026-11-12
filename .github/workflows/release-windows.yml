@@ -1,4 +1,4 @@
-name: Windows x64 Release & SHA256SUMS Pipeline
+name: Windows x64 Release Pipeline (QA-gated)
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-windows-x64:
-    name: Build & Verify Windows x64 Release (NSIS + Portable + SHA256SUMS)
+    name: QA-gated Windows x64 Release (NSIS + Portable + SHA256SUMS)
     runs-on: windows-latest
 
     steps:
@@ -25,10 +25,16 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Type-Check & Lint
         run: npm run lint
+
+      - name: QA Gate — Functional Suite (32 checks: all tools + conversions + encryption)
+        run: npx tsx scripts/qa/functional_suite.ts
+
+      - name: QA Gate — Editor Engine Suite (12 checks: redaction purge + export verification)
+        run: npx tsx scripts/qa/editor_engine_suite.ts
 
       - name: Build Windows Release Binaries, SHA256SUMS.txt & Version Metadata
         env:
@@ -42,15 +48,48 @@ jobs:
           ALLOW_UNSIGNED_DEV_BUILDS: ${{ secrets.WIN_CSC_LINK == '' && 'true' || 'false' }}
         run: npx tsx scripts/build_windows_release.ts
 
-      - name: Execute 27-Case Automated QA & AV Hygiene Validation Suite
-        run: npm run test:qa
+      - name: Build Single-File Portable Executable (electron-builder)
+        env:
+          FORCE_CODE_SIGNING: 'false'
+          ALLOW_UNSIGNED_DEV_BUILDS: 'true'
+        run: npx electron-builder --win --x64 --config electron-builder.yml
 
-      - name: Upload Release Artifacts (Binaries, SHA256SUMS.txt & Version Manifest)
+      - name: Create GitHub Release with Artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "$env:GITHUB_REF_NAME".TrimStart('v')
+          $notes = @"
+          ## Local Desk v$version — Windows 10 / 11 (x64)
+
+          QA-gated release: all 44 automated functional checks (21 tools, conversions, real PDF encryption, redaction purge, export verification) passed before this build was published.
+
+          ### Downloads
+          - **Local-Desk-Setup-$version-x64.exe** — native installer (recommended)
+          - **Local-Desk-Portable-$version-x64.exe** — single-file portable
+          - **Local-Desk-Portable-$version-win-x64.zip** — portable ZIP bundle
+
+          ### Verify
+          SHA-256 checksums in SHA256SUMS.txt: ``certutil -hashfile <file> SHA256``
+
+          **Note:** binaries are unsigned development builds — SmartScreen may show "More info → Run anyway". Verify hashes against SHA256SUMS.txt.
+          "@
+          Set-Content -Path release/RELEASE_BODY.md -Value $notes -Encoding UTF8
+          gh release create "$env:GITHUB_REF_NAME" --title "Local Desk v$version" --notes-file release/RELEASE_BODY.md --latest `
+            "release/Local-Desk-Setup-$version-x64.exe" `
+            "release/Local-Desk-Portable-$version-x64.exe" `
+            "release/Local-Desk-Portable-$version-win-x64.zip" `
+            "release/SHA256SUMS.txt" `
+            "release/release-manifest.json" `
+            "release/RELEASE_NOTES.md"
+
+      - name: Upload CI Artifacts (traceability copy)
         uses: actions/upload-artifact@v4
         with:
           name: local-desk-windows-x64-release
           path: |
             release/Local-Desk-Setup-*-x64.exe
+            release/Local-Desk-Portable-*-x64.exe
             release/Local-Desk-Portable-*-win-x64.zip
             release/SHA256SUMS.txt
             release/release-manifest.json

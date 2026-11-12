@@ -7,8 +7,10 @@ import {
   UploadedFileItem,
   PdfToolDefinition
 } from '../../types/pdf';
+import { setAppStatus } from '../../lib/appStatus';
 import {
-  findToolById
+  findToolById,
+  getOutputExtensionLabel
 } from '../../data/toolsCatalog';
 import {
   validateFileSignature,
@@ -265,7 +267,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
       {
         name: '02_Engineering_Architecture_Notes.docx',
         title: 'Zero-Trust Systems Architecture Specification',
-        body: 'Confidential engineering notes prepared in OpenXML Word format. Batch processing converts and applies SHA-256 access policies in a single pass.'
+        body: 'Confidential engineering notes prepared in OpenXML Word format. Batch processing converts and applies standard PDF password encryption in a single pass.'
       },
       {
         name: '03_Board_Compensation_Schedule.docx',
@@ -458,6 +460,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
     const pendingItems = queue.filter((q) => q.status === 'queued' || q.status === 'error');
     const itemsToProcess = pendingItems.length > 0 ? pendingItems : queue;
     if (itemsToProcess.length === 0) return;
+    setAppStatus(`Batch queue — ${itemsToProcess.length} file(s) processing`, true);
 
     if (
       CONVERT_TO_PDF_IDS.includes(selectedToolId) &&
@@ -516,6 +519,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
       }
     } finally {
       setIsRunningBatch(false);
+      setAppStatus('Ready');
     }
   };
 
@@ -658,7 +662,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
           </div>
           <div>
             <div className="font-bold text-theme-primary">
-              Batch Pipeline: {activeTool.name} ({activeTool.acceptedExtensions.join(', ')} → {activeTool.outputExtension})
+              Batch Pipeline: {activeTool.name} ({activeTool.acceptedExtensions.join(', ')} → {getOutputExtensionLabel(activeTool)})
             </div>
             <div className="text-theme-secondary">
               {queue.length} file(s) staged · {completedCount} completed · {isRunningBatch ? `Processing (${overallProgress}%)` : 'Ready'}
@@ -667,7 +671,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
         </div>
         <div className="flex items-center gap-2 font-mono">
           <span className="px-2.5 py-1 rounded-md bg-theme-elevated border border-theme-subtle text-theme-secondary">
-            Output: {activeTool.outputExtension}
+            Output: {getOutputExtensionLabel(activeTool)}
           </span>
           {((CONVERT_TO_PDF_IDS.includes(selectedToolId) && protectOutputWithPassword) ||
             selectedToolId === 'protect-pdf') && (
@@ -704,7 +708,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
               >
                 {batchTools.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} ({t.outputExtension})
+                    {t.name} ({getOutputExtensionLabel(t)})
                   </option>
                 ))}
               </select>
@@ -827,7 +831,7 @@ export const BatchQueueWorkspace: React.FC<BatchQueueWorkspaceProps> = ({
                     </label>
                     <p className="text-[11px] text-theme-secondary mb-2">
                       {selectedToolId === 'protect-pdf'
-                        ? 'Enter the password once to apply SHA-256 protection to every PDF in the queue.'
+                        ? 'Enter the password once to encrypt every PDF in the queue with the standard PDF security handler.'
                         : 'Enter the document password once to remove password restrictions from all queued PDFs simultaneously.'}
                     </p>
                     <input

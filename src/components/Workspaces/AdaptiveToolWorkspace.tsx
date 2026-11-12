@@ -19,6 +19,7 @@ import {
   ProcessingResult,
   UploadedFileItem
 } from '../../types/pdf';
+import { setAppStatus } from '../../lib/appStatus';
 import {
   validateFileSignature,
   generateSamplePdfBytes,
@@ -30,7 +31,7 @@ import {
   ToolExecutionOptions,
   inspectExcelWorkbookSheets
 } from '../../services/pdfToolsProcessor';
-import { PDF_TOOLS_CATALOG } from '../../data/toolsCatalog';
+import { PDF_TOOLS_CATALOG, getOutputExtensionLabel } from '../../data/toolsCatalog';
 import { ToolIcon } from '../IconMapper';
 import { saveProcessedDocumentSafe } from '../../services/desktopBridge';
 import {
@@ -136,7 +137,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
 
   const [headerLeft, setHeaderLeft] = useState<string>('Vellum Specification');
   const [headerRight, setHeaderRight] = useState<string>('2026 Edition');
-  const [footerLeft, setFooterLeft] = useState<string>('ISO-32000 Verified');
+  const [footerLeft, setFooterLeft] = useState<string>('Local Desk');
   const [footerRight, setFooterRight] = useState<string>('Public Sample');
 
   const [cropMarginTop, setCropMarginTop] = useState<number>(36);
@@ -577,7 +578,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       {
         name: '01_Executive_Service_Agreement.docx',
         title: 'Executive Service Agreement — 2026',
-        body: 'Converted from Microsoft Word (.docx) and locked with a shared SHA-256 PDF password in one pass.'
+        body: 'Converted from Microsoft Word (.docx) and locked with a shared PDF password in one pass.'
       },
       {
         name: '02_Zero_Trust_Security_Architecture.docx',
@@ -686,6 +687,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
   };
 
   const handleRunTool = async () => {
+    setAppStatus(`${tool.shortName} — processing…`, true);
     if (
       CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) &&
       protectOutputWithPassword &&
@@ -891,14 +893,14 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
             'Files Succeeded': `${succeededCount} / ${files.length}`,
             'Combined Output Payload': `${(totalOutBytes / 1024).toFixed(1)} KB`,
             ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-              ? { 'Shared Password Protection': 'Applied to All Output PDFs (SHA-256)' }
+              ? { 'Shared Password Protection': 'Standard PDF encryption applied to all output PDFs' }
               : {})
           },
           validationPassed: zipBytes.byteLength > 64,
           validationNotes: [
             `Verified ${succeededCount} output file(s) in batch archive`,
             ...(CONVERT_TO_PDF_PASSWORD_TOOLS.includes(tool.id) && protectOutputWithPassword
-              ? ['Verified SHA-256 password protection envelope on every converted PDF']
+              ? ['Applied standard PDF password encryption to every converted PDF']
               : [])
           ]
         };
@@ -943,6 +945,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
       setErrorMsg(err?.message || 'An unexpected error occurred while processing the document.');
     } finally {
       setProcessing(false);
+      setAppStatus('Ready');
     }
   };
 
@@ -983,7 +986,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
               <span>{tool.conversionSubcategoryLabel || tool.categoryLabel}</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono text-theme-accent">
-                {tool.acceptedExtensions.slice(0, 3).join(', ')} → {tool.outputExtension}
+                {tool.acceptedExtensions.slice(0, 3).join(', ')} → {getOutputExtensionLabel(tool)}
               </span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-theme-primary mt-0.5 flex items-center gap-2.5">
@@ -1063,7 +1066,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
             <span className="text-theme-accent font-bold">→</span>
             <span className="text-theme-secondary">Target:</span>
             <span className="font-bold text-theme-accent">
-              {tool.outputExtension.toUpperCase()}
+              {getOutputExtensionLabel(tool).toUpperCase()}
             </span>
           </div>
 
@@ -2026,7 +2029,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                       Password-Protect Output PDF{files.length > 1 ? 's in One Go' : ''}
                     </span>
                     <span className="block text-[11px] text-theme-secondary mt-0.5">
-                      Automatically lock {files.length > 1 ? `all ${files.length} converted PDFs` : 'the converted PDF'} with a shared password and SHA-256 access policy in a single pass.
+                      Automatically encrypt {files.length > 1 ? `all ${files.length} converted PDFs` : 'the converted PDF'} with a shared password in a single pass.
                     </span>
                   </div>
                 </label>
@@ -2352,7 +2355,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                   </label>
                   <p className="text-[11px] text-theme-secondary mb-2">
                     {tool.id === 'protect-pdf'
-                      ? 'Enter a password once to apply SHA-256 access policies across every uploaded PDF.'
+                      ? 'Enter a password once to encrypt every uploaded PDF with the standard PDF security handler.'
                       : 'Enter the document password once to remove password restrictions from all uploaded PDFs in one go.'}
                   </p>
                   <input
@@ -2618,7 +2621,7 @@ export const AdaptiveToolWorkspace: React.FC<AdaptiveToolWorkspaceProps> = ({
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-theme-muted">
-                      {rel.outputExtension}
+                      {getOutputExtensionLabel(rel)}
                     </span>
                   </div>
                   <p className="text-[11px] text-theme-secondary line-clamp-2 leading-relaxed">

@@ -39,7 +39,8 @@ import {
   getFontCssStack,
   getFontDisplayName,
   generateTypographyComparisonCrops,
-  reanalyzeObjectTypographyStyle
+  reanalyzeObjectTypographyStyle,
+  ensureOcrFontsLoaded
 } from '../../services/scannedOcrEngine';
 import {
   ArrowLeft,
@@ -375,6 +376,12 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
     },
     [pinnedCategory]
   );
+
+  // Prewarm all OCR font-matching candidates so canvas measurement, the replacement
+  // preview, and exported replacements all render the true matched fonts
+  useEffect(() => {
+    void ensureOcrFontsLoaded();
+  }, []);
 
   useEffect(() => {
     if (!openCategory) return;
@@ -2153,7 +2160,22 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
       dataUrl = sigCanvasRef.current.toDataURL('image/png');
     }
     const id = `obj-sig-${Date.now().toString(36)}`;
-    const hashHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    // Genuine SHA-256 digest binding the current document bytes, the signer name, and
+    // the signature payload (drawn image / typed text) — displayed as a tamper-evident
+    // attestation stamp. This is NOT a PKI certificate signature.
+    const digestChunks: Uint8Array[] = [
+      new TextEncoder().encode(`localdesk-signature-v1|${sigTypedText || ''}|${dataUrl || ''}|`),
+      pdfBytes ? new Uint8Array(pdfBytes) : new Uint8Array()
+    ];
+    const totalLen = digestChunks.reduce((acc, c) => acc + c.length, 0);
+    const digestInput = new Uint8Array(totalLen);
+    let digestOffset = 0;
+    for (const chunk of digestChunks) {
+      digestInput.set(chunk, digestOffset);
+      digestOffset += chunk.length;
+    }
+    const digestBuf = await crypto.subtle.digest('SHA-256', digestInput);
+    const hashHex = Array.from(new Uint8Array(digestBuf))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
@@ -2162,7 +2184,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
       pageIndex: currentPage.pageIndex,
       type: 'signature',
       name: sigIsCrypto
-        ? `Cryptographic Signature (${sigTypedText})`
+        ? `SHA-256 Attestation (${sigTypedText})`
         : `Visual Signature (${sigTypedText})`,
       isNative: false,
       visible: true,
@@ -4565,16 +4587,6 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                       })
                   )}
                 </div>
-
-                {/* Method A vs Method B vs Redaction Distinction Callout */}
-                <div className="p-2.5 rounded-lg bg-theme-elevated border border-theme-subtle text-[11px] text-theme-secondary leading-relaxed space-y-1">
-                  <div>
-                    <strong className="text-theme-primary">Method A (Cover Overlay):</strong> Places a movable shape/blur over content without deleting underlying objects.
-                  </div>
-                  <div>
-                    <strong className="text-rose-400">Method B (Delete Object):</strong> Genuinely removes the selected object from the exported PDF stream.
-                  </div>
-                </div>
               </div>
             )}
 
@@ -6175,31 +6187,6 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
                   <p className="text-[11px] text-theme-secondary leading-relaxed">
                     Hover or click any category in the top toolbar (<span className="text-theme-primary font-semibold">Select, Text, Images, Shapes, Effects, Arrange, Annotate, Page Design, Forms, More</span>) to open its contextual tool panel. Click a category to pin its panel open while working.
                   </p>
-                </div>
-
-                {/* Keyboard Shortcuts Reference */}
-                <div className="p-3.5 rounded-lg bg-theme-elevated border border-theme-subtle space-y-1.5 text-[11px] text-theme-secondary">
-                  <div className="font-bold text-theme-primary">Canvas Precision Shortcuts</div>
-                  <div className="flex justify-between">
-                    <span>Double-Click Text:</span>
-                    <span className="font-mono text-theme-primary">Inline Edit</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Alt + Click:</span>
-                    <span className="font-mono text-theme-primary">Select Underneath</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Arrow / Shift+Arrow:</span>
-                    <span className="font-mono text-theme-primary">Nudge 1pt / 10pt</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Ctrl+C / Ctrl+V / Ctrl+D:</span>
-                    <span className="font-mono text-theme-primary">Copy / Paste / Dup</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Delete / Backspace:</span>
-                    <span className="font-mono text-theme-primary">Delete PDF Object</span>
-                  </div>
                 </div>
               </div>
             ) : (
@@ -8199,7 +8186,7 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-theme-primary">
-                Sign Document · Visual &amp; Cryptographic Attestation
+                Sign Document · Visual &amp; SHA-256 Attestation
               </h3>
               <button
                 type="button"
@@ -8307,10 +8294,10 @@ export const PdfEditorWorkspace: React.FC<PdfEditorWorkspaceProps> = ({
               />
               <div>
                 <div className="font-semibold text-theme-primary">
-                  Attach SHA-256 Cryptographic Digest Stamp
+                  Attach SHA-256 Digest Stamp
                 </div>
                 <p className="text-theme-secondary mt-0.5">
-                  Distinguishes visual signatures from verifiable cryptographic content hashes by embedding a tamper-evident SHA-256 digest stamp.
+                  Embeds a tamper-evident SHA-256 digest of the document bytes, signer name, and signature payload. This is a digest attestation, not a PKI certificate signature.
                 </p>
               </div>
             </label>

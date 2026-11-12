@@ -302,6 +302,21 @@ export async function clearAllRecentDocuments(): Promise<void> {
   }
 }
 
+/** Removes a single entry from the recent-documents list (by id or name). */
+export function removeRecentDocument(match: { id?: string; name?: string }): RecentDocumentRecord[] {
+  try {
+    const current = getRecentDocumentsList();
+    const next = current.filter(
+      (item) =>
+        (match.id ? item.id !== match.id : true) && (match.name ? item.name !== match.name : true)
+    );
+    localStorage.setItem(RECENT_DOCS_STORAGE_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return getRecentDocumentsList();
+  }
+}
+
 export async function minimizeDesktopWindow(): Promise<boolean> {
   if (window.localDeskNative?.minimizeWindow) {
     try {

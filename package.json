@@ -1,14 +1,14 @@
 {
   "name": "local-desk",
   "productName": "Local Desk",
-  "description": "Local Desk — All-in-One PDF & Document Studio",
+  "description": "Local Desk \u2014 All-in-One PDF & Document Studio",
   "author": {
     "name": "Local Desk Studio",
     "email": "security@localdesk.app"
   },
   "license": "MIT",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -28,6 +28,7 @@
     "desktop:dist:win:prod": "FORCE_CODE_SIGNING=true ALLOW_UNSIGNED_DEV_BUILDS=false vite build && electron-builder --win --x64 --config electron-builder.prod.yml -c.win.forceCodeSigning=true"
   },
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.4.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/three": "^0.187.0",
@@ -51,14 +52,17 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
+    "electron": "^45.3.0",
+    "electron-builder": "^25.1.8",
     "esbuild": "^0.25.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^7.0.2",
-    "@types/express": "^4.17.21"
+    "typescript": "^7.0.2"
   }
 }

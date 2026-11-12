@@ -155,9 +155,7 @@ async function startServer() {
       const safeName = aliasMap[requestedName] || requestedName;
       const allowedFiles = new Set([
         'Local-Desk-Setup-1.0.4-x64.exe',
-        'Local-Desk-Standalone-1.0.4-x64.exe',
-        'Local-Desk-Win7-Win8-Setup-1.0.4-x64.exe',
-        'Local-Desk-Win7-Win8-Standalone-1.0.4-x64.exe',
+        'Local-Desk-Portable-1.0.4-x64.exe',
         'Local-Desk-Portable-1.0.4-win-x64.zip',
         'SHA256SUMS.txt',
         'RELEASE_NOTES.md',

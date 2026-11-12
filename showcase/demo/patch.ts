@@ -88,48 +88,13 @@ function installMemoryOnlyPersistenceAdapter(): void {
 }
 
 /**
- * 2. Inject Persistent Non-Dismissible Top Banner + "Reset demo" + "Get the desktop app ->"
+ * 2. Persistent top demo banner — REMOVED per product decision.
+ *    The demo route now loads with the full studio chrome only.
+ *    ("Reset demo" remains available programmatically via window.localDeskDemo.resetDemo().)
  */
-function injectPersistentDemoBanner(onResetDemo: () => void): void {
-  if (document.getElementById('showcase-demo-banner')) return;
-
-  const banner = document.createElement('aside');
-  banner.id = 'showcase-demo-banner';
-  banner.setAttribute('role', 'region');
-  banner.setAttribute('aria-label', 'Showcase Demo Notice');
-
-  const copySpan = document.createElement('div');
-  copySpan.className = 'demo-banner-copy';
-  copySpan.textContent =
-    '🔒 Showcase demo — sample document only. Nothing is uploaded, nothing is stored, nothing leaves your tab. Closing the tab resets everything.';
-
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'demo-banner-actions';
-
-  const resetBtn = document.createElement('button');
-  resetBtn.type = 'button';
-  resetBtn.id = 'showcase-reset-demo-btn';
-  resetBtn.className = 'demo-reset-btn';
-  resetBtn.textContent = 'Reset demo';
-  resetBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onResetDemo();
-  });
-
-  const getAppLink = document.createElement('a');
-  getAppLink.href = RELEASES_LATEST_URL;
-  getAppLink.target = '_blank';
-  getAppLink.rel = 'noopener noreferrer';
-  getAppLink.className = 'demo-get-app-link';
-  getAppLink.textContent = 'Get the desktop app →';
-
-  actionsDiv.appendChild(resetBtn);
-  actionsDiv.appendChild(getAppLink);
-  banner.appendChild(copySpan);
-  banner.appendChild(actionsDiv);
-
-  document.body.prepend(banner);
+function injectPersistentDemoBanner(_onResetDemo: () => void): void {
+  // Intentionally a no-op: banner removed from the showcase demo route.
+  return;
 }
 
 /**

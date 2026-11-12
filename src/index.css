@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./shell.css";
+@import "./ocr-fonts.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -558,4 +560,3 @@ main::-webkit-scrollbar,
   background: var(--vibe-btn-hover-bg);
   border-color: var(--vibe-border-hover);
 }
-

@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Release/build outputs (CI regenerates all of these)
+release/
+build/*
+!build/installer.nsh
+release_test_tmp/
+setup_test_1/
+setup_test_2/
+.aistudio/

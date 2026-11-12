@@ -4,7 +4,8 @@
    ============================================================================ */
 
 :root {
-  --demo-banner-height: 46px;
+  /* Demo banner removed — reserve no top space */
+  --demo-banner-height: 0px;
 }
 
 body.localdesk-showcase-demo {

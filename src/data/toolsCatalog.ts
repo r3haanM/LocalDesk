@@ -232,6 +232,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
     acceptedExtensions: ['.pdf'],
     multipleFiles: false,
     outputExtension: '.zip',
+    outputExtensionLabel: '.jpg · zip',
     outputMimeType: 'application/zip',
     workspaceType: 'converter',
     keywords: ['pdf to jpg', 'jpeg', 'page images', 'rasterize', 'dpi', 'export images'],
@@ -253,6 +254,7 @@ export const PDF_TOOLS_CATALOG: PdfToolDefinition[] = [
     acceptedExtensions: ['.pdf'],
     multipleFiles: false,
     outputExtension: '.zip',
+    outputExtensionLabel: '.png · zip',
     outputMimeType: 'application/zip',
     workspaceType: 'converter',
     keywords: ['pdf to png', 'lossless image', 'transparent png', 'high resolution', 'export png'],
@@ -542,6 +544,15 @@ export function getToolsByConversionSubcategory(
 
 export function findToolById(id: string): PdfToolDefinition | undefined {
   return PDF_TOOLS_CATALOG.find((t) => t.id === id);
+}
+
+/**
+ * Human-friendly output chip label. Prefers the tool's explicit
+ * `outputExtensionLabel` when set (e.g. image-page converters that bundle
+ * multi-page results into a ZIP), otherwise falls back to the raw extension.
+ */
+export function getOutputExtensionLabel(tool: PdfToolDefinition): string {
+  return tool.outputExtensionLabel || tool.outputExtension;
 }
 
 /**

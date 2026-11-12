@@ -593,6 +593,134 @@ export function clientPointToPdfPagePoint(
 // OCR-BASED PIXEL TYPOGRAPHY ANALYSIS & VISUAL FONT MATCHING (SECTIONS 3–6)
 // ============================================================================
 
+// Prewarm every candidate font through document.fonts so canvas measureText /
+// fillText render the real matched font instead of a silent system fallback
+// (the root cause of "replacement looks nothing like the original").
+let ocrFontsPrewarmPromise: Promise<void> | null = null;
+
+export function ensureOcrFontsLoaded(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve();
+  if (!ocrFontsPrewarmPromise) {
+    const jobs: Array<Promise<unknown>> = [];
+    for (const cand of FONT_CANDIDATE_CATALOG) {
+      jobs.push(document.fonts.load(`400 16px ${cand.cssFontStack}`).catch(() => undefined));
+      jobs.push(document.fonts.load(`700 16px ${cand.cssFontStack}`).catch(() => undefined));
+    }
+    ocrFontsPrewarmPromise = Promise.all(jobs).then(() => undefined);
+  }
+  return ocrFontsPrewarmPromise;
+}
+
+/**
+ * True pixel-template font verification:
+ * renders `text` in a candidate font at the measured scan scale, binarizes both the
+ * candidate render and the actual scanned crop, and returns a Dice overlap (0..1)
+ * maximized over small integer pixel shifts (robust to baseline/starting-x noise).
+ */
+function scoreCandidateFontTemplate(params: {
+  cropLumGrid: Float32Array;
+  cropWidthPx: number;
+  cropHeightPx: number;
+  inkThreshold: number;
+  inkLeftPx: number;
+  baselineRowPx: number;
+  cropInkHeightPx: number;
+  text: string;
+  fontWeight: number;
+  cssFontStack: string;
+}): number {
+  const {
+    cropLumGrid,
+    cropWidthPx,
+    cropHeightPx,
+    inkThreshold,
+    inkLeftPx,
+    baselineRowPx,
+    cropInkHeightPx,
+    text,
+    fontWeight,
+    cssFontStack
+  } = params;
+
+  if (typeof document === 'undefined' || !text.trim()) return 0;
+
+  // Binarized ink mask of the actual scanned crop
+  const cropInk = new Uint8Array(cropWidthPx * cropHeightPx);
+  let cropInkCount = 0;
+  for (let i = 0; i < cropInk.length; i++) {
+    if (cropLumGrid[i] <= inkThreshold) {
+      cropInk[i] = 1;
+      cropInkCount++;
+    }
+  }
+  if (cropInkCount < 12) return 0;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = cropWidthPx;
+  canvas.height = cropHeightPx;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return 0;
+
+  ctx.clearRect(0, 0, cropWidthPx, cropHeightPx);
+
+  // Calibrate this candidate's em size from its OWN cap-height ratio so the rendered
+  // glyph height matches the scan ink exactly — a fixed ratio would systematically bias
+  // proportional fonts (cap ≈ 0.72em) over typewriter fonts (cap ≈ 0.60em)
+  ctx.font = `${fontWeight} 50px ${cssFontStack}`;
+  const probe = ctx.measureText('H');
+  const capPx50 = probe.actualBoundingBoxAscent || 36;
+  const emSizePx = Math.max(
+    6,
+    Math.round((50 * Math.max(4, cropInkHeightPx)) / Math.max(8, capPx50))
+  );
+
+  ctx.font = `${fontWeight} ${emSizePx}px ${cssFontStack}`;
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, Math.max(0, Math.round(inkLeftPx)), Math.round(baselineRowPx));
+
+  let imgData: Uint8ClampedArray;
+  try {
+    imgData = ctx.getImageData(0, 0, cropWidthPx, cropHeightPx).data;
+  } catch {
+    return 0;
+  }
+
+  const candInk = new Uint8Array(cropWidthPx * cropHeightPx);
+  let candInkCount = 0;
+  for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
+    if (imgData[i + 3] > 110) {
+      candInk[p] = 1;
+      candInkCount++;
+    }
+  }
+  if (candInkCount < 12) return 0;
+
+  // Dice overlap maximized over integer pixel shifts (dx ±3, dy ±2)
+  let best = 0;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -3; dx <= 3; dx++) {
+      let inter = 0;
+      for (let y = 0; y < cropHeightPx; y++) {
+        const sy = y - dy;
+        if (sy < 0 || sy >= cropHeightPx) continue;
+        const rowA = sy * cropWidthPx;
+        const rowB = y * cropWidthPx;
+        for (let x = 0; x < cropWidthPx; x++) {
+          const sx = x - dx;
+          if (sx < 0 || sx >= cropWidthPx) continue;
+          if (cropInk[rowA + sx] && candInk[rowB + x]) inter++;
+        }
+      }
+      const dice = (2 * inter) / (cropInkCount + candInkCount);
+      if (dice > best) best = dice;
+    }
+  }
+  return best;
+}
+
+
 /**
  * Inspects actual pixels inside the recognized OCR bounding box on `sourceCanvas`
  * and compares rendered candidate fonts to estimate:
@@ -652,6 +780,12 @@ export function analyzeScannedRegionTypography(params: {
   const charWidthsPx: number[] = [];
   const charCentersPx: number[] = [];
   let terminalFlareRatio = 1.0;
+
+  // Hoisted crop-mask evidence for pixel-template font verification (null when canvas unreadable)
+  let templateLumGrid: Float32Array | null = null;
+  let templateInkThreshold = 0;
+  let templateInkLeftPx = 0;
+  let templateBaselineRowPx = 0;
 
   if (ctx) {
     try {
@@ -732,6 +866,24 @@ export function analyzeScannedRegionTypography(params: {
       if (inChar && bw - charStart >= 2) {
         charWidthsPx.push(bw - charStart);
         charCentersPx.push(charStart + (bw - charStart) / 2);
+      }
+
+      // Capture template evidence: ink-left edge + estimated baseline row for the crop
+      let firstInkCol = -1;
+      for (let x = 0; x < bw; x++) {
+        if (colInk[x] > 0) {
+          firstInkCol = x;
+          break;
+        }
+      }
+      if (firstInkCol >= 0 && inkPixelCount > 12) {
+        templateLumGrid = lumGrid;
+        templateInkThreshold = inkThreshold;
+        templateInkLeftPx = firstInkCol;
+        const cropHasDescender = /[gjpqy,;_()]/i.test(text);
+        templateBaselineRowPx = cropHasDescender
+          ? inkTopRow + (inkBottomRow - inkTopRow) * 0.8
+          : inkBottomRow + 1;
       }
 
       // Measure serif terminal flare: compare average horizontal ink width near top/bottom of stems vs middle stem
@@ -825,9 +977,19 @@ export function analyzeScannedRegionTypography(params: {
     numericFontWeight = 300;
   }
 
-  // Evaluate Monospaced pitch consistency
+  // Evaluate Monospaced pitch consistency — prefer center-gap regularity (robust to bold
+  // glyphs whose ink columns merge) and fall back to column-width regularity
   let pitchCv = 0.35;
-  if (charWidthsPx.length >= 3) {
+  if (charCentersPx.length >= 4) {
+    const gaps: number[] = [];
+    for (let i = 1; i < charCentersPx.length; i++) {
+      gaps.push(charCentersPx[i] - charCentersPx[i - 1]);
+    }
+    const meanGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    const gapVar =
+      gaps.reduce((acc, v) => acc + (v - meanGap) * (v - meanGap), 0) / gaps.length;
+    pitchCv = Math.sqrt(gapVar) / Math.max(1, meanGap);
+  } else if (charWidthsPx.length >= 3) {
     const meanW = charWidthsPx.reduce((a, b) => a + b, 0) / charWidthsPx.length;
     const variance =
       charWidthsPx.reduce((acc, v) => acc + (v - meanW) * (v - meanW), 0) / charWidthsPx.length;
@@ -869,21 +1031,54 @@ export function analyzeScannedRegionTypography(params: {
   } else if (isMonospaced) {
     fontClassification = 'monospaced';
   } else if (isSerif) {
-    fontClassification = normalizedStrokeRatio > 0.125 ? 'slab-serif' : 'serif';
+    // Slab requires distinctly heavy stems — bold monospaced print sits just above the
+    // serif band, so this threshold must stay well above the bold-serif range
+    fontClassification = normalizedStrokeRatio > 0.155 ? 'slab-serif' : 'serif';
   } else if (isCondensed) {
     fontClassification = 'condensed-sans';
   } else {
     fontClassification = 'sans-serif';
   }
 
-  // Visual Candidate Ranking (Section 5): score all 10 candidate fonts against measured metrics
+  // Pixel-template verification (Section 5): render `text` in every candidate font at the
+  // exact scan scale and Dice-compare ink against the actual crop. This is the dominant
+  // signal — it can tell bold Courier apart from slab-serif, which width heuristics cannot.
+  const templateInkHeightPx = Math.max(4, inkBottomRow - inkTopRow + 1);
+  const templateDiceByFamily = new Map<PdfFontFamily, number>();
+  let bestTemplateDice = 0;
+  if (templateLumGrid && templateInkHeightPx > 4) {
+    for (const cand of FONT_CANDIDATE_CATALOG) {
+      const dice = scoreCandidateFontTemplate({
+        cropLumGrid: templateLumGrid,
+        cropWidthPx: bw,
+        cropHeightPx: bh,
+        inkThreshold: templateInkThreshold,
+        inkLeftPx: templateInkLeftPx,
+        baselineRowPx: templateBaselineRowPx,
+        cropInkHeightPx: templateInkHeightPx,
+        text,
+        fontWeight: numericFontWeight,
+        cssFontStack: cand.cssFontStack
+      });
+      templateDiceByFamily.set(cand.fontFamily, dice);
+      if (dice > bestTemplateDice) bestTemplateDice = dice;
+    }
+  }
+
+  // Visual Candidate Ranking (Section 5): pixel-template Dice dominates; classification,
+  // width similarity and style hints act as tie-breakers for ambiguous crops.
   const candidateMatches: OcrFontCandidateMatch[] = FONT_CANDIDATE_CATALOG.map((cand) => {
-    let score = 0.62;
+    let score = 0.4;
+
+    const templateDice = templateDiceByFamily.get(cand.fontFamily) ?? 0;
+    if (templateLumGrid) {
+      score += templateDice * 0.42;
+    }
 
     if (cand.classification === fontClassification) {
-      score += 0.24;
+      score += 0.1;
     } else if (cand.isMonospaced === isMonospaced && cand.isSerif === isSerif) {
-      score += 0.14;
+      score += 0.06;
     }
 
     // Compare rendered width of `text` in this candidate font vs actual scanned box width
@@ -901,10 +1096,10 @@ export function analyzeScannedRegionTypography(params: {
       Math.abs(measuredCand.widthPt - pdfTopLeftPt.width) /
       Math.max(12, pdfTopLeftPt.width);
     const widthSimilarity = Math.max(0, 1 - widthDiffRatio * 1.15);
-    score += widthSimilarity * 0.12;
+    score += widthSimilarity * 0.05;
 
     if (styleHint?.preferredFamily === cand.fontFamily) {
-      score += 0.15;
+      score += 0.06;
     }
 
     const clampedScore = Math.max(0.35, Math.min(0.99, Math.round(score * 100) / 100));
@@ -915,7 +1110,12 @@ export function analyzeScannedRegionTypography(params: {
       classification: cand.classification,
       similarityScore: clampedScore
     };
-  }).sort((a, b) => b.similarityScore - a.similarityScore);
+  }).sort((a, b) => {
+    const diceA = templateDiceByFamily.get(a.fontFamily) ?? 0;
+    const diceB = templateDiceByFamily.get(b.fontFamily) ?? 0;
+    if (templateLumGrid && Math.abs(diceB - diceA) > 0.04) return diceB - diceA;
+    return b.similarityScore - a.similarityScore;
+  });
 
   const bestCandidate = candidateMatches[0] || {
     fontFamily: 'Helvetica' as PdfFontFamily,
@@ -924,6 +1124,15 @@ export function analyzeScannedRegionTypography(params: {
     classification: 'sans-serif' as OcrFontClassification,
     similarityScore: 0.85
   };
+
+  // When the pixel-template match is confident, trust it over the stroke/flare heuristics:
+  // bold monospaced print has thick strokes and would otherwise be misread as slab-serif.
+  if (templateLumGrid && bestTemplateDice >= 0.5) {
+    fontClassification = bestCandidate.classification;
+    isMonospaced = bestCandidate.classification === 'monospaced';
+    isSerif = bestCandidate.classification === 'serif' || bestCandidate.classification === 'slab-serif';
+    isCondensed = bestCandidate.classification === 'condensed-sans';
+  }
 
   // Compute optimal characterSpacingPt and horizontalScale so the matched font fits the original span naturally
   const naturalWidth = measureTextDimensionsPt(
@@ -1420,12 +1629,14 @@ export function preprocessCanvasForOcr(
   const range = Math.max(1, maxLum - minLum);
 
   if (mode === 'auto-enhance' || mode === 'grayscale-contrast') {
-    const contrastFactor = mode === 'auto-enhance' ? 1.35 : 1.55;
+    // Gentle contrast stretch — Tesseract binarizes internally, so hard-clipping
+    // to pure black/white here only erodes thin strokes on small print
+    const contrastFactor = mode === 'auto-enhance' ? 1.18 : 1.45;
     for (let i = 0, p = 0; i < len; i += 4, p++) {
       const norm = ((lumArray[p] - minLum) / range) * 255;
       let enhanced = (norm - 140) * contrastFactor + 145;
-      if (enhanced > 225) enhanced = 255;
-      if (enhanced < 25) enhanced = 0;
+      if (enhanced > 244) enhanced = 255;
+      if (enhanced < 14) enhanced = 0;
       const val = Math.max(0, Math.min(255, Math.round(enhanced)));
       data[i] = val;
       data[i + 1] = val;
@@ -3051,10 +3262,15 @@ export async function runScannedPageOcr(options: {
 
   onProgress?.('Rasterizing scanned page at high DPI...', 10);
 
+  // Load every candidate font before any pixel typography analysis runs, so the
+  // template matcher and replacement renderer see the true fonts (not fallbacks)
+  await ensureOcrFontsLoaded();
+
   const pdfDoc = await loadPdfJsDocument(new Uint8Array(pdfBuffer));
   const page = await pdfDoc.getPage(pageIndex + 1);
 
-  const ocrRenderScale = 2.0;
+  // 3.0x ≈ 216 DPI: materially better word segmentation on 10–11pt scan text
+  const ocrRenderScale = 3.0;
   const viewport = page.getViewport({ scale: ocrRenderScale });
 
   const rawCanvas = document.createElement('canvas');
@@ -3098,11 +3314,24 @@ export async function runScannedPageOcr(options: {
       }
     });
 
+    // First-run WASM compile can take several seconds; a short timeout here would
+    // silently push every first recognition onto the 2D fallback engine
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('OCR worker initialization timeout — using local 2D engine')), 3500)
+      setTimeout(() => reject(new Error('OCR worker initialization timeout — using local 2D engine')), 12000)
     );
 
     const worker = await Promise.race([workerPromise, timeoutPromise]);
+
+    // Explicit recognition parameters: 300dpi declared source, preserve inter-word
+    // spacing so phrase segmentation keeps column gaps intact
+    try {
+      await worker.setParameters({
+        user_defined_dpi: '300',
+        preserve_interword_spaces: '1'
+      });
+    } catch {
+      // Older worker builds without setParameters — recognition still proceeds
+    }
 
       try {
         const imageSource =
@@ -3267,8 +3496,13 @@ export async function runScannedPageOcr(options: {
       } finally {
         await worker.terminate();
       }
-  } catch {
-    // Fallback to 2D connected-component segmentation if worker fails
+  } catch (err) {
+    // Fallback to 2D connected-component segmentation if worker fails;
+    // keep the reason visible in the console for diagnostics
+    console.warn('[OCR] Tesseract worker unavailable — using 2D fallback:', err);
+    if (typeof window !== 'undefined') {
+      (window as any).__lastOcrWorkerError = String((err as Error)?.message || err);
+    }
   }
 
   if (recognizedObjects.length === 0 && !shouldCancel?.()) {

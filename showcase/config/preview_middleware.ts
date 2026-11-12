@@ -8,18 +8,32 @@ export function mountShowcasePreview(app: Express, repoRoot: string, vite?: Vite
   const siteDir = path.join(repoRoot, 'showcase', 'site');
   const siteAssetsDir = path.join(siteDir, 'assets');
   const fallbackAssetsDir = path.join(repoRoot, 'showcase', 'assets');
+  const landingDir = path.join(repoRoot, 'landing');
+  const landingAssetsDir = path.join(landingDir, 'assets');
+  const publicDir = path.join(repoRoot, 'public');
   const demoHtmlPath = path.join(repoRoot, 'showcase', 'demo', 'index.html');
   const studioHtmlPath = path.join(repoRoot, 'index.html');
 
-  // Serve showcase/site/assets first (for shot-*.webp), then fallback to showcase/assets
+  // Landing page assets (/assets/desk.css, /assets/fonts/*) resolve first;
+  // showcase assets fall through for anything the landing folder doesn't have.
+  app.use('/assets', express.static(landingAssetsDir));
   app.use('/assets', express.static(siteAssetsDir));
   app.use('/assets', express.static(fallbackAssetsDir));
   app.use('/showcase/assets', express.static(fallbackAssetsDir));
+  // Brand files referenced by the landing favicon (../public/brand/...)
+  app.use('/public', express.static(publicDir));
 
-  // 1. Public Showcase Landing Page at / and /showcase
-  app.get(['/', '/index.html', '/showcase', '/showcase/'], async (_req: Request, res: Response, next: NextFunction) => {
+  // Tesseract OCR worker/WASM/language assets are loaded by the engine relative to the
+  // page URL, so they must resolve under every app page prefix (/studio, /app, /demo).
+  // In the packaged desktop exe dist/ocr/ sits next to index.html (file:) and needs no alias.
+  app.use('/studio/ocr', express.static(path.join(publicDir, 'ocr')));
+  app.use('/app/ocr', express.static(path.join(publicDir, 'ocr')));
+  app.use('/demo/ocr', express.static(path.join(publicDir, 'ocr')));
+
+  // 1. Public Landing Page — "THE DESK" — at / and /index.html
+  app.get(['/', '/index.html'], async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const rawHtml = await fs.readFile(path.join(siteDir, 'index.html'), 'utf-8');
+      const rawHtml = await fs.readFile(path.join(landingDir, 'index.html'), 'utf-8');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.status(200).send(rawHtml);
     } catch (err) {
@@ -27,7 +41,7 @@ export function mountShowcasePreview(app: Express, repoRoot: string, vite?: Vite
     }
   });
 
-  // 2. Restricted Showcase Demo at /demo and /demo/
+  // 2. Restricted Interactive Demo (sample document only, no uploads) at /demo
   app.get(['/demo', '/demo/', '/demo/index.html'], async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (req.path === '/demo') {
@@ -45,8 +59,8 @@ export function mountShowcasePreview(app: Express, repoRoot: string, vite?: Vite
     }
   });
 
-  // 3. Full Un-restricted Web Studio at /studio
-  app.get(['/studio', '/studio/'], async (_req: Request, res: Response, next: NextFunction) => {
+  // 3. Full Un-restricted Product Studio at /studio (alias: /app)
+  app.get(['/studio', '/studio/', '/app', '/app/'], async (_req: Request, res: Response, next: NextFunction) => {
     try {
       let rawStudioHtml = await fs.readFile(studioHtmlPath, 'utf-8');
       if (vite) {
@@ -58,4 +72,18 @@ export function mountShowcasePreview(app: Express, repoRoot: string, vite?: Vite
       next(err);
     }
   });
+
+  // 4. Previous screenshot-based landing kept available at /showcase
+  app.get(['/showcase', '/showcase/', '/showcase/index.html'], async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawHtml = await fs.readFile(path.join(siteDir, 'index.html'), 'utf-8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(200).send(rawHtml);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 5. Landing design gallery + alternates (designs/*.html)
+  app.use('/designs', express.static(path.join(landingDir, 'designs')));
 }

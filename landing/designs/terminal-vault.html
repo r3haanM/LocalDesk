@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#020604">
+<meta name="description" content="Local Desk is a 100% local, offline PDF & document studio — 22 tools, 13 conversion formats, offline OCR, verified redaction. No cloud. No accounts. No telemetry.">
+<title>Local Desk — Your documents. Your device. Your control.</title>
+<link rel="icon" type="image/svg+xml" href="../../public/brand/local-desk-app-icon.svg" />
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#020604;
+  --bg2:#04100A;
+  --fg:#34D399;
+  --bright:#4ADE80;
+  --dim:#1E7A5A;
+  --amber:#FBBF24;
+  --ink:#D9F7E8;
+  --line:rgba(52,211,153,.30);
+  --line-soft:rgba(52,211,153,.14);
+  --glow:0 0 8px rgba(52,211,153,.35);
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--mono);
+  font-size:15px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+/* CRT scanlines + vignette */
+body::before{
+  content:"";
+  position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(1,6,3,.85) 0,rgba(1,6,3,.85) 1px,transparent 1px,transparent 3px);
+  opacity:.05;
+  animation:flicker 9s infinite;
+}
+body::after{
+  content:"";
+  position:fixed;inset:0;z-index:9998;pointer-events:none;
+  background:radial-gradient(120% 95% at 50% 38%,transparent 55%,rgba(0,3,1,.5) 100%);
+}
+@keyframes flicker{0%,100%{opacity:.05}50%{opacity:.07}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes pulse{50%{opacity:.35}}
+::selection{background:rgba(52,211,153,.35);color:#EAFFF6}
+:focus-visible{outline:2px solid var(--bright);outline-offset:3px}
+.wrap{max-width:1100px;margin:0 auto;padding-left:22px;padding-right:22px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;left:-9999px;top:0;z-index:10001;background:var(--bg2);color:var(--bright);padding:10px 16px;border:1px solid var(--line)}
+.skip:focus{left:8px;top:8px}
+
+/* terminal title bar */
+.titlebar{position:sticky;top:0;z-index:50;background:rgba(3,14,9,.92);border-bottom:1px solid var(--line-soft)}
+.tb-inner{display:flex;align-items:center;gap:12px;height:52px;max-width:1400px;margin:0 auto;padding:0 16px}
+.tb-logo{display:flex;align-items:center}
+.tb-logo svg{display:block;filter:drop-shadow(0 0 6px rgba(52,211,153,.35))}
+.tb-dots{display:flex;gap:7px}
+.tb-dots i{width:10px;height:10px;border-radius:50%;background:#0A2A1D;border:1px solid var(--dim)}
+.tb-dots i:nth-child(2){background:#0F3D2A}
+.tb-dots i:nth-child(3){background:#145C40;border-color:var(--fg)}
+.tb-title{color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tb-title b{color:var(--fg);font-weight:400}
+.tb-right{margin-left:auto;color:var(--dim);font-size:12px;white-space:nowrap}
+.tb-right b{color:var(--bright);font-weight:400;text-shadow:var(--glow)}
+
+/* hero */
+.hero{padding:72px 0 60px}
+.boot{margin:0 0 18px;color:var(--dim);font-size:12.5px}
+.kicker{margin:0 0 24px;color:var(--dim);font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+.kicker b{color:var(--bright);font-weight:400}
+.banner{
+  position:relative;display:inline-block;margin:0 0 26px;padding:26px 32px;
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(4,16,10,.72),rgba(2,8,5,.3));
+  box-shadow:var(--glow),inset 0 0 46px rgba(16,185,129,.05);
+}
+.banner::before{
+  content:"banner";
+  position:absolute;top:-9px;left:18px;
+  background:var(--bg);padding:0 8px;
+  color:var(--dim);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;
+}
+.banner-line{display:block;font-weight:700;font-size:clamp(26px,5.2vw,50px);line-height:1.2;letter-spacing:.05em;text-shadow:var(--glow)}
+.banner-line:nth-child(1),.banner-line:nth-child(3){color:var(--bright)}
+.banner-line:nth-child(2){color:var(--fg)}
+.sub{max-width:660px;margin:0;color:var(--fg)}
+.sub b{color:var(--bright);font-weight:400}
+.cta-row{display:flex;flex-wrap:wrap;gap:14px;margin:30px 0 46px}
+.cmd-btn{
+  display:inline-block;padding:13px 24px;
+  border:1px solid var(--line);
+  background:rgba(16,185,129,.06);
+  color:var(--bright);
+  font-family:inherit;font-size:14.5px;letter-spacing:.04em;
+  text-decoration:none;cursor:pointer;
+  transition:background .18s,border-color .18s,box-shadow .18s;
+}
+.cmd-btn .br{color:var(--dim)}
+.cmd-btn:hover{background:rgba(52,211,153,.15);border-color:var(--bright);box-shadow:0 0 22px rgba(52,211,153,.28);text-shadow:var(--glow)}
+.cmd-btn.primary{background:rgba(52,211,153,.14);border-color:var(--fg)}
+.cmd-btn[disabled]{opacity:.55;cursor:progress}
+
+/* fake terminal */
+.term{
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  background:rgba(2,10,6,.92);
+  box-shadow:0 0 34px rgba(16,185,129,.1),inset 0 0 70px rgba(1,10,6,.7);
+}
+.term-bar{display:flex;align-items:center;gap:12px;padding:9px 14px;background:#05170E;border-bottom:1px solid var(--line-soft);font-size:12px;color:var(--dim)}
+.term-bar .tb-dots i{width:9px;height:9px}
+.term-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.term-dim{margin-left:auto;white-space:nowrap}
+.term-body{height:300px;overflow-y:auto;padding:16px 18px;font-size:13.5px;line-height:1.75;scrollbar-color:#0F3D2A #04100A}
+.term-body::-webkit-scrollbar{width:10px}
+.term-body::-webkit-scrollbar-thumb{background:#0F3D2A;border-radius:6px}
+.term-body::-webkit-scrollbar-track{background:transparent}
+.t-line{white-space:pre-wrap;overflow-wrap:anywhere}
+.t-prompt{color:var(--bright);text-shadow:var(--glow)}
+.t-text{color:var(--ink)}
+.t-out{color:var(--fg)}
+.t-ok{color:var(--bright);text-shadow:var(--glow)}
+.t-cursor{
+  display:inline-block;width:.6em;height:1.05em;margin-left:2px;
+  background:var(--bright);vertical-align:-.15em;
+  box-shadow:0 0 10px rgba(52,211,153,.7);
+  animation:blink 1.1s steps(1) infinite;
+}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px}
+.chips-label{color:var(--dim);font-size:13px}
+.chip{
+  font-family:inherit;font-size:13px;color:var(--fg);
+  background:transparent;border:1px solid var(--line-soft);
+  padding:8px 4px;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.chip::before{content:"[ ";color:var(--dim)}
+.chip::after{content:" ]";color:var(--dim)}
+.chip:hover{color:var(--bright);border-color:var(--line)}
+.chip.active{color:var(--bright);border-color:var(--bright);background:rgba(52,211,153,.1);text-shadow:var(--glow)}
+
+/* sections */
+section{padding:78px 0}
+[id]{scroll-margin-top:76px}
+.sec-head{max-width:740px;margin-bottom:40px}
+.sec-cmd{display:block;margin-bottom:10px;color:var(--dim);font-size:13px}
+.sec-head h2{margin:0 0 12px;font-weight:700;font-size:clamp(22px,3.4vw,34px);letter-spacing:.06em;color:var(--bright);text-shadow:var(--glow)}
+.sec-head p{margin:0;color:var(--fg)}
+
+/* man pages */
+.man-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:20px}
+.man-card{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(4,16,10,.65),rgba(2,9,6,.35))}
+.man-card::before,.man-card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none}
+.man-card::before{top:-1px;left:-1px;border-top:2px solid var(--bright);border-left:2px solid var(--bright)}
+.man-card::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--bright);border-right:2px solid var(--bright)}
+.man-name{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px dashed var(--line-soft);color:var(--dim);font-size:12px;letter-spacing:.14em}
+.man-name b{color:var(--bright);font-weight:700}
+.man-sec{padding:13px 16px;border-bottom:1px dashed var(--line-soft)}
+.man-sec:last-child{border-bottom:0;padding-bottom:16px}
+.man-label{display:block;margin-bottom:6px;color:var(--dim);font-size:11px;letter-spacing:.2em}
+.man-syn{margin:0;color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.man-desc{margin:0;color:var(--fg);font-size:13.5px;line-height:1.7}
+
+/* redaction demo */
+.redact-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;align-items:start}
+.fileview{border:1px solid var(--line);background:#020A06;box-shadow:inset 0 0 40px rgba(1,8,4,.8)}
+.fv-bar{display:flex;justify-content:space-between;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line-soft);color:var(--dim);font-size:12px}
+.fileview pre{margin:0;padding:16px 18px;font-family:inherit;font-size:13.5px;line-height:1.85;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.pii{color:var(--amber);border-bottom:1px dotted rgba(251,191,36,.55);text-shadow:0 0 8px rgba(251,191,36,.25)}
+.pii.purged{color:var(--bright);border-bottom:0;text-shadow:var(--glow)}
+.redact-panel{border:1px solid var(--line);background:rgba(3,14,9,.5);padding:18px}
+.redact-log{height:200px;margin-top:16px;overflow-y:auto;font-size:12.5px;line-height:1.85;color:var(--fg);scrollbar-color:#0F3D2A #04100A}
+.lg-t{color:var(--dim)}
+.lg-ok-line{color:var(--bright)}
+.warn{margin:20px 0 0;color:var(--amber);font-size:13px;line-height:1.7}
+.warn b{font-weight:700}
+
+/* ascii conversion table */
+.ascii-wrap{border:1px solid var(--line);background:#020A06;overflow-x:auto}
+.ascii-wrap pre{margin:0;padding:20px 22px;min-width:660px;font-family:inherit;font-size:13px;line-height:1.9;color:var(--fg)}
+.ascii-wrap pre::first-line{color:var(--bright);text-shadow:var(--glow)}
+.tbl-note{margin:14px 0 0;color:var(--dim);font-size:13px}
+.tbl-note b{color:var(--fg);font-weight:400}
+
+/* stats */
+.stats{padding:64px 0;text-align:center;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:linear-gradient(180deg,rgba(4,16,10,.5),transparent)}
+.stats .sec-cmd{margin-bottom:14px}
+.stats-line{margin:0;font-size:clamp(14px,2.6vw,21px);letter-spacing:.03em;text-shadow:var(--glow);overflow-wrap:anywhere}
+.stats-line b{color:var(--bright);font-weight:700}
+.stats-sub{margin:14px 0 0;color:var(--dim);font-size:13px}
+
+/* final CTA */
+.cta-panel{
+  position:relative;text-align:center;
+  border:1px solid var(--line);
+  padding:56px 26px;
+  background:linear-gradient(180deg,rgba(5,23,14,.75),rgba(2,10,6,.4));
+  box-shadow:0 0 50px rgba(16,185,129,.08);
+}
+.cta-panel::before,.cta-panel::after{content:"";position:absolute;width:16px;height:16px;pointer-events:none}
+.cta-panel::before{top:-1px;left:-1px;border-top:2px solid var(--bright);border-left:2px solid var(--bright)}
+.cta-panel::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--bright);border-right:2px solid var(--bright)}
+.cta-panel h2{margin:0 0 12px;font-weight:700;font-size:clamp(24px,4vw,40px);letter-spacing:.06em;color:var(--bright);text-shadow:var(--glow)}
+.cta-panel p{max-width:580px;margin:0 auto 30px;color:var(--fg)}
+.cta-panel .cta-row{justify-content:center;margin:0}
+
+/* footer */
+.foot{border-top:1px solid var(--line-soft);background:#030B07;padding:56px 0 34px}
+.foot-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:36px}
+.brandmark{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brandmark svg{filter:drop-shadow(0 0 10px rgba(52,211,153,.18))}
+.foot-tag{margin:16px 0 18px;color:var(--fg)}
+.foot-meta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px}
+.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);padding:6px 12px;color:var(--bright);font-size:12.5px;letter-spacing:.05em}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--bright);box-shadow:0 0 8px rgba(74,222,128,.8);animation:pulse 2.4s infinite}
+.foot-ver{color:var(--dim);font-size:12.5px}
+.socials{display:flex;gap:12px}
+.socials a{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid var(--line-soft);color:var(--fg);transition:color .15s,border-color .15s,box-shadow .15s}
+.socials a:hover{color:var(--bright);border-color:var(--bright);box-shadow:0 0 16px rgba(52,211,153,.3)}
+.foot-h{margin:0 0 14px;color:var(--dim);font-size:12px;letter-spacing:.14em;font-weight:400}
+.foot-links a{display:block;padding:5px 0;color:var(--fg);font-size:14px;text-decoration:none}
+.foot-links a::before{content:"› ";color:var(--dim)}
+.foot-links a:hover{color:var(--bright);text-shadow:var(--glow)}
+.foot-copy{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:46px;padding-top:20px;border-top:1px dashed var(--line-soft);color:var(--dim);font-size:12.5px}
+.foot-copy p{margin:0}
+
+/* responsive */
+@media (max-width:900px){
+  .redact-grid{grid-template-columns:1fr}
+  .foot-grid{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .hero{padding:52px 0 48px}
+  section{padding:58px 0}
+  .tb-right{display:none}
+  .banner{padding:20px 18px}
+  .cmd-btn{flex:1 1 100%;text-align:center}
+  .term-body{height:260px;font-size:12.5px;padding:12px}
+  .redact-log{height:170px}
+  .foot-copy{flex-direction:column;gap:6px}
+}
+
+/* reduced motion: no flicker, no blinking, no typing (handled in JS too) */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">skip to content</a>
+
+<header class="titlebar">
+  <div class="tb-inner">
+    <a class="tb-logo" href="#main" aria-label="Local Desk — back to top"><svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ld-icon-bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#142C23"/><stop offset="100%" stop-color="#0A1712"/></linearGradient><linearGradient id="ld-icon-frame" x1="14" y1="14" x2="50" y2="50" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34D399"/><stop offset="45%" stop-color="#10B981"/><stop offset="100%" stop-color="#059669"/></linearGradient><linearGradient id="ld-icon-sheet" x1="28" y1="14" x2="50" y2="36" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#F7FCF9"/><stop offset="100%" stop-color="#D1FAE5"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="14" fill="url(#ld-icon-bg)"/><rect x="4.75" y="4.75" width="54.5" height="54.5" rx="13.25" stroke="#34D399" stroke-opacity="0.24" stroke-width="1.25"/><path d="M14 18C14 15.7909 15.7909 14 18 14H21C22.3807 14 23.5 15.1193 23.5 16.5V38C23.5 39.3807 24.6193 40.5 26 40.5H47.5C48.8807 40.5 50 41.6193 50 43V46C50 48.2091 48.2091 50 46 50H18C15.7909 50 14 48.2091 14 46V18Z" fill="url(#ld-icon-frame)"/><path d="M28 16.5C28 15.1193 29.1193 14 30.5 14H41L50 23V33.5C50 34.8807 48.8807 36 47.5 36H30.5C29.1193 36 28 34.8807 28 33.5V16.5Z" fill="url(#ld-icon-sheet)"/><path d="M41 14V20.5C41 21.8807 42.1193 23 43.5 23H50L41 14Z" fill="#10B981"/><rect x="32.5" y="23" width="11.5" height="2.6" rx="1.3" fill="#0D1F18"/><rect x="32.5" y="28" width="7.5" height="2.6" rx="1.3" fill="#059669"/></svg></a>
+    <span class="tb-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="tb-title"><b>local-desk</b> — /home/you — 100% offline</span>
+    <span class="tb-right"><b>●</b> net: none · v1.0.4</span>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero wrap">
+    <p class="boot">Last login: today on console · connection status: disconnected (by design)</p>
+    <p class="kicker">$ whoami → <b>offline document studio</b> · v1.0.4 · MIT · windows 7→11 + any browser</p>
+    <h1 class="banner">
+      <span class="banner-line">YOUR DOCUMENTS.</span>
+      <span class="banner-line">YOUR DEVICE.</span>
+      <span class="banner-line">YOUR CONTROL.</span>
+    </h1>
+    <p class="sub">Local Desk is a <b>100% local, offline PDF &amp; document studio</b> — 22 tools, 13 conversion formats. Every file is parsed in local memory, inside this browser tab or the Windows app. No cloud. No accounts. No telemetry. Your documents never leave your device.</p>
+    <div class="cta-row">
+      <a class="cmd-btn primary" href="/demo/" aria-label="Open the live demo"><span class="br">[</span> open_demo <span class="br">]</span></a>
+      <a class="cmd-btn" href="https://github.com/r3haanM/LocalDesk/releases/latest" target="_blank" rel="noopener noreferrer" aria-label="Download for Windows"><span class="br">[</span> download_v1.0.4 <span class="br">]</span></a>
+    </div>
+
+    <div class="term" role="region" aria-label="Simulated Local Desk terminal">
+      <div class="term-bar" aria-hidden="true">
+        <span class="tb-dots"><i></i><i></i><i></i></span>
+        <span class="term-name">localdesk@localhost: ~/documents — zsh</span>
+        <span class="term-dim">offline · 0 sockets open</span>
+      </div>
+      <div class="term-body" id="termBody">
+        <noscript>
+<div class="t-line"><span class="t-prompt">$ </span><span class="t-text">localdesk convert q3-report.pdf --to docx</span></div>
+<div class="t-out"><span class="t-ok">✓ </span>parsed 12 pages · 0 network requests</div>
+<div class="t-line"><span class="t-prompt">$ </span><span class="t-text">localdesk redact contracts.pdf --purge-streams --verify</span></div>
+<div class="t-out"><span class="t-ok">✓ </span>3 strings purged · re-parse verified absent</div>
+        </noscript>
+      </div>
+    </div>
+    <p class="sr-only">Demo terminal cycles through five sample commands — convert, redact, ocr, merge, compress — all processed locally. Sample output: "$ localdesk convert q3-report.pdf --to docx → ✓ parsed 12 pages · 0 network requests" and "$ localdesk redact contracts.pdf --purge-streams --verify → ✓ 3 strings purged · re-parse verified absent".</p>
+
+    <div class="chips" role="group" aria-label="Jump the terminal to a sample command">
+      <span class="chips-label">$ try:</span>
+      <button type="button" class="chip active" data-idx="0" aria-pressed="true">--to-docx</button>
+      <button type="button" class="chip" data-idx="1" aria-pressed="false">--redact</button>
+      <button type="button" class="chip" data-idx="2" aria-pressed="false">--ocr</button>
+      <button type="button" class="chip" data-idx="3" aria-pressed="false">--merge</button>
+      <button type="button" class="chip" data-idx="4" aria-pressed="false">--compress</button>
+    </div>
+  </section>
+
+  <section id="tools" class="wrap">
+    <div class="sec-head">
+      <span class="sec-cmd">$ man localdesk | col -b</span>
+      <h2>MAN PAGES</h2>
+      <p>Four entries from the built-in manual. Every command runs in local memory — nothing phones home, ever.</p>
+    </div>
+    <div class="man-grid">
+      <article class="man-card">
+        <div class="man-name"><b>LD-ORGANIZE(1)</b><span>tools</span></div>
+        <div class="man-sec"><span class="man-label">NAME</span><p class="man-syn">organize — merge, split, rotate, reorder</p></div>
+        <div class="man-sec"><span class="man-label">SYNOPSIS</span><p class="man-syn">localdesk organize in.pdf --extract 3-5 --rotate 90</p></div>
+        <div class="man-sec"><span class="man-label">DESCRIPTION</span><p class="man-desc">Rebuild documents page by page: merge many into one, split by range, rotate and reorder — all without a single server round-trip.</p></div>
+      </article>
+      <article class="man-card">
+        <div class="man-name"><b>LD-OCR(1)</b><span>tools</span></div>
+        <div class="man-sec"><span class="man-label">NAME</span><p class="man-syn">ocr — make scans searchable, offline</p></div>
+        <div class="man-sec"><span class="man-label">SYNOPSIS</span><p class="man-syn">localdesk ocr scan.png --lang eng+deu</p></div>
+        <div class="man-sec"><span class="man-label">DESCRIPTION</span><p class="man-desc">Tesseract ships bundled as WebAssembly and runs fully offline: 100+ languages, image preprocessing, searchable PDF out. No API keys, no upload.</p></div>
+      </article>
+      <article class="man-card">
+        <div class="man-name"><b>LD-REDACT(1)</b><span>tools</span></div>
+        <div class="man-sec"><span class="man-label">NAME</span><p class="man-syn">redact — true removal, not ink</p></div>
+        <div class="man-sec"><span class="man-label">SYNOPSIS</span><p class="man-syn">localdesk redact in.pdf --purge-streams --verify</p></div>
+        <div class="man-sec"><span class="man-label">DESCRIPTION</span><p class="man-desc">A black box over text is not redaction. Local Desk purges matches from the content streams, rewrites the file, then re-parses it to verify the strings are gone.</p></div>
+      </article>
+      <article class="man-card">
+        <div class="man-name"><b>LD-BATCH(1)</b><span>tools</span></div>
+        <div class="man-sec"><span class="man-label">NAME</span><p class="man-syn">batch — queues, signatures, envelopes</p></div>
+        <div class="man-sec"><span class="man-label">SYNOPSIS</span><p class="man-syn">localdesk batch ./inbox --pipeline convert,sign</p></div>
+        <div class="man-sec"><span class="man-label">DESCRIPTION</span><p class="man-desc">Queue hundreds of files across all 22 tools. Attach SHA-256 signatures, wrap outputs in password envelopes, export bundles as PDF/A or ZIP.</p></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="redact" class="wrap">
+    <div class="sec-head">
+      <span class="sec-cmd">$ localdesk redact hr_export.pdf --purge-streams --verify</span>
+      <h2>REDACTION, VERIFIED</h2>
+      <p>Press run and watch three PII strings get purged from the file line by line — then re-parsed to prove they are gone.</p>
+    </div>
+    <div class="redact-grid">
+      <div class="fileview">
+        <div class="fv-bar" aria-hidden="true"><span>~/documents/hr_export.pdf</span><span>read-only</span></div>
+<pre id="fileDoc" aria-label="Sample patient record used for the redaction demo">MERIDIAN CLINIC — patient intake record        page 1/3
+───────────────────────────────────────────────────────
+patient name : J. Alvarez
+ssn          : <span class="pii" data-type="ssn">411-90-2277</span>
+email        : <span class="pii" data-type="email">j.alvarez@meridian-health.com</span>
+phone        : <span class="pii" data-type="phone">+1 (415) 555-0173</span>
+diagnosis    : hypertension, stage II
+insurance no : MH-88213-D
+physician    : Dr. K. Osei
+note         : follow-up in 6 weeks · lab panel attached</pre>
+      </div>
+      <div class="redact-panel">
+        <button type="button" class="cmd-btn primary" id="runRedact">[ run --redact ]</button>
+        <div class="redact-log" id="redactLog" aria-live="polite">
+          <div class="lg-line"><span class="lg-t">[idle]</span> <span class="lg-body">3 sensitive values flagged (amber) — press [ run --redact ]</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="warn"><b>⚠ warn:</b> drawing black boxes over text does NOT remove it — copy-paste or stream extraction recovers everything unless the content streams are purged and re-verified.</p>
+  </section>
+
+  <section id="formats" class="wrap">
+    <div class="sec-head">
+      <span class="sec-cmd">$ localdesk formats --list</span>
+      <h2>CONVERSION MATRIX</h2>
+      <p>13 conversion formats, one local engine. PDF in, whatever you need out — or the other way around.</p>
+    </div>
+    <div class="ascii-wrap">
+<pre id="fmtTable"> SOURCE │ TARGETS                                      │  NOTE             
+────────┼──────────────────────────────────────────────┼───────────────────
+ PDF    │ DOCX XLSX PPTX HTML JPG PNG CSV PDF/A ZIP    │  full read + write
+ DOCX   │ PDF                                          │  layout preserved 
+ XLSX   │ PDF · CSV                                    │  sheets → tables  
+ PPTX   │ PDF                                          │  slides → pages   
+ HTML   │ PDF                                          │  print-quality    
+ JPG    │ PDF · PNG                                    │  image pipeline   
+ PNG    │ PDF · JPG                                    │  image pipeline   
+ CSV    │ PDF · XLSX                                   │  tabular data     
+ ANY    │ ZIP · PDF/A · signed envelope                │  batch · sha-256  </pre>
+    </div>
+    <p class="tbl-note"><b>PDF ⇄</b> DOCX · XLSX · PPTX · HTML · JPG · PNG · CSV · PDF/A · ZIP — signed with SHA-256, bundled as ZIP, archived as PDF/A.</p>
+  </section>
+
+  <section class="stats" aria-label="Local Desk in numbers">
+    <div class="wrap">
+      <p class="sec-cmd">$ wc --stats ~/documents</p>
+      <p class="stats-line"><b>22</b> tools · <b>13</b> formats · <b>0</b> uploads · <b>0</b> accounts · <b>0</b> bytes of telemetry</p>
+      <p class="stats-sub">exit 0 — everything stayed on your machine</p>
+    </div>
+  </section>
+
+  <section id="get" class="wrap">
+    <div class="cta-panel">
+      <p class="sec-cmd">$ read -p "ready?" answer</p>
+      <h2>READY WHEN YOU ARE.</h2>
+      <p>Open the live demo — files never leave the tab. Or grab the Windows app (7 → 11): MIT licensed, v1.0.4, all 22 tools included.</p>
+      <div class="cta-row">
+        <a class="cmd-btn primary" href="/demo/" aria-label="Open the live demo"><span class="br">[</span> open_the_live_demo <span class="br">]</span></a>
+        <a class="cmd-btn" href="https://github.com/r3haanM/LocalDesk/releases/latest" target="_blank" rel="noopener noreferrer" aria-label="Download for Windows"><span class="br">[</span> download_for_windows <span class="br">]</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <div class="brandmark">
+        <svg width="30" height="30" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ld-icon-bg-ft" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#142C23"/><stop offset="100%" stop-color="#0A1712"/></linearGradient><linearGradient id="ld-icon-frame-ft" x1="14" y1="14" x2="50" y2="50" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34D399"/><stop offset="45%" stop-color="#10B981"/><stop offset="100%" stop-color="#059669"/></linearGradient><linearGradient id="ld-icon-sheet-ft" x1="28" y1="14" x2="50" y2="36" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#F7FCF9"/><stop offset="100%" stop-color="#D1FAE5"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="14" fill="url(#ld-icon-bg-ft)"/><rect x="4.75" y="4.75" width="54.5" height="54.5" rx="13.25" stroke="#34D399" stroke-opacity="0.24" stroke-width="1.25"/><path d="M14 18C14 15.7909 15.7909 14 18 14H21C22.3807 14 23.5 15.1193 23.5 16.5V38C23.5 39.3807 24.6193 40.5 26 40.5H47.5C48.8807 40.5 50 41.6193 50 43V46C50 48.2091 48.2091 50 46 50H18C15.7909 50 14 48.2091 14 46V18Z" fill="url(#ld-icon-frame-ft)"/><path d="M28 16.5C28 15.1193 29.1193 14 30.5 14H41L50 23V33.5C50 34.8807 48.8807 36 47.5 36H30.5C29.1193 36 28 34.8807 28 33.5V16.5Z" fill="url(#ld-icon-sheet-ft)"/><path d="M41 14V20.5C41 21.8807 42.1193 23 43.5 23H50L41 14Z" fill="#10B981"/><rect x="32.5" y="23" width="11.5" height="2.6" rx="1.3" fill="#0D1F18"/><rect x="32.5" y="28" width="7.5" height="2.6" rx="1.3" fill="#059669"/></svg>
+        <svg width="130" height="28" viewBox="0 0 260 56" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="8" y="40" font-family="'Plus Jakarta Sans', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif" font-size="36" letter-spacing="-0.03em"><tspan font-weight="800" fill="#F2F7F4">Local</tspan><tspan dx="8" font-weight="700" fill="#34D399">Desk</tspan></text></svg>
+      </div>
+      <p class="foot-tag">Your documents. Your device. Your control.</p>
+      <div class="foot-meta">
+        <span class="badge"><i aria-hidden="true"></i>Free &amp; open source</span>
+        <span class="foot-ver">v1.0.4 · MIT · Windows 7→11 · runs in any browser</span>
+      </div>
+      <nav class="socials" aria-label="Local Desk on social platforms">
+        <a href="https://github.com/r3haanM/LocalDesk" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.744.083-.729.083-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.807 1.305 3.492.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.694.825.577C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg></a>
+        <a href="https://x.com/cyber_cypher007" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z"/></svg></a>
+        <a href="https://linkedin.com/in/rehan-mumtaz" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg></a>
+        <a href="https://rehanmumtaz.medium.com" target="_blank" rel="noopener noreferrer" aria-label="Medium"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.54 12a6.8 6.8 0 0 1-6.77 6.82A6.8 6.8 0 0 1 0 12a6.8 6.8 0 0 1 6.77-6.82A6.8 6.8 0 0 1 13.54 12zm7.42 0c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.87 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75S24 8.83 24 12z"/></svg></a>
+      </nav>
+    </div>
+    <nav class="foot-links" aria-label="Footer links">
+      <h3 class="foot-h">$ ls ./links</h3>
+      <a href="https://github.com/r3haanM/LocalDesk/releases/latest" target="_blank" rel="noopener noreferrer">Releases</a>
+      <a href="/demo/">Live demo</a>
+      <a href="https://github.com/r3haanM/LocalDesk/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+    </nav>
+  </div>
+  <div class="wrap foot-copy">
+    <p>© <span id="y">2026</span> Local Desk · vibe-coded by Rehan Mumtaz</p>
+    <p>exit 0 · 0 requests made · rendered locally in your tab</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function byId(id) { return document.getElementById(id); }
+
+  /* footer year */
+  var yEl = byId('y');
+  if (yEl) yEl.textContent = String(new Date().getFullYear());
+
+  /* tiny timer clocks (independent per module so loops never collide) */
+  function makeClock() {
+    var ts = [];
+    return {
+      later: function (fn, ms) { ts.push(setTimeout(fn, ms)); },
+      clear: function () {
+        for (var i = 0; i < ts.length; i++) clearTimeout(ts[i]);
+        ts = [];
+      }
+    };
+  }
+  function typeInto(el, text, speed, clock, scrollFn, done) {
+    var i = 0;
+    (function step() {
+      i += 1;
+      el.textContent = text.slice(0, i);
+      if (scrollFn) scrollFn();
+      if (i < text.length) clock.later(step, speed + Math.random() * speed);
+      else if (done) clock.later(done, 40);
+    })();
+  }
+
+  /* ---------------- hero terminal: looping scripted session ---------------- */
+  var SCRIPTS = [
+    {
+      cmd: 'localdesk convert q3-report.pdf --to docx',
+      out: ['parsed 12 pages · 0 network requests',
+            'wrote q3-report.docx · 384 KB · in local memory']
+    },
+    {
+      cmd: 'localdesk redact contracts.pdf --purge-streams --verify',
+      out: ['3 strings purged · re-parse verified absent',
+            'content streams rewritten · 0 remnants found']
+    },
+    {
+      cmd: 'localdesk ocr scan-invoice.png --lang eng',
+      out: ['1,842 chars recognized · tesseract wasm · bundled offline',
+            'scan-invoice.pdf is now searchable']
+    },
+    {
+      cmd: 'localdesk merge q1.pdf q2.pdf q3.pdf --out fy.pdf',
+      out: ['87 pages merged · 3 inputs · page order preserved',
+            'sha-256 attached · file never left the device']
+    },
+    {
+      cmd: 'localdesk compress deck.pptx --target 2mb',
+      out: ['9.4 MB → 1.8 MB · quality preserved',
+            '0 bytes uploaded · 0 accounts involved']
+    }
+  ];
+
+  var termBody = byId('termBody');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var clock = makeClock();
+  var idx = 0;
+
+  function scrollTerm() { termBody.scrollTop = termBody.scrollHeight; }
+  function addLine(cls) {
+    var d = document.createElement('div');
+    d.className = 't-line' + (cls ? ' ' + cls : '');
+    termBody.appendChild(d);
+    scrollTerm();
+    return d;
+  }
+  function addPrompt(cursor) {
+    var d = addLine('t-cmdline');
+    d.innerHTML = '<span class="t-prompt">$ </span><span class="t-text"></span>' +
+      (cursor ? '<span class="t-cursor" aria-hidden="true"></span>' : '');
+    return d.querySelector('.t-text');
+  }
+  function addOutput(text) {
+    var d = addLine('t-out');
+    d.innerHTML = '<span class="t-ok">✓</span> ';
+    d.appendChild(document.createTextNode(text));
+    scrollTerm();
+  }
+  function stripCursors() {
+    var c = termBody.querySelectorAll('.t-cursor');
+    for (var i = 0; i < c.length; i++) c[i].parentNode.removeChild(c[i]);
+  }
+  function markChip(n) {
+    chips.forEach(function (c, i) {
+      c.classList.toggle('active', i === n);
+      c.setAttribute('aria-pressed', i === n ? 'true' : 'false');
+    });
+  }
+  function runScript(n) {
+    clock.clear();
+    idx = n;
+    markChip(n);
+    termBody.innerHTML = '';
+    var s = SCRIPTS[n];
+    if (RM) {
+      addPrompt(false).textContent = s.cmd;
+      s.out.forEach(addOutput);
+      addPrompt(true);
+      return;
+    }
+    typeInto(addPrompt(true), s.cmd, 24, clock, scrollTerm, function () {
+      stripCursors();
+      clock.later(function () {
+        var k = 0;
+        (function next() {
+          if (k < s.out.length) {
+            addOutput(s.out[k]);
+            k += 1;
+            clock.later(next, 340);
+          } else {
+            addPrompt(true);
+            clock.later(function () { runScript((idx + 1) % SCRIPTS.length); }, 2600);
+          }
+        })();
+      }, 430);
+    });
+  }
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      runScript(parseInt(c.getAttribute('data-idx'), 10) || 0);
+    });
+  });
+  runScript(0);
+
+  /* ---------------- redaction transcript demo ---------------- */
+  var runBtn = byId('runRedact');
+  var logBox = byId('redactLog');
+  var fileDoc = byId('fileDoc');
+  var rclock = makeClock();
+  var running = false;
+  var spans = Array.prototype.slice.call(fileDoc.querySelectorAll('.pii'));
+  var STAMPS = ['[0.14s]', '[0.37s]', '[0.61s]'];
+
+  spans.forEach(function (s) { s.setAttribute('data-orig', s.textContent); });
+
+  function purge(s) {
+    var len = (s.getAttribute('data-orig') || '').length;
+    s.textContent = new Array(len + 1).join('█');
+    s.classList.add('purged');
+  }
+  function scrollLog() { logBox.scrollTop = logBox.scrollHeight; }
+  function addLog(stamp, ok) {
+    var d = document.createElement('div');
+    d.className = 'lg-line' + (ok ? ' lg-ok-line' : '');
+    d.innerHTML = '<span class="lg-t">' + stamp + '</span> <span class="lg-body"></span>';
+    logBox.appendChild(d);
+    scrollLog();
+    return d.querySelector('.lg-body');
+  }
+  function logText(s, n) {
+    return 'match #' + n + ' "' + s.getAttribute('data-orig') + '" (' +
+      s.getAttribute('data-type') + ') → purged from content stream';
+  }
+  function runRedaction() {
+    if (running) return;
+    running = true;
+    rclock.clear();
+    var oldLabel = runBtn.textContent;
+    runBtn.setAttribute('disabled', 'disabled');
+    runBtn.textContent = '[ purging… ]';
+    spans.forEach(function (s) {
+      s.textContent = s.getAttribute('data-orig');
+      s.classList.remove('purged');
+    });
+    logBox.innerHTML = '';
+    var finals = [
+      ['[0.94s]', 're-parse: 0 occurrences remain · content streams verified', false],
+      ['[0.97s]', 'wrote hr_export_redacted.pdf · saved locally · 0 uploads', true]
+    ];
+    function finish() {
+      if (RM) {
+        finals.forEach(function (f) { addLog(f[0], f[2]).textContent = f[1]; });
+      } else {
+        typeInto(addLog(finals[0][0], false), finals[0][1], 9, rclock, scrollLog, function () {
+          typeInto(addLog(finals[1][0], true), finals[1][1], 9, rclock, scrollLog, null);
+        });
+      }
+      runBtn.textContent = oldLabel;
+      runBtn.removeAttribute('disabled');
+      running = false;
+    }
+    if (RM) {
+      spans.forEach(function (s, i) {
+        purge(s);
+        addLog(STAMPS[i] || '[--]', false).textContent = logText(s, i + 1);
+      });
+      finish();
+      return;
+    }
+    var i = 0;
+    (function step() {
+      if (i < spans.length) {
+        var s = spans[i];
+        var n = i + 1;
+        i += 1;
+        rclock.later(function () {
+          purge(s);
+          typeInto(addLog(STAMPS[n - 1], false), logText(s, n), 8, rclock, scrollLog,
+            function () { rclock.later(step, 320); });
+        }, 360);
+      } else {
+        rclock.later(finish, 420);
+      }
+    })();
+  }
+  runBtn.addEventListener('click', runRedaction);
+})();
+</script>
+</body>
+</html>

@@ -54,6 +54,8 @@ export interface PdfToolDefinition {
   acceptedExtensions: string[];
   multipleFiles: boolean;
   outputExtension: string;
+  /** Optional human-friendly chip label when the raw extension reads confusingly (e.g. image pages bundled as ZIP). */
+  outputExtensionLabel?: string;
   outputMimeType: string;
   workspaceType: WorkspaceType;
   keywords: string[];

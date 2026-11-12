@@ -14,7 +14,8 @@ import {
 import {
   PDF_TOOLS_CATALOG,
   CONVERSION_SUBCATEGORY_LABELS,
-  findToolById
+  findToolById,
+  getOutputExtensionLabel
 } from '../data/toolsCatalog';
 import { validateFileSignature } from '../services/pdfRenderer';
 import {
@@ -145,7 +146,7 @@ const SpatialToolCard: React.FC<{
       {/* Bottom Unboxed Metadata Row (Zero-Pill Discipline) */}
       <div className="relative z-10 pt-3 border-t border-theme-subtle flex items-center justify-between text-[11px] text-theme-muted font-mono">
         <span>
-          {tool.acceptedExtensions.slice(0, 3).join(', ')} → {tool.outputExtension}
+          {tool.acceptedExtensions.slice(0, 3).join(', ')} → {getOutputExtensionLabel(tool)}
         </span>
         <span className="text-theme-secondary group-hover:text-theme-primary font-sans font-semibold">
           {tool.workspaceType === 'editor'
@@ -790,7 +791,7 @@ export const HomeAndDirectory: React.FC<HomeAndDirectoryProps> = ({
                               {tool.shortName}
                             </div>
                             <div className="text-[10px] font-mono text-theme-muted truncate">
-                              {tool.acceptedExtensions[0]} → {tool.outputExtension}
+                              {tool.acceptedExtensions[0]} → {getOutputExtensionLabel(tool)}
                             </div>
                           </div>
                         </div>

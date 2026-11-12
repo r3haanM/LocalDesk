@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PdfToolDefinition } from '../types/pdf';
-import { PDF_TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PDF_TOOLS_CATALOG, getOutputExtensionLabel } from '../data/toolsCatalog';
 import { ToolIcon } from './IconMapper';
 import { Search, X, CornerDownLeft } from 'lucide-react';
 
@@ -210,7 +210,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[11px] font-mono text-theme-muted">
-                            {tool.acceptedExtensions[0]} → {tool.outputExtension}
+                            {tool.acceptedExtensions[0]} → {getOutputExtensionLabel(tool)}
                           </span>
                           <CornerDownLeft
                             className={`w-3.5 h-3.5 transition-opacity ${

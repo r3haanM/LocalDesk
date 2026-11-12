@@ -702,37 +702,52 @@ async function renderStructuredHtmlIntoPdf(
  * Helper to apply password protection & access policies directly to a PDFDocument
  * before saving when `options.protectOutputWithPassword` is enabled.
  */
-async function applyOptionalOutputPasswordEnvelope(
-  pdfDoc: PDFDocument,
+/**
+ * Real standard-PDF password encryption (ISO 32000 /Encrypt security handler, via the
+ * bundled @cantoo/pdf-lib security layer). Applied to OUTPUT BYTES after the tool has
+ * produced them, so the encrypted result genuinely requires the password to open and
+ * permissions are enforced by compliant viewers. No password-derived data is stored in
+ * the document metadata.
+ */
+async function encryptOutputBytesWithStandardSecurity(
+  bytes: Uint8Array,
   options: ToolExecutionOptions
-): Promise<{ applied: boolean; digestPreview?: string }> {
+): Promise<Uint8Array> {
   if (!options.protectOutputWithPassword || !options.password?.trim()) {
-    return { applied: false };
+    return bytes;
   }
   const pass = options.password.trim();
-  const passBytes = new TextEncoder().encode(pass);
-  const passDigestHex = await computeSha256Hex(passBytes);
+  const CantooPDF = await import('@cantoo/pdf-lib');
+  const srcDoc = await CantooPDF.PDFDocument.load(bytes, { ignoreEncryption: true });
+  const outDoc = await CantooPDF.PDFDocument.create();
+  const copied = await outDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+  copied.forEach((p) => outDoc.addPage(p));
+  outDoc.setTitle(srcDoc.getTitle() || '');
+  outDoc.encrypt({
+    userPassword: pass,
+    ownerPassword: pass,
+    permissions: {
+      printing: options.permissionPrint !== false ? 'highResolution' : undefined,
+      copying: Boolean(options.permissionCopy),
+      modifying: Boolean(options.permissionModify),
+      annotating: Boolean(options.permissionModify),
+      fillingForms: true,
+      contentAccessibility: true
+    }
+  });
+  return new Uint8Array(await outDoc.save({ useObjectStreams: true }));
+}
 
-  const perms: string[] = [];
-  if (options.permissionPrint !== false) perms.push('PRINT_HIGH_RES');
-  if (options.permissionCopy) perms.push('COPY_EXTRACT');
-  if (options.permissionModify) perms.push('MODIFY_ANNOTATIONS');
-
-  pdfDoc.setProducer(`Vellum Cryptographic Security Engine (SHA256:${passDigestHex.slice(0, 16)})`);
-  pdfDoc.setKeywords([
-    'ENCRYPTED_ENVELOPE',
-    `SHA256_${passDigestHex.slice(0, 24)}`,
-    `PERMS_${perms.join('_') || 'RESTRICTED'}`
-  ]);
-
-  pdfDoc.context.trailerInfo.ID = pdfDoc.context.obj([
-    PDFHexString.of(passDigestHex.slice(0, 32)),
-    PDFHexString.of(passDigestHex.slice(32, 64))
-  ]);
-
+/**
+ * Lightweight lock flag mirroring the previous envelope helper's shape — carries no
+ * password-derived material and performs no metadata writes.
+ */
+function resolveOptionalPasswordLock(options: ToolExecutionOptions): {
+  applied: boolean;
+  digestPreview?: string;
+} {
   return {
-    applied: true,
-    digestPreview: `${passDigestHex.slice(0, 16)}...`
+    applied: Boolean(options.protectOutputWithPassword && options.password?.trim())
   };
 }
 
@@ -1036,7 +1051,7 @@ export async function executePdfTool(
       const pages = pdfDoc.getPages();
       const hLeft = options.headerLeft ?? 'Vellum Document Specification';
       const hRight = options.headerRight ?? new Date().toISOString().slice(0, 10);
-      const fLeft = options.footerLeft ?? 'ISO 32000 Verified';
+      const fLeft = options.footerLeft ?? 'Local Desk';
       const fRight = options.footerRight ?? 'Confidential';
 
       pages.forEach((page) => {
@@ -1192,30 +1207,39 @@ export async function executePdfTool(
     // 4. SECURITY, ENCRYPTION & METADATA PRIVACY
     // =========================================================================
     case 'protect-pdf': {
-      report('Computing SHA-256 security digest & access control envelope...', 45);
-      const pdfDoc = await PDFDocument.load(primaryBytes, { ignoreEncryption: true });
-      const pass = options.password || 'vellum2026';
-      const passBytes = new TextEncoder().encode(pass);
-      const passDigestHex = await computeSha256Hex(passBytes);
+      report('Encrypting document with the standard PDF security handler...', 45);
+      const pass = (options.password || '').trim();
+      if (!pass) {
+        throw new Error('Please enter a password to encrypt this PDF.');
+      }
+      const srcDoc = await PDFDocument.load(primaryBytes, { ignoreEncryption: true });
+      const pageCount = srcDoc.getPageCount();
 
-      const perms: string[] = [];
-      if (options.permissionPrint !== false) perms.push('PRINT_HIGH_RES');
-      if (options.permissionCopy) perms.push('COPY_EXTRACT');
-      if (options.permissionModify) perms.push('MODIFY_ANNOTATIONS');
+      const printAllowed = options.permissionPrint !== false;
+      const copyAllowed = Boolean(options.permissionCopy);
+      const modifyAllowed = Boolean(options.permissionModify);
 
-      pdfDoc.setProducer(`Vellum Cryptographic Security Engine (SHA256:${passDigestHex.slice(0, 16)})`);
-      pdfDoc.setKeywords([
-        'ENCRYPTED_ENVELOPE',
-        `SHA256_${passDigestHex.slice(0, 24)}`,
-        `PERMS_${perms.join('_') || 'RESTRICTED'}`
-      ]);
+      report('Writing encrypted output...', 75);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(primaryBytes, {
+        ...options,
+        protectOutputWithPassword: true,
+        password: pass
+      });
 
-      pdfDoc.context.trailerInfo.ID = pdfDoc.context.obj([
-        PDFHexString.of(passDigestHex.slice(0, 32)),
-        PDFHexString.of(passDigestHex.slice(32, 64))
-      ]);
+      // Independent post-check: the output MUST contain a real /Encrypt dictionary
+      const outAscii = Buffer.from(outBytes.slice(0, 4096)).toString('latin1') +
+        Buffer.from(outBytes.slice(Math.max(0, outBytes.length - 4096))).toString('latin1');
+      const encryptPresent = outBytes.length > 0 && /\/Encrypt/.test(outAscii);
+      if (!encryptPresent) {
+        throw new Error('Encryption verification failed — output would not be protected.');
+      }
 
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const permsText = [
+        printAllowed ? 'Printing' : 'No printing',
+        copyAllowed ? 'Copy/extract' : 'No copy/extract',
+        modifyAllowed ? 'Modify/annotate' : 'No modify'
+      ].join(', ');
+
       return {
         success: true,
         toolId,
@@ -1224,51 +1248,64 @@ export async function executePdfTool(
         outputBytes: outBytes,
         originalSize: originalTotalSize,
         outputSize: outBytes.byteLength,
-        pageCount: pdfDoc.getPageCount(),
-        summary: `Applied SHA-256 cryptographic security envelope and access permissions (${perms.join(', ') || 'Strict Read-Only'}).`,
+        pageCount,
+        summary: `Encrypted with the standard PDF security handler — opening now requires the password. Permissions: ${permsText || 'read-only'}.`,
         details: {
-          'Key Derivation': 'SHA-256 Cryptographic Digest',
-          'Password Hash (First 16)': `${passDigestHex.slice(0, 16)}...`,
-          'Permissions Granted': perms.join(', ') || 'None (Strict Lock)'
+          Encryption: 'Standard PDF /Encrypt security handler',
+          'Password Required To Open': 'Yes',
+          'Permissions (viewer-enforced)': permsText
         },
         validationPassed: true,
         validationNotes: [
-          'Embedded cryptographic trailer ID and access policy dictionary',
-          'Verified output PDF structure'
+          'Verified /Encrypt dictionary present in output',
+          'No password-derived material stored in document metadata'
         ]
       };
     }
 
     case 'unlock-pdf': {
-      report('Verifying password digest & stripping encryption dictionary...', 45);
-      const srcDoc = await PDFDocument.load(primaryBytes, { ignoreEncryption: true });
+      report('Checking encryption dictionary...', 35);
+      const CantooPDF = await import('@cantoo/pdf-lib');
+      const providedPass = (options.password || '').trim();
 
-      const rawKeywords = srcDoc.getKeywords() || '';
-      const shaMatch = rawKeywords.match(/SHA256_([0-9a-fA-F]{24})/);
-      if (shaMatch) {
-        const expectedPrefix = shaMatch[1].toLowerCase();
-        const providedPass = (options.password || '').trim();
-        if (!providedPass) {
-          throw new Error(
-            'Password required: this PDF is protected with a SHA-256 security envelope.'
-          );
-        }
-        const providedDigest = await computeSha256Hex(new TextEncoder().encode(providedPass));
-        if (providedDigest.slice(0, 24).toLowerCase() !== expectedPrefix) {
-          throw new Error(
-            'Incorrect document password: SHA-256 security envelope verification failed.'
-          );
+      // Load WITHOUT ignoreEncryption first so genuinely encrypted files are detected
+      let srcDoc: import('@cantoo/pdf-lib').PDFDocument | undefined;
+      let wasEncrypted = false;
+      try {
+        srcDoc = await CantooPDF.PDFDocument.load(primaryBytes);
+      } catch (err) {
+        if (err instanceof CantooPDF.EncryptedPDFError) {
+          wasEncrypted = true;
+        } else {
+          throw err;
         }
       }
 
-      const unlockedDoc = await PDFDocument.create();
+      if (wasEncrypted) {
+        if (!providedPass) {
+          throw new Error(
+            'This PDF is encrypted — enter the document password to unlock it.'
+          );
+        }
+        report('Decrypting with the provided password...', 55);
+        try {
+          srcDoc = await CantooPDF.PDFDocument.load(primaryBytes, { password: providedPass });
+        } catch {
+          throw new Error('Incorrect password — decryption failed.');
+        }
+      }
+
+      if (!srcDoc) {
+        throw new Error('Failed to load the source PDF document.');
+      }
+
+      const unlockedDoc = await CantooPDF.PDFDocument.create();
       const copied = await unlockedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
       copied.forEach((p) => unlockedDoc.addPage(p));
       unlockedDoc.setTitle(srcDoc.getTitle() || baseName);
-      unlockedDoc.setProducer('Local Desk Unrestricted PDF Engine');
-      unlockedDoc.setKeywords(['UNLOCKED_STREAM']);
+      unlockedDoc.setProducer('Local Desk — decrypted copy');
 
-      const outBytes = await unlockedDoc.save();
+      const outBytes = new Uint8Array(await unlockedDoc.save());
       return {
         success: true,
         toolId,
@@ -1278,12 +1315,16 @@ export async function executePdfTool(
         originalSize: originalTotalSize,
         outputSize: outBytes.byteLength,
         pageCount: copied.length,
-        summary: `Verified password and removed security restrictions across ${copied.length} page(s).`,
+        summary: wasEncrypted
+          ? `Password accepted — document decrypted and re-saved without encryption (${copied.length} page(s)).`
+          : `Document was not encrypted — produced a clean unrestricted copy (${copied.length} page(s)).`,
         validationPassed: true,
-        validationNotes: [
-          'Verified SHA-256 password digest against document envelope',
-          'Verified absence of /Encrypt trailer dictionary'
-        ]
+        validationNotes: wasEncrypted
+          ? [
+              'Decrypted content streams with the provided password',
+              'Output contains no /Encrypt dictionary'
+            ]
+          : ['No /Encrypt dictionary present in source; copy is unrestricted']
       };
     }
 
@@ -1319,8 +1360,11 @@ export async function executePdfTool(
       pdfDoc.setCreator('Vellum Word-to-PDF Typesetting Engine');
 
       const stats = await renderStructuredHtmlIntoPdf(pdfDoc, structuredHtml, options);
-      const lockInfo = await applyOptionalOutputPasswordEnvelope(pdfDoc, options);
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const lockInfo = resolveOptionalPasswordLock(options);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(
+        await pdfDoc.save({ useObjectStreams: true }),
+        options
+      );
 
       return {
         success: true,
@@ -1342,8 +1386,7 @@ export async function executePdfTool(
           'Orientation': (options.pageOrientation || 'portrait').toUpperCase(),
           ...(lockInfo.applied
             ? {
-                'Password Protection': 'Applied in One Go (SHA-256)',
-                'Key Digest': lockInfo.digestPreview || 'Verified'
+                'Password Protection': 'Standard PDF encryption — password required to open'
               }
             : {})
         },
@@ -1351,7 +1394,7 @@ export async function executePdfTool(
         validationNotes: [
           `Typeset ${stats.pagesCreated} PDF page(s) with headings, paragraphs, and bordered tables`,
           ...(lockInfo.applied
-            ? ['Embedded SHA-256 password security envelope & permissions']
+            ? ['Applied standard PDF password encryption to the output']
             : []),
           'Verified %PDF-1.7 signature and cross-reference table'
         ]
@@ -1520,8 +1563,11 @@ export async function executePdfTool(
         });
       }
 
-      const lockInfo = await applyOptionalOutputPasswordEnvelope(pdfDoc, options);
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const lockInfo = resolveOptionalPasswordLock(options);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(
+        await pdfDoc.save({ useObjectStreams: true }),
+        options
+      );
 
       return {
         success: true,
@@ -1538,7 +1584,7 @@ export async function executePdfTool(
           'Total Rows Rendered': totalRowsRendered,
           'Page Orientation': orientation.toUpperCase(),
           'Column Scaling': scalingMode === 'fit-columns' ? 'Fit Columns to Page' : 'Actual Size',
-          ...(lockInfo.applied ? { 'Password Lock': 'Applied (SHA-256)' } : {})
+          ...(lockInfo.applied ? { 'Password Lock': 'Standard PDF encryption — password required to open' } : {})
         },
         validationPassed: outBytes.byteLength > 100,
         validationNotes: [
@@ -1706,8 +1752,11 @@ export async function executePdfTool(
         });
       }
 
-      const lockInfo = await applyOptionalOutputPasswordEnvelope(pdfDoc, options);
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const lockInfo = resolveOptionalPasswordLock(options);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(
+        await pdfDoc.save({ useObjectStreams: true }),
+        options
+      );
 
       return {
         success: true,
@@ -1817,8 +1866,11 @@ export async function executePdfTool(
         }
       }
 
-      const lockInfo = await applyOptionalOutputPasswordEnvelope(pdfDoc, options);
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const lockInfo = resolveOptionalPasswordLock(options);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(
+        await pdfDoc.save({ useObjectStreams: true }),
+        options
+      );
 
       return {
         success: true,
@@ -1857,8 +1909,11 @@ export async function executePdfTool(
 
       report('Typesetting HTML elements into paginated PDF pages...', 70);
       const stats = await renderStructuredHtmlIntoPdf(pdfDoc, rawHtml, options);
-      const lockInfo = await applyOptionalOutputPasswordEnvelope(pdfDoc, options);
-      const outBytes = await pdfDoc.save({ useObjectStreams: true });
+      const lockInfo = resolveOptionalPasswordLock(options);
+      const outBytes = await encryptOutputBytesWithStandardSecurity(
+        await pdfDoc.save({ useObjectStreams: true }),
+        options
+      );
 
       const notes = [
         `Rendered ${stats.pagesCreated} page(s) preserving HTML headings, paragraphs, lists, and ${stats.tablesRendered} table(s)`
