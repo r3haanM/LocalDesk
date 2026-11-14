@@ -76,8 +76,7 @@ async function main() {
     '  setTimeout(function(){ location.replace(target); }, 0);',
     '})();</script>',
     '<body style="background:#0A1712;color:#34D399;font-family:monospace;padding:40px">Redirecting&hellip;</body></html>'
-  ].join('
-');
+  ].join('\n');
   fs.writeFileSync(path.join(pagesOutDir, '404.html'), notFoundHtml, 'utf-8');
 
   // 4. Build restricted showcase demo into /demo/ using showcase/config/vite.config.demo.ts
