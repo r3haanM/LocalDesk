@@ -65,6 +65,21 @@ async function main() {
   // 3. Add .nojekyll so GitHub Pages serves all static files without Jekyll processing
   fs.writeFileSync(path.join(pagesOutDir, '.nojekyll'), '');
 
+  // 3b. 404 fallback: GitHub Pages paths are case-sensitive, so /LocalDesk/Demo
+  //     (capital D) or any typo lands here — redirect to the right page instead of 404
+  const notFoundHtml = [
+    '<!doctype html><html><head><meta charset="utf-8">',
+    '<script>(function(){',
+    '  var p = location.pathname;',
+    "  var target = '/LocalDesk/';",
+    '  if (/demo/i.test(p)) target = "/LocalDesk/demo/";',
+    '  setTimeout(function(){ location.replace(target); }, 0);',
+    '})();</script>',
+    '<body style="background:#0A1712;color:#34D399;font-family:monospace;padding:40px">Redirecting&hellip;</body></html>'
+  ].join('
+');
+  fs.writeFileSync(path.join(pagesOutDir, '404.html'), notFoundHtml, 'utf-8');
+
   // 4. Build restricted showcase demo into /demo/ using showcase/config/vite.config.demo.ts
   process.env.SHOWCASE_DEMO_OUT_DIR = demoOutDir;
   process.env.SHOWCASE_BASE_PATH = process.env.SHOWCASE_BASE_PATH || '/LocalDesk/demo/';
