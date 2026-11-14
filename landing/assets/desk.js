@@ -63,7 +63,7 @@
     DPR = Math.min(2, window.devicePixelRatio || 1);
     vw = window.innerWidth;
     vh = window.innerHeight;
-    compact = vw < 760;
+    compact = vw < 1024;
     s = computeScale();
     offX = Math.max(0, (vw - WORLD_W * s) / 2);
     canvas.width = Math.round(vw * DPR);
