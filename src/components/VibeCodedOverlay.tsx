@@ -51,7 +51,7 @@ export const VibeCodedOverlay: React.FC<VibeCodedOverlayProps> = ({
           exit={{ opacity: 0, y: 12, scale: 0.96 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           aria-label="Creator signature overlay"
-          className="fixed bottom-5 right-5 z-40 select-none"
+          className="fixed bottom-5 right-5 z-40 select-none hidden sm:block"
         >
           {collapsed ? (
             <div className="group relative overflow-hidden inline-flex items-center rounded-full backdrop-blur-xl vibecoded-pill transition-all duration-300">

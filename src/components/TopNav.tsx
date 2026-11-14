@@ -154,7 +154,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               setMegaMenuOpen(false);
               onOpenEditorDirect();
             }}
-            className="px-4 py-2 text-xs font-semibold text-white bg-theme-accent rounded-lg hover:opacity-95 transition-opacity whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
+            className="hidden sm:inline-flex px-4 py-2 text-xs font-semibold text-white bg-theme-accent rounded-lg hover:opacity-95 transition-opacity whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
           >
             Open PDF Editor
           </button>

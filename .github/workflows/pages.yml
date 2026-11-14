@@ -8,6 +8,8 @@ on:
       - 'landing/**'
       - 'public/brand/**'
       - 'showcase/**'
+      - 'src/**'
+      - 'package.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

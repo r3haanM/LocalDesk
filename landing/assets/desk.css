@@ -205,6 +205,19 @@ a:focus-visible, button:focus-visible {
 }
 .desk-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+@media (max-width: 640px) {
+  .desk-toast {
+    top: auto;
+    bottom: 84px;
+    font-size: 10.5px;
+    padding: 7px 12px;
+    max-width: calc(100vw - 28px);
+    white-space: normal;
+    text-align: center;
+  }
+  .desk-toast.show { transform: translate(-50%, 0); }
+}
+
 /* ── responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 760px) {
   .footer-inner { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 16px; }

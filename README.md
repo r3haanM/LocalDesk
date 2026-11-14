@@ -35,10 +35,12 @@
 
 ## 📦 Install
 
+> ℹ️ Windows 10 / 11 (x64) only — Windows 7 / 8 / 8.1 are not supported by the bundled runtime.
+
 <table>
   <thead>
     <tr>
-      <th width="50%" align="left">🪟 WINDOWS DESKTOP (.EXE &amp; .ZIP) — WINDOWS 10 / 11 x64</th>
+      <th width="50%" align="left">🪟 WINDOWS DESKTOP (.EXE &amp; .ZIP)</th>
       <th width="50%" align="left">🌐 ANY OS · IN BROWSER</th>
     </tr>
   </thead>
@@ -66,16 +68,6 @@ npm run dev</code></pre>
   </tbody>
 </table>
 
-## 🚀 Releases (v1.0.5 · Windows 10 & 11 Binaries)
-
-| Release Section | Binary Artifact | Target OS / Format | Direct Link |
-| :--- | :--- | :--- | :--- |
-| **1. Setup Installer (`.exe`)** | `Local-Desk-Setup-1.0.5-x64.exe` | Windows 10 & 11 (NSIS) | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Setup-1.0.5-x64.exe) |
-| **2. Single-File Portable (`.exe`)** | `Local-Desk-Portable-1.0.5-x64.exe` | Windows 10 & 11 Direct | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-x64.exe) |
-| **3. Portable Bundle (`.zip`)** | `Local-Desk-Portable-1.0.5-win-x64.zip` | Windows 10 & 11 Zero-Install ZIP | [GitHub Release](https://github.com/r3haanM/LocalDesk/releases/latest/download/Local-Desk-Portable-1.0.5-win-x64.zip) |
-
-> ℹ️ Windows 7 / 8 / 8.1 are not supported — the bundled Chromium runtime requires Windows 10 or newer.
-
 ## 🛠️ Troubleshooting
 
 ### Windows SmartScreen — "Windows protected your PC"
@@ -91,7 +83,7 @@ The Windows desktop build is unsigned, so SmartScreen shows a one-time warning o
 
 ## 🔗 Links
 
-- 🔐 [**SHA-256 Checksums (`SHA256SUMS.txt`)**](https://github.com/r3haanM/LocalDesk/releases/latest/download/SHA256SUMS.txt) · [**Release Notes**](https://github.com/r3haanM/LocalDesk/releases/latest) · [**All Releases**](https://github.com/r3haanM/LocalDesk/releases)
+- 🚀 [**All Releases**](https://github.com/r3haanM/LocalDesk/releases) — binaries, `SHA256SUMS.txt`, release notes
 - 🤝 [**Contributing**](./CONTRIBUTING.md): Local setup, automated QA validation suite, and pull request workflow.
 - 🛡️ [**Security Policy**](./SECURITY.md): Air-gapped execution guarantees, vulnerability reporting, and [AV False-Positive Guide](./docs/AV-FALSE-POSITIVE.md).
 - 📄 [**License**](./LICENSE): Released under the MIT License.
