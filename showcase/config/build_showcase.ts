@@ -49,6 +49,13 @@ async function main() {
     path.join(brandDir, 'local-desk-app-icon.svg')
   );
 
+  // Cache-bust asset references so every deploy serves the fresh build
+  // (GitHub Pages caches assets for 10 minutes; the HTML is fetched fresh)
+  const bust = Date.now().toString(36);
+  fs.writeFileSync(path.join(pagesOutDir, 'index.html'),
+    fs.readFileSync(path.join(pagesOutDir, 'index.html'), 'utf-8')
+      .replace(/assets\/(desk\.css|desk\.js|fonts\/[a-z-]+\.(woff2|css))/g, (m) => `${m}?v=${bust}`),
+    'utf-8');
   let landingHtml = fs.readFileSync(path.join(pagesOutDir, 'index.html'), 'utf-8');
   landingHtml = landingHtml.replace(/\.\.\/public\/brand\//g, 'brand/');
   // The interactive demo is deployed at ./demo/ next to the landing
