@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_bg">#0E2018</color>
+    <color name="adaptive_bg">#FFFFFF</color>
+    <color name="splash_icon_bg">#0F221B</color>
+    <color name="window_bg">#FAF9F7</color>
+</resources>

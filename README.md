@@ -6,6 +6,7 @@
 
   <p>
     <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.5-0FA575?style=flat-square" alt="Release v1.0.5" /></a>
+    <a href="https://github.com/r3haanM/LocalDesk/releases"><img src="https://img.shields.io/badge/mobile-Android%20viewer-0FA575?style=flat-square&logo=android&logoColor=0FA575" alt="Android companion viewer" /></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0FA575?style=flat-square" alt="MIT License" /></a>
     <a href="https://github.com/r3haanM/LocalDesk/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64)-090D16?style=flat-square&logo=windows&logoColor=0FA575" alt="Platform Windows 10/11" /></a>
     <a href="#-install"><img src="https://img.shields.io/badge/web-runs%20in%20browser-0FA575?style=flat-square" alt="Runs in browser" /></a>
@@ -67,6 +68,26 @@ npm run dev</code></pre>
     </tr>
   </tbody>
 </table>
+
+
+## 📱 Mobile Companion (Android)
+
+LocalDesk Mobile is an **offline document viewer** for Android that pairs with the desktop app — PDF, DOCX, XLSX, PPTX, CSV, TXT, MD and images, rendered entirely on-device. **Zero permissions, zero network, zero telemetry.**
+
+- 📄 **PDF viewer** — continuous scroll, two-phase zoom, in-document search, page thumbnails, text selection + copy, persisted highlights, wide-page centering
+- 🧊 **DOCX / XLSX / PPTX** — styled text, tables, images, multi-sheet tab strips, number/date formats, slide canvases
+- 🧰 **Adobe-style toolbar** per pane — prev/next · page indicator · zoom with slider
+- 🛡️ **Zero permissions** — files arrive only via SAF or "Open with", everything stays on-device
+- 🌗 **Dark & light** HUD themes
+
+<table>
+  <tr>
+    <td><a href="mobile/"><strong>📱 Source & build guide → <code>mobile/</code></strong></a></td>
+    <td><a href="https://github.com/r3haanM/LocalDesk/releases"><strong>⬇️ Get the test APK from Releases</strong></a></td>
+  </tr>
+</table>
+
+> ℹ️ Test build is debug-signed (Android 8.0+). Password-protected PDFs whose user password is set need the desktop app to unlock.
 
 ## 🛠️ Troubleshooting
 
